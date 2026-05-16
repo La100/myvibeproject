@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
+import { useI18n } from "@/lib/i18n";
 import { cn, formatCurrency } from "@/lib/utils";
 
 type CalendarTask = {
@@ -150,17 +151,15 @@ export type CalendarResponse = {
   projectPayments: CalendarProjectPayment[];
 };
 
-const WEEKDAY_HEADERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
 const FILTERS: Array<{
   key: EventType;
-  label: string;
+  labelKey: string;
   dotClassName: string;
 }> = [
-  { key: "task", label: "Tasks", dotClassName: "bg-foreground" },
-  { key: "shopping", label: "Shopping", dotClassName: "bg-accent" },
-  { key: "labor", label: "Labor", dotClassName: "bg-primary" },
-  { key: "invoice", label: "Invoices", dotClassName: "bg-primary" },
+  { key: "task", labelKey: "tasks", dotClassName: "bg-foreground" },
+  { key: "shopping", labelKey: "shopping", dotClassName: "bg-accent" },
+  { key: "labor", labelKey: "labor", dotClassName: "bg-primary" },
+  { key: "invoice", labelKey: "invoices", dotClassName: "bg-primary" },
 ];
 
 const taskStatusClassNames: Record<CalendarTask["status"], string> = {
@@ -228,18 +227,21 @@ function getNormalizedRange(
     : { start: end, end: start };
 }
 
-function getInvoiceDateLabel(type: ProjectPaymentDateType) {
+function getInvoiceDateLabel(
+  type: ProjectPaymentDateType,
+  t: ReturnType<typeof useI18n>["t"],
+) {
   switch (type) {
     case "dueDate":
-      return "Due";
+      return t("operationsCalendar", "due");
     case "invoiceIssuedAt":
-      return "Issued";
+      return t("operationsCalendar", "issued");
     case "sentAt":
-      return "Sent";
+      return t("operationsCalendar", "sent");
     case "paidAt":
-      return "Paid";
+      return t("operationsCalendar", "paid");
     default:
-      return "Invoice";
+      return t("operationsCalendar", "invoice");
   }
 }
 
@@ -289,6 +291,7 @@ export function OperationsCalendar({
   title: string;
   subtitle?: string;
 }) {
+  const { locale, t } = useI18n();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [visibleTypes, setVisibleTypes] = useState<Set<EventType>>(
     new Set(["task", "shopping", "labor", "invoice"]),
@@ -535,8 +538,23 @@ export function OperationsCalendar({
   }, [calendarData]);
 
   const selectedDateLabel = selectedDate
-    ? format(new Date(`${selectedDate}T12:00:00`), "EEEE, d MMMM yyyy")
+    ? new Intl.DateTimeFormat(locale === "pl" ? "pl-PL" : "en-US", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }).format(new Date(`${selectedDate}T12:00:00`))
     : null;
+  const monthLabel = new Intl.DateTimeFormat(locale === "pl" ? "pl-PL" : "en-US", {
+    month: "long",
+    year: "numeric",
+  }).format(monthDate);
+  const weekdayHeaders = Array.from({ length: 7 }, (_, index) => {
+    const monday = new Date(2024, 0, 1 + index);
+    return new Intl.DateTimeFormat(locale === "pl" ? "pl-PL" : "en-US", {
+      weekday: "short",
+    }).format(monday);
+  });
 
   if (!calendarData) {
     return <OperationsCalendarLoading />;
@@ -580,10 +598,10 @@ export function OperationsCalendar({
                 </Button>
                 <div className="min-w-[220px]">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                    Focus month
+                    {t("operationsCalendar", "focusMonth")}
                   </p>
                   <h2 className="text-2xl font-semibold tracking-tight text-foreground">
-                    {format(monthDate, "MMMM yyyy")}
+                    {monthLabel}
                   </h2>
                 </div>
                 <Button
@@ -600,25 +618,25 @@ export function OperationsCalendar({
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div className="rounded-2xl border border-border/60 bg-white px-4 py-3">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    Tasks
+                    {t("operationsCalendar", "tasks")}
                   </p>
                   <p className="mt-1 text-xl font-semibold tracking-tight">{monthStats.tasks}</p>
                 </div>
                 <div className="rounded-2xl border border-border/60 bg-white px-4 py-3">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    Shopping
+                    {t("operationsCalendar", "shopping")}
                   </p>
                   <p className="mt-1 text-xl font-semibold tracking-tight">{monthStats.shopping}</p>
                 </div>
                 <div className="rounded-2xl border border-border/60 bg-white px-4 py-3">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    Labor
+                    {t("operationsCalendar", "labor")}
                   </p>
                   <p className="mt-1 text-xl font-semibold tracking-tight">{monthStats.labor}</p>
                 </div>
                 <div className="rounded-2xl border border-border/60 bg-white px-4 py-3">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    Invoice dates
+                    {t("operationsCalendar", "invoiceDates")}
                   </p>
                   <p className="mt-1 text-xl font-semibold tracking-tight">{monthStats.invoices}</p>
                 </div>
@@ -641,7 +659,7 @@ export function OperationsCalendar({
                     )}
                   >
                     <span className={cn("mr-2 h-2.5 w-2.5 rounded-full", filter.dotClassName)} />
-                    {filter.label}
+                    {t("operationsCalendar", filter.labelKey)}
                   </Button>
                 );
               })}
@@ -652,7 +670,7 @@ export function OperationsCalendar({
             <div className="overflow-x-auto rounded-3xl border border-border/70">
               <div className="min-w-[760px]">
               <div className="grid grid-cols-7 border-b border-border/60 bg-muted/20">
-                {WEEKDAY_HEADERS.map((day) => (
+                {weekdayHeaders.map((day) => (
                   <div
                     key={day}
                     className="px-3 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
@@ -759,7 +777,7 @@ export function OperationsCalendar({
                                       key={invoice._id}
                                       className="truncate rounded-full bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground"
                                     >
-                                      {getInvoiceDateLabel(invoice.dateType)}: {invoice.title}
+                                      {getInvoiceDateLabel(invoice.dateType, t)}: {invoice.title}
                                     </div>
                                   ))}
                                 </div>
@@ -811,13 +829,13 @@ export function OperationsCalendar({
             <Card className="rounded-3xl border-border/70 bg-muted/10 shadow-none">
               <CardHeader className="border-b border-border/60">
                 <CardTitle className="text-lg font-semibold tracking-tight">
-                  {selectedDateLabel ?? "Select a day"}
+                  {selectedDateLabel ?? t("operationsCalendar", "selectDay")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-5 pt-6">
                 {!selectedDayData ? (
                   <p className="text-sm leading-6 text-muted-foreground">
-                    Click any day to inspect planned work, purchases, labor windows and invoice deadlines.
+                    {t("operationsCalendar", "selectDayDescription")}
                   </p>
                 ) : (
                   <>
@@ -826,7 +844,7 @@ export function OperationsCalendar({
                         <div className="flex items-center gap-2">
                           <CheckSquare className="h-4 w-4 text-foreground" />
                           <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                            Tasks
+                            {t("operationsCalendar", "tasks")}
                           </h3>
                         </div>
                         <div className="flex flex-col gap-3">
@@ -857,7 +875,7 @@ export function OperationsCalendar({
                                           href={`${projectBasePath}/tasks/${task._id}`}
                                           className={detailLinkClassName}
                                         >
-                                          Open task
+                                          {t("operationsCalendar", "openTask")}
                                         </Link>
                                       </div>
                                     ) : null}
@@ -869,7 +887,7 @@ export function OperationsCalendar({
                                       taskStatusClassNames[task.status],
                                     )}
                                   >
-                                    {task.status.replace("_", " ")}
+                                    {t("operationsCalendar", `taskStatus_${task.status}`)}
                                   </Badge>
                                 </div>
                               </div>
@@ -884,7 +902,7 @@ export function OperationsCalendar({
                         <div className="flex items-center gap-2">
                           <ShoppingBag className="h-4 w-4 text-accent-foreground" />
                           <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                            Shopping
+                            {t("operationsCalendar", "shopping")}
                           </h3>
                         </div>
                         <div className="flex flex-col gap-3">
@@ -899,7 +917,7 @@ export function OperationsCalendar({
                                   <div className="min-w-0 flex-1">
                                     <p className="text-sm font-semibold text-foreground">{item.name}</p>
                                     <p className="mt-1 text-sm text-muted-foreground">
-                                      Qty {item.quantity}
+                                      {t("operationsCalendar", "quantityShort")} {item.quantity}
                                       {item.assignedToName ? ` • ${item.assignedToName}` : ""}
                                     </p>
                                     <ProjectBadge projectName={item.projectName} />
@@ -909,7 +927,7 @@ export function OperationsCalendar({
                                           href={`${projectBasePath}/shopping-list?itemId=${item._id}`}
                                           className={detailLinkClassName}
                                         >
-                                          Open shopping
+                                          {t("operationsCalendar", "openShopping")}
                                         </Link>
                                       </div>
                                     ) : null}
@@ -921,7 +939,7 @@ export function OperationsCalendar({
                                       shoppingStatusClassNames[item.realizationStatus],
                                     )}
                                   >
-                                    {item.realizationStatus.replace(/_/g, " ")}
+                                    {t("operationsCalendar", `shoppingStatus_${item.realizationStatus}`)}
                                   </Badge>
                                 </div>
                               </div>
@@ -936,7 +954,7 @@ export function OperationsCalendar({
                         <div className="flex items-center gap-2">
                           <Hammer className="h-4 w-4 text-primary" />
                           <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                            Labor
+                            {t("operationsCalendar", "labor")}
                           </h3>
                         </div>
                         <div className="flex flex-col gap-3">
@@ -959,7 +977,7 @@ export function OperationsCalendar({
                                       href={`${projectBasePath}/labor?itemId=${item._id}`}
                                       className={detailLinkClassName}
                                     >
-                                      Open labor
+                                      {t("operationsCalendar", "openLabor")}
                                     </Link>
                                   </div>
                                 ) : null}
@@ -975,7 +993,7 @@ export function OperationsCalendar({
                         <div className="flex items-center gap-2">
                           <Receipt className="h-4 w-4 text-primary" />
                           <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                            Invoices
+                            {t("operationsCalendar", "invoices")}
                           </h3>
                         </div>
                         <div className="flex flex-col gap-3">
@@ -1000,13 +1018,17 @@ export function OperationsCalendar({
                                       ) : null}
                                     </div>
                                     <p className="mt-1 text-sm text-muted-foreground">
-                                      {getInvoiceDateLabel(invoice.dateType)} •{" "}
-                                      {format(new Date(invoice.timestamp), "d MMM yyyy")}
+                                      {getInvoiceDateLabel(invoice.dateType, t)} •{" "}
+                                      {new Intl.DateTimeFormat(locale === "pl" ? "pl-PL" : "en-US", {
+                                        day: "numeric",
+                                        month: "short",
+                                        year: "numeric",
+                                      }).format(new Date(invoice.timestamp))}
                                     </p>
                                     <ProjectBadge projectName={invoice.projectName} />
                                     {invoice.paymentReference ? (
                                       <p className="mt-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                                        Ref: {invoice.paymentReference}
+                                        {t("operationsCalendar", "reference")}: {invoice.paymentReference}
                                       </p>
                                     ) : null}
                                     {projectBasePath ? (
@@ -1015,7 +1037,7 @@ export function OperationsCalendar({
                                           href={`${projectBasePath}/payments?invoiceId=${invoice.invoiceId}`}
                                           className={detailLinkClassName}
                                         >
-                                          Open invoice
+                                          {t("operationsCalendar", "openInvoice")}
                                         </Link>
                                       </div>
                                     ) : null}
@@ -1031,7 +1053,7 @@ export function OperationsCalendar({
                                         invoiceStatusClassNames[invoice.status],
                                       )}
                                     >
-                                      {invoice.status}
+                                      {t("operationsCalendar", `invoiceStatus_${invoice.status}`)}
                                     </Badge>
                                   </div>
                                 </div>
@@ -1048,7 +1070,7 @@ export function OperationsCalendar({
                       (!visibleTypes.has("invoice") || selectedDayData.invoices.length === 0)) ? (
                       <div className="rounded-2xl border border-dashed border-border/70 bg-white/80 px-5 py-8 text-center">
                         <p className="text-sm leading-6 text-muted-foreground">
-                          Nothing operational is scheduled for this day.
+                          {t("operationsCalendar", "nothingScheduled")}
                         </p>
                       </div>
                     ) : null}

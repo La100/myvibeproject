@@ -111,7 +111,7 @@ export const trackSubscriptionConversion = ({
   const transactionId = subscriptionId || `${teamId}:${normalizedPlanKey}`;
   const eventId = `subscription:${transactionId}`;
 
-  const value = plan?.price ?? 0;
+  const value = plan?.prices?.usd ?? 0;
   const currency = "USD";
   const planName = plan?.name ?? normalizedPlanKey;
 

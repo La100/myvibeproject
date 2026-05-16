@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ProjectPageHeader } from '@/components/project/ProjectPageHeader';
 import { DownloadIcon, ExternalLinkIcon, PlusIcon, ShoppingCart } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 const CHROME_EXTENSION_URL =
   'https://chromewebstore.google.com/detail/myvibeproject-web-clipper/nklbcopiimkboameblhnmdookkelncih';
@@ -21,9 +22,11 @@ export function ShoppingListHeader({
   onExportClick,
   onAddProductClick
 }: ShoppingListHeaderProps) {
+  const { t } = useI18n();
+
   return (
     <ProjectPageHeader
-      title="Shopping List"
+      title={t("shoppingList", "shoppingList")}
       icon={<ShoppingCart className="h-8 w-8 text-primary" />}
       tags={(
         <>
@@ -39,7 +42,7 @@ export function ShoppingListHeader({
         <>
           <Button onClick={onAddProductClick} className="min-w-[148px] rounded-full">
             <PlusIcon className="mr-2 h-4 w-4" />
-            Add Product
+            {t("shoppingList", "addProduct")}
           </Button>
           <Button
             asChild
@@ -48,7 +51,7 @@ export function ShoppingListHeader({
           >
             <Link href={CHROME_EXTENSION_URL} target="_blank" rel="noreferrer">
               <ExternalLinkIcon className="mr-2 h-4 w-4" />
-              Chrome Extension
+              {t("shoppingList", "chromeExtension")}
             </Link>
           </Button>
           <Button
@@ -57,7 +60,7 @@ export function ShoppingListHeader({
             className="rounded-full border-border/70 bg-card"
           >
             <DownloadIcon className="mr-2 h-4 w-4" />
-            Export
+            {t("shoppingList", "export")}
           </Button>
         </>
       )}

@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { getClientActorName } from "@/lib/clientNotificationCopy";
+import { useI18n } from "@/lib/i18n";
 
 type ClientNotificationActivity = {
   _id: string;
@@ -42,6 +43,8 @@ export function ClientNotificationsFeed({
   showProjectBadge = false,
   className,
 }: ClientNotificationsFeedProps) {
+  const { t } = useI18n();
+
   return (
     <div className={cn(className)}>
       <Card className="bg-card/92">
@@ -52,8 +55,16 @@ export function ClientNotificationsFeed({
               {title}
             </CardTitle>
             <div className="flex items-center gap-2">
-              {unreadCount > 0 ? <Badge variant="default">{unreadCount} unread</Badge> : null}
-              <Badge variant="secondary">{notifications.length} recent</Badge>
+              {unreadCount > 0 ? (
+                <Badge variant="default">
+                  {t("clientNotifications", "unread", { count: unreadCount })}
+                </Badge>
+              ) : null}
+              <Badge variant="secondary">
+                {t("clientNotifications", "recent", {
+                  count: notifications.length,
+                })}
+              </Badge>
             </div>
           </div>
         </CardHeader>
@@ -68,16 +79,17 @@ export function ClientNotificationsFeed({
                   activity.userName ||
                     (typeof details.actorName === "string" && details.actorName.length > 0
                       ? details.actorName
-                      : "Client"),
+                      : t("clientNotifications", "defaultActor")),
+                  t("clientNotifications", "defaultActor"),
                 );
               const itemName =
                 typeof details.itemName === "string" && details.itemName.length > 0
                   ? details.itemName
-                  : "item";
+                  : t("clientNotifications", "defaultItem");
               const surveyTitle =
                 typeof details.surveyTitle === "string" && details.surveyTitle.length > 0
                   ? details.surveyTitle
-                  : "survey";
+                  : t("clientNotifications", "defaultSurvey");
               const isDecision =
                 activity.actionType === "shopping.customer.decision" ||
                 activity.actionType === "labor.customer.decision";
@@ -128,26 +140,35 @@ export function ClientNotificationsFeed({
                               {activity.projectName}
                             </Link>
                           </Badge>
-                          {isUnread ? <Badge variant="default">New</Badge> : null}
+                          {isUnread ? (
+                            <Badge variant="default">
+                              {t("clientNotifications", "new")}
+                            </Badge>
+                          ) : null}
                         </div>
                       ) : null}
                       <p className="text-sm leading-6 text-foreground">
                         {isDecision ? (
                           <>
                             <span className="font-medium">{actorName}</span>{" "}
-                            {isAccepted ? "approved" : "rejected"}{" "}
+                            {isAccepted
+                              ? t("clientNotifications", "approved")
+                              : t("clientNotifications", "rejected")}{" "}
                             <span className="font-medium">"{itemName}"</span> in client portal
                           </>
                         ) : isCommentOnlyFeedback ? (
                           <>
-                            <span className="font-medium">{actorName}</span> left a comment on{" "}
-                            <span className="font-medium">"{itemName}"</span> in client portal
+                            {t("clientNotifications", "commentCopy", {
+                              actor: actorName,
+                              item: itemName,
+                            })}
                           </>
                         ) : isSurveySubmission ? (
                           <>
-                            <span className="font-medium">{actorName}</span>{" "}
-                            submitted survey <span className="font-medium">"{surveyTitle}"</span> in
-                            client portal
+                            {t("clientNotifications", "surveyCopy", {
+                              actor: actorName,
+                              survey: surveyTitle,
+                            })}
                           </>
                         ) : (
                           <>{activity.actionType}</>
@@ -163,7 +184,9 @@ export function ClientNotificationsFeed({
                   <div className="text-right text-xs text-muted-foreground">
                     {isDecision ? (
                       <Badge variant="outline" className={cn("mb-2 capitalize", statusTone)}>
-                        {isAccepted ? "accepted" : "rejected"}
+                        {isAccepted
+                          ? t("clientNotifications", "accepted")
+                          : t("clientNotifications", "rejectedStatus")}
                       </Badge>
                     ) : null}
                     <p>{formatDistanceToNow(new Date(activity._creationTime), { addSuffix: true })}</p>

@@ -8,10 +8,12 @@ import { apiAny } from "@/lib/convexApiAny";
 import { getCurrencySymbol } from "@/lib/utils";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AppLoadingState } from "@/components/ui/loading-state";
+import { useI18n } from "@/lib/i18n";
 
 import { AddProductForm } from "../components/AddProductForm";
 
 export default function NewProductPage() {
+  const { t } = useI18n();
   const { organization, isLoaded } = useOrganization();
   const team = useQuery(
     apiAny.teams.getTeamByClerkOrg,
@@ -22,8 +24,8 @@ export default function NewProductPage() {
     return (
       <AppLoadingState
         variant="section"
-        title="Loading product library"
-        description="Preparing organization product settings."
+        title={t("productLibrary", "loadingTitle")}
+        description={t("productLibrary", "loadingDescription")}
         className="min-h-[40vh]"
       />
     );
@@ -33,9 +35,9 @@ export default function NewProductPage() {
     return (
       <Card className="mx-auto max-w-2xl">
         <CardHeader>
-          <CardTitle>Organization unavailable</CardTitle>
+          <CardTitle>{t("productLibrary", "organizationUnavailable")}</CardTitle>
           <CardDescription>
-            Join or select an organization before adding products to the library.
+            {t("productLibrary", "organizationUnavailableDescription")}
           </CardDescription>
         </CardHeader>
       </Card>
@@ -49,9 +51,9 @@ export default function NewProductPage() {
           <Package className="h-5 w-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold">Add Product</h1>
+          <h1 className="text-2xl font-bold">{t("productLibrary", "addProduct")}</h1>
           <p className="text-sm text-muted-foreground">
-            Save a reusable product entry for your organization with sourcing details, specifications, and an uploaded image.
+            {t("productLibrary", "addProductDescription")}
           </p>
         </div>
       </div>

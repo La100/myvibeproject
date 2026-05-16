@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 import {
   ArrowRightIcon,
   CheckIcon,
@@ -45,6 +46,7 @@ function StepCard({
   stepNumber: number;
   isLast: boolean;
 }) {
+  const { t } = useI18n();
   const Icon = step.icon;
   const isExternalAction = Boolean(step.externalHref);
 
@@ -65,7 +67,7 @@ function StepCard({
           {step.done ? <CheckIcon className="h-5 w-5 text-primary" /> : stepNumber}
         </div>
         <Badge variant={step.done ? "secondary" : "outline"} className="mt-1">
-          {step.done ? "Done" : "Next"}
+          {step.done ? t("shoppingList", "done") : t("shoppingList", "next")}
         </Badge>
       </div>
 
@@ -117,46 +119,47 @@ export function ShoppingListOnboarding({
   onAddProductClick,
   onDismiss,
 }: ShoppingListOnboardingProps) {
+  const { t } = useI18n();
   const chromeWebStoreUrl =
     "https://chromewebstore.google.com/detail/myvibeproject-web-clipper/nklbcopiimkboameblhnmdookkelncih";
 
   const steps: OnboardingStep[] = [
     {
-      title: sectionsCount > 0 ? "Sections are ready" : "Name your sections",
+      title: sectionsCount > 0 ? t("shoppingList", "sectionsAreReady") : t("shoppingList", "nameYourSections"),
       description:
         sectionsCount > 0
-          ? "Rooms and categories are ready for incoming products."
-          : "Create rooms or categories so every item lands in the right place.",
+          ? t("shoppingList", "sectionsReadyDescription")
+          : t("shoppingList", "nameSectionsDescription"),
       done: sectionsCount > 0,
-      actionLabel: sectionsCount > 0 ? "Review sections" : "Add first section",
+      actionLabel: sectionsCount > 0 ? t("shoppingList", "reviewSections") : t("shoppingList", "addFirstSection"),
       onAction: onCreateSectionClick,
       icon: FolderPlusIcon,
-      meta: "Structure",
+      meta: t("shoppingList", "structure"),
     },
     ...(!extensionReady
       ? [
           {
-            title: "Install MyVibe Clipper",
-            description: "Open the Chrome Web Store and add the extension before clipping products.",
+            title: t("shoppingList", "installMyVibeClipper"),
+            description: t("shoppingList", "installClipperDescription"),
             done: false,
-            actionLabel: "Chrome Web Store",
+            actionLabel: t("shoppingList", "chromeWebStore"),
             externalHref: chromeWebStoreUrl,
             icon: PlugZapIcon,
-            meta: "Extension",
+            meta: t("shoppingList", "extension"),
           },
         ]
       : []),
     {
-      title: itemsCount > 0 ? "First product added" : "Add your first product",
+      title: itemsCount > 0 ? t("shoppingList", "firstProductAdded") : t("shoppingList", "addYourFirstProduct"),
       description:
         itemsCount > 0
-          ? "The shopping list is live. Keep adding options as the scope grows."
-          : "Clip a store page or add one manually to start the list.",
+          ? t("shoppingList", "firstProductAddedDescription")
+          : t("shoppingList", "addFirstProductDescription"),
       done: itemsCount > 0,
-      actionLabel: itemsCount > 0 ? "Add another product" : "Add first product",
+      actionLabel: itemsCount > 0 ? t("shoppingList", "addAnotherProduct") : t("shoppingList", "addFirstProduct"),
       onAction: onAddProductClick,
       icon: ShoppingBagIcon,
-      meta: "First item",
+      meta: t("shoppingList", "firstItem"),
     },
   ];
 
@@ -171,8 +174,8 @@ export function ShoppingListOnboarding({
           size="icon"
           className="absolute right-4 top-4 z-10 h-9 w-9 rounded-full text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
           onClick={onDismiss}
-          aria-label="Hide shopping list setup"
-          title="Hide"
+          aria-label={t("shoppingList", "hideShoppingListSetup")}
+          title={t("shoppingList", "hide")}
         >
           <XIcon className="h-4 w-4" aria-hidden="true" />
         </Button>
@@ -182,21 +185,23 @@ export function ShoppingListOnboarding({
         <div className="flex min-w-0 flex-col justify-between gap-6 py-1 2xl:min-h-[300px]">
           <div className="flex flex-col gap-4">
             <Badge variant="secondary" className="w-fit">
-              Shopping list setup
+              {t("shoppingList", "shoppingListSetup")}
             </Badge>
             <div className="flex flex-col gap-3">
               <h2 className="clean-title max-w-lg text-3xl font-medium leading-tight tracking-tight md:text-4xl">
-                Set up shopping in three quick steps.
+                {t("shoppingList", "setupShoppingSteps")}
               </h2>
               <p className="max-w-md break-words text-sm leading-6 text-muted-foreground md:text-base">
-                {projectName} is empty. Add sections, install the Chrome extension, then save the first product.
+                {projectName} {t("shoppingList", "setupDescription")}
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-end gap-4">
             <div className="vibe-row min-w-36 px-4 py-3">
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Progress</p>
+              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                {t("shoppingList", "progress")}
+              </p>
               <p className="mt-2 text-2xl font-semibold tracking-tight">
                 {completedSteps}/{steps.length}
               </p>

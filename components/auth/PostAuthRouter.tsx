@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { apiAny } from "@/lib/convexApiAny";
 import { selectOrganizationUrl } from "@/lib/authRedirects";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useI18n } from "@/lib/i18n";
 
 const BOOTSTRAP_RETRY_DELAY_MS = 1_000;
 const BOOTSTRAP_FATAL_AFTER_MS = 45_000;
@@ -29,10 +30,12 @@ function ErrorState({
   title,
   description,
   onRetry,
+  retryLabel,
 }: {
   title: string;
   description: string;
   onRetry: () => void;
+  retryLabel: string;
 }) {
   return (
     <div className="flex min-h-[220px] items-center justify-center px-4">
@@ -42,14 +45,22 @@ function ErrorState({
           <CardDescription>{description}</CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center pb-8">
-          <Button onClick={onRetry}>Try again</Button>
+          <Button onClick={onRetry}>{retryLabel}</Button>
         </CardContent>
       </Card>
     </div>
   );
 }
 
-function WorkspaceSetupProgress({ value }: { value: number }) {
+function WorkspaceSetupProgress({
+  value,
+  accountLabel,
+  workspaceLabel,
+}: {
+  value: number;
+  accountLabel: string;
+  workspaceLabel: string;
+}) {
   return (
     <div className="flex w-full max-w-[280px] flex-col gap-2 pt-1">
       <Progress
@@ -58,14 +69,15 @@ function WorkspaceSetupProgress({ value }: { value: number }) {
         indicatorClassName="bg-gradient-to-r from-foreground via-primary to-foreground transition-all duration-700 ease-out"
       />
       <div className="flex justify-between text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-        <span>Account</span>
-        <span>Workspace</span>
+        <span>{accountLabel}</span>
+        <span>{workspaceLabel}</span>
       </div>
     </div>
   );
 }
 
 export function PostAuthRouter() {
+  const { t } = useI18n();
   const router = useRouter();
   const {
     isLoaded: isAuthLoaded,
@@ -130,9 +142,7 @@ export function PostAuthRouter() {
       const bootstrapStartedAt = bootstrapStartedAtRef.current ?? Date.now();
       const elapsedMs = Date.now() - bootstrapStartedAt;
       if (elapsedMs >= BOOTSTRAP_FATAL_AFTER_MS) {
-        setBootstrapError(
-          "Workspace setup is taking longer than expected. Please try again.",
-        );
+        setBootstrapError(t("workspaceSetup", "setupTakingLong"));
         return;
       }
 
@@ -177,6 +187,7 @@ export function PostAuthRouter() {
     isConvexAuthLoading,
     organization?.name,
     teamSettings,
+    t,
   ]);
 
   useEffect(() => {
@@ -190,21 +201,21 @@ export function PostAuthRouter() {
 
   const loadingDescription = useMemo(() => {
     if (!isAuthLoaded || !isOrganizationLoaded) {
-      return "Loading your session.";
+      return t("workspaceSetup", "loadingSession");
     }
     if (!organization?.id) {
-      return "Opening workspace selection.";
+      return t("workspaceSetup", "loadingSelection");
     }
     if (isConvexAuthLoading || !isConvexAuthenticated) {
-      return "Connecting your session to the workspace.";
+      return t("workspaceSetup", "loadingConnecting");
     }
     if (!activeWorkspaceOrgId) {
-      return "Confirming your active workspace.";
+      return t("workspaceSetup", "loadingConfirming");
     }
     if (teamSettings === null) {
-      return "Finalizing your workspace access.";
+      return t("workspaceSetup", "loadingFinalizing");
     }
-    return "Opening your workspace.";
+    return t("workspaceSetup", "loadingOpening");
   }, [
     activeWorkspaceOrgId,
     isAuthLoaded,
@@ -213,6 +224,7 @@ export function PostAuthRouter() {
     isOrganizationLoaded,
     organization?.id,
     teamSettings,
+    t,
   ]);
   const workspaceSetupProgress = useMemo(() => {
     if (!isAuthLoaded || !isOrganizationLoaded) {
@@ -244,8 +256,9 @@ export function PostAuthRouter() {
   if (bootstrapError) {
     return (
       <ErrorState
-        title="Workspace setup needs attention"
+        title={t("workspaceSetup", "errorTitle")}
         description={bootstrapError}
+        retryLabel={t("workspaceSetup", "tryAgain")}
         onRetry={() => {
           setBootstrapError(null);
           bootstrappedOrgIdRef.current = null;
@@ -258,12 +271,16 @@ export function PostAuthRouter() {
   return (
     <AppLoadingState
       variant="section"
-      title="Creating your workspace"
+      title={t("workspaceSetup", "creatingWorkspace")}
       description={loadingDescription}
       contentClassName="max-w-md gap-5"
       showBrand
     >
-      <WorkspaceSetupProgress value={workspaceSetupProgress} />
+      <WorkspaceSetupProgress
+        value={workspaceSetupProgress}
+        accountLabel={t("workspaceSetup", "progressAccount")}
+        workspaceLabel={t("workspaceSetup", "progressWorkspace")}
+      />
     </AppLoadingState>
   );
 }

@@ -10,6 +10,7 @@ import {
   ActivityChangelog,
   ActivityChangelogLoading,
 } from "@/components/shared/ActivityChangelog";
+import { useI18n } from "@/lib/i18n";
 
 type ProjectChangelogProps = {
   enabled?: boolean;
@@ -25,6 +26,7 @@ export function ProjectChangelog({
   className,
 }: ProjectChangelogProps) {
   const { project } = useProject();
+  const { t } = useI18n();
   const activities = useQuery(
     apiAny.activityLog.getForProject,
     enabled ? { projectId: project._id } : "skip",
@@ -39,7 +41,7 @@ export function ProjectChangelog({
       {showHeader ? (
         <div className="px-4 lg:px-0">
           <ProjectPageHeader
-            title="Project Changelog"
+            title={t("projectWorkspace", "projectChangelog")}
             icon={<History className="h-8 w-8 text-primary" />}
           />
         </div>
@@ -47,9 +49,9 @@ export function ProjectChangelog({
 
       <ActivityChangelog
         activities={activities}
-        title="Project activity"
-        collapsedLabel="Expand to load activities"
-        emptyMessage="Activity will appear here as team members work on the project"
+        title={t("projectWorkspace", "projectActivity")}
+        collapsedLabel={t("projectWorkspace", "expandToLoadActivities")}
+        emptyMessage={t("projectWorkspace", "projectActivityEmpty")}
       />
     </div>
   );

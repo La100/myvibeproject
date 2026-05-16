@@ -13,12 +13,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { submitContactForm, type ContactFormState } from "./actions";
+import { useI18n } from "@/lib/i18n";
 
 const initialState: ContactFormState = {
   status: "idle",
 };
 
 export function ContactForm() {
+  const { t } = useI18n();
   const [state, formAction, isPending] = useActionState(submitContactForm, initialState);
   const hasStatusMessage = Boolean(state.message);
   const isSuccess = state.status === "success";
@@ -28,7 +30,7 @@ export function ContactForm() {
       <FieldGroup className="gap-5">
         <div className="grid gap-4 md:grid-cols-2">
           <Field data-invalid={Boolean(state.fieldErrors?.name)}>
-            <FieldLabel htmlFor="name">Name</FieldLabel>
+            <FieldLabel htmlFor="name">{t("contactForm", "name")}</FieldLabel>
             <Input
               id="name"
               name="name"
@@ -41,7 +43,7 @@ export function ContactForm() {
           </Field>
 
           <Field data-invalid={Boolean(state.fieldErrors?.email)}>
-            <FieldLabel htmlFor="email">Email</FieldLabel>
+            <FieldLabel htmlFor="email">{t("contactForm", "email")}</FieldLabel>
             <Input
               id="email"
               name="email"
@@ -56,7 +58,7 @@ export function ContactForm() {
         </div>
 
         <Field data-invalid={Boolean(state.fieldErrors?.subject)}>
-          <FieldLabel htmlFor="subject">Subject</FieldLabel>
+          <FieldLabel htmlFor="subject">{t("contactForm", "subject")}</FieldLabel>
           <Input
             id="subject"
             name="subject"
@@ -68,7 +70,7 @@ export function ContactForm() {
         </Field>
 
         <Field data-invalid={Boolean(state.fieldErrors?.message)}>
-          <FieldLabel htmlFor="message">Message</FieldLabel>
+          <FieldLabel htmlFor="message">{t("contactForm", "message")}</FieldLabel>
           <Textarea
             id="message"
             name="message"
@@ -81,7 +83,7 @@ export function ContactForm() {
         </Field>
 
         <Field className="hidden" aria-hidden="true">
-          <FieldLabel htmlFor="company">Company</FieldLabel>
+          <FieldLabel htmlFor="company">{t("contactForm", "company")}</FieldLabel>
           <Input id="company" name="company" tabIndex={-1} autoComplete="off" />
         </Field>
       </FieldGroup>
@@ -89,7 +91,11 @@ export function ContactForm() {
       {hasStatusMessage ? (
         <Alert variant={isSuccess ? "default" : "destructive"} className="rounded-xl">
           {isSuccess ? <CheckCircle2 /> : <AlertCircle />}
-          <AlertTitle>{isSuccess ? "Message sent" : "Email unavailable"}</AlertTitle>
+          <AlertTitle>
+            {isSuccess
+              ? t("contactForm", "messageSent")
+              : t("contactForm", "emailUnavailable")}
+          </AlertTitle>
           <AlertDescription>{state.message}</AlertDescription>
         </Alert>
       ) : null}
@@ -97,7 +103,7 @@ export function ContactForm() {
       <div className="flex justify-end pt-1">
         <Button type="submit" size="lg" className="w-full px-5 sm:w-auto" disabled={isPending}>
           <Send data-icon="inline-start" />
-          {isPending ? "Sending" : "Send message"}
+          {isPending ? t("contactForm", "sending") : t("contactForm", "sendMessage")}
         </Button>
       </div>
     </form>

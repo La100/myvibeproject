@@ -3,6 +3,7 @@ import { Id } from "./_generated/dataModel";
 import { mutation } from "./_generated/server";
 import { ensureDemoProjectForNewWorkspace } from "./demoProjectSeed";
 import { SUBSCRIPTION_PLANS } from "./stripe";
+const internalAny = require("./_generated/api").internal as any;
 
 const generateSlug = (name: string) => {
   return name
@@ -184,6 +185,11 @@ export const ensureCurrentUserTeamMembership = mutation({
         joinedAt: Date.now(),
         isActive: true,
       });
+      await ctx.scheduler.runAfter(
+        0,
+        internalAny.stripeActions.syncTeamSeatQuantity,
+        { teamId: team._id },
+      );
     }
 
     if (createdTeam || isFirstTeamMembership) {

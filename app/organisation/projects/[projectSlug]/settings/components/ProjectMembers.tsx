@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { Id } from "@/convex/_generated/dataModel";
 import { AppLoadingState } from "@/components/ui/loading-state";
+import { useI18n } from "@/lib/i18n";
 
 interface ProjectMembersProps {
   project: {
@@ -29,6 +30,7 @@ interface TeamMember {
 }
 
 export default function ProjectMembers({ project }: ProjectMembersProps) {
+  const { t } = useI18n();
   const projectMembers = useQuery(apiAny.teams.getProjectMembers, {
     teamId: project.teamId,
     projectId: project._id,
@@ -49,8 +51,8 @@ export default function ProjectMembers({ project }: ProjectMembersProps) {
     return (
       <AppLoadingState
         variant="inline"
-        title="Loading members"
-        description="Preparing project access."
+        title={t("projectSettingsExtra", "loadingMembers")}
+        description={t("projectSettingsExtra", "preparingProjectAccess")}
         className="min-h-[180px]"
       />
     );
@@ -65,9 +67,9 @@ export default function ProjectMembers({ project }: ProjectMembersProps) {
         clerkUserId: member.clerkUserId,
         projectId: project._id,
       });
-      toast.success("Project access added");
+      toast.success(t("projectSettingsExtra", "projectAccessAdded"));
     } catch (error) {
-      toast.error("Failed to add project access", {
+      toast.error(t("projectSettingsExtra", "failedToAddProjectAccess"), {
         description: toUserFacingErrorMessage(error),
       });
     }
@@ -76,9 +78,9 @@ export default function ProjectMembers({ project }: ProjectMembersProps) {
   return (
     <div className="flex flex-col gap-8">
       <div className="border-b border-border/70 pb-5">
-        <h3 className="text-lg font-semibold text-foreground">Team Members</h3>
+        <h3 className="text-lg font-semibold text-foreground">{t("projectSettingsExtra", "teamMembers")}</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Administrators have full access. Members listed here can work in this project.
+          {t("projectSettingsExtra", "teamMembersDescription")}
         </p>
       </div>
 
@@ -87,7 +89,7 @@ export default function ProjectMembers({ project }: ProjectMembersProps) {
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
                 <Crown className="h-4 w-4 text-muted-foreground" />
-                <h4 className="text-sm font-semibold">Administrators</h4>
+                <h4 className="text-sm font-semibold">{t("projectSettingsExtra", "administrators")}</h4>
                 <Badge variant="default">{admins.length}</Badge>
               </div>
               <div className="flex flex-col gap-2">
@@ -95,8 +97,8 @@ export default function ProjectMembers({ project }: ProjectMembersProps) {
                   <MemberRow 
                     key={member._id} 
                     member={member} 
-                    role="Admin"
-                    description="Full project access"
+                    role={t("projectSettingsExtra", "roleAdmin")}
+                    description={t("projectSettingsExtra", "fullProjectAccess")}
                     canManage={false}
                     projectId={project._id}
                   />
@@ -109,7 +111,7 @@ export default function ProjectMembers({ project }: ProjectMembersProps) {
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2 border-t pt-4">
                 <User className="h-4 w-4 text-muted-foreground" />
-                <h4 className="text-sm font-semibold">Members</h4>
+                <h4 className="text-sm font-semibold">{t("projectSettingsExtra", "members")}</h4>
                 <Badge variant="secondary">{members.length}</Badge>
               </div>
               <div className="flex flex-col gap-2">
@@ -117,8 +119,8 @@ export default function ProjectMembers({ project }: ProjectMembersProps) {
                   <MemberRow 
                     key={member._id} 
                     member={member} 
-                    role="Member"
-                    description="Can edit tasks and files"
+                    role={t("projectSettingsExtra", "roleMember")}
+                    description={t("projectSettingsExtra", "canEditTasksAndFiles")}
                     canManage={isCurrentUserAdmin}
                     projectId={project._id}
                   />
@@ -130,7 +132,7 @@ export default function ProjectMembers({ project }: ProjectMembersProps) {
             <div className="flex flex-col gap-3 border-t pt-4">
               <div className="flex items-center gap-2">
                 <UserPlus className="h-4 w-4 text-muted-foreground" />
-                <h4 className="text-sm font-semibold">Available members</h4>
+                <h4 className="text-sm font-semibold">{t("projectSettingsExtra", "availableMembers")}</h4>
                 <Badge variant="secondary">{availableMembers.length}</Badge>
               </div>
               <div className="flex flex-col gap-2">
@@ -147,8 +149,8 @@ export default function ProjectMembers({ project }: ProjectMembersProps) {
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{member.name || "Unknown"}</p>
-                        <p className="hidden text-xs text-muted-foreground sm:block">No access to this project</p>
+                        <p className="truncate text-sm font-medium">{member.name || t("projectSettingsExtra", "unknown")}</p>
+                        <p className="hidden text-xs text-muted-foreground sm:block">{t("projectSettingsExtra", "noAccessToProject")}</p>
                       </div>
                     </div>
                     <Button
@@ -157,7 +159,7 @@ export default function ProjectMembers({ project }: ProjectMembersProps) {
                       onClick={() => handleAddMember(member)}
                     >
                       <UserPlus className="mr-2 h-4 w-4" />
-                      Add
+                      {t("projectSettingsExtra", "add")}
                     </Button>
                   </div>
                 ))}
@@ -183,6 +185,7 @@ function MemberRow({
   canManage: boolean;
   projectId: Id<"projects">;
 }) {
+  const { t } = useI18n();
   const removeMemberFromProject = useMutation(apiAny.teams.removeMemberFromProject);
 
   const getRoleColor = (role: string) => {
@@ -199,9 +202,9 @@ function MemberRow({
         clerkUserId: member.clerkUserId,
         projectId,
       });
-      toast.success("Project access removed");
+      toast.success(t("projectSettingsExtra", "projectAccessRemoved"));
     } catch (error) {
-      toast.error("Failed to remove project access", {
+      toast.error(t("projectSettingsExtra", "failedToRemoveProjectAccess"), {
         description: toUserFacingErrorMessage(error),
       });
     }
@@ -217,12 +220,12 @@ function MemberRow({
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{member.name || 'Unknown'}</p>
+          <p className="text-sm font-medium truncate">{member.name || t("projectSettingsExtra", "unknown")}</p>
           <p className="text-xs text-muted-foreground hidden sm:block">{description}</p>
         </div>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
-        <Badge variant={getRoleColor(role) as "default" | "secondary" | "outline"} className="text-xs">{role}</Badge>
+        <Badge variant={getRoleColor(member.role) as "default" | "secondary" | "outline"} className="text-xs">{role}</Badge>
         {canManage && member.role === "member" && (
           <>
             <Button 
@@ -230,7 +233,7 @@ function MemberRow({
               size="sm"
               onClick={handleRemoveMember}
               className="h-6 w-6 p-0 text-destructive hover:text-destructive lg:h-8 lg:w-8"
-              title="Remove from project"
+              title={t("projectSettingsExtra", "removeFromProject")}
             >
               <UserX className="h-3 w-3 lg:h-4 lg:w-4" />
             </Button>

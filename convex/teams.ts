@@ -34,6 +34,7 @@ import {
   resolveTeamMemberNotificationSettings,
   type TeamMemberNotificationSettings,
 } from "../lib/teamMemberNotificationSettings";
+const internalAny = require("./_generated/api").internal as any;
 
 const buildPublicR2FileUrl = (key: string) => {
   const publicBaseUrl = (
@@ -914,6 +915,11 @@ export const removeTeamMember = mutation({
     });
 
     await ctx.db.patch(targetMember._id, { isActive: false });
+    await ctx.scheduler.runAfter(
+      0,
+      internalAny.stripeActions.syncTeamSeatQuantity,
+      { teamId: args.teamId },
+    );
 
     return { success: true };
   },

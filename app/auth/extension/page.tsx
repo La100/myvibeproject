@@ -6,17 +6,19 @@ import { useUser } from "@clerk/nextjs"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { apiAny } from "@/lib/convexApiAny"
+import { useI18n } from "@/lib/i18n"
 
 const TOKEN_SYNC_KEY = "myvibeproject_extension_token_sync"
 const TOKEN_SYNC_META_KEY = "myvibeproject_extension_token_sync_meta"
 
 export default function ExtensionAuthPage() {
+  const { t } = useI18n()
   const { isSignedIn, isLoaded } = useUser()
   const router = useRouter()
   const createExtensionSession = useMutation(apiAny.extensionSessions.createExtensionSession)
   const markClipperConnected = useMutation(apiAny.onboarding.markClipperConnected)
 
-  const [status, setStatus] = useState("Checking authentication...")
+  const [status, setStatus] = useState(t("extensionAuth", "checkingAuthentication"))
   const [error, setError] = useState("")
 
   useEffect(() => {
@@ -25,13 +27,13 @@ export default function ExtensionAuthPage() {
     }
 
     if (!isSignedIn) {
-      setStatus("No active session. Redirecting to sign-in...")
+      setStatus(t("extensionAuth", "noActiveSession"))
       router.push("/sign-up")
       return
     }
 
-    setStatus("Creating extension session...")
-  }, [isLoaded, isSignedIn, router])
+    setStatus(t("extensionAuth", "creatingSession"))
+  }, [isLoaded, isSignedIn, router, t])
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) {
@@ -44,8 +46,8 @@ export default function ExtensionAuthPage() {
         const token = session?.token
 
         if (!token) {
-          setStatus("Error")
-          setError("Could not get an authentication token.")
+          setStatus(t("extensionAuth", "error"))
+          setError(t("extensionAuth", "tokenError"))
           return
         }
 
@@ -60,20 +62,20 @@ export default function ExtensionAuthPage() {
         )
         await markClipperConnected()
 
-        setStatus("Success. You can close this tab.")
+        setStatus(t("extensionAuth", "success"))
         setError("")
       } catch (e: unknown) {
-        setStatus("Error")
+        setStatus(t("extensionAuth", "error"))
         setError(
-          `There was a problem during authentication: ${
-            e instanceof Error ? e.message : "Unknown error"
-          }`,
+          t("extensionAuth", "genericProblem", {
+            message: e instanceof Error ? e.message : t("extensionAuth", "unknownError"),
+          }),
         )
       }
     }
 
     void storeToken()
-  }, [createExtensionSession, isLoaded, isSignedIn, markClipperConnected])
+  }, [createExtensionSession, isLoaded, isSignedIn, markClipperConnected, t])
 
   return (
     <div
@@ -84,10 +86,10 @@ export default function ExtensionAuthPage() {
         color: "var(--foreground)",
       }}
     >
-      <h1>MyVibeProject Extension Authentication</h1>
+      <h1>{t("extensionAuth", "title")}</h1>
       <h2 style={{ color: error ? "var(--destructive)" : "var(--ui-accent-brand)" }}>{status}</h2>
       {error && <p style={{ color: "var(--destructive)" }}>{error}</p>}
-      <p>Once done, return to the extension to continue.</p>
+      <p>{t("extensionAuth", "returnToExtension")}</p>
     </div>
   )
 }

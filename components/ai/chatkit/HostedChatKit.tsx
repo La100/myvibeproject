@@ -30,6 +30,7 @@ import {
   MAX_FILE_SIZE_BYTES,
 } from "@/components/ai/assistant/config";
 import { useChatKitClientTools } from "@/components/ai/assistant/chatkit/useChatKitClientTools";
+import { useI18n } from "@/lib/i18n";
 
 const CHANGE_MODE_STORAGE_KEY = "myvibeproject-chatkit-can-make-changes";
 const DEFAULT_SELF_HOSTED_CHATKIT_URL = "/api/chatkit/self-hosted";
@@ -52,6 +53,7 @@ type HostedChatKitProps = {
 };
 
 export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
+  const { t, locale } = useI18n();
   const { userId, getToken, isLoaded: isAuthLoaded } = useAuth();
   const { project, team, isLoading: isProjectLoading } = useProject();
   const router = useRouter();
@@ -83,7 +85,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
     process.env.NEXT_PUBLIC_CHATKIT_SELF_HOSTED_DOMAIN_KEY?.trim() || null;
   const configurationError = selfHostedDomainKey
     ? null
-    : "Missing NEXT_PUBLIC_CHATKIT_SELF_HOSTED_DOMAIN_KEY for the self-hosted AI assistant.";
+    : t("aiShell", "missingDomainKey");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -165,7 +167,9 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
             resolve({
               ok: false,
               tool: toolName,
-              error: `Client tool did not finish after ${Math.round(toolTimeoutMs / 1000)} seconds.`,
+              error: t("aiShell", "clientToolTimeout", {
+                seconds: Math.round(toolTimeoutMs / 1000),
+              }),
               timedOut: true,
             });
           }, toolTimeoutMs);
@@ -199,7 +203,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
 
         return result;
       },
-    [project?._id, rawOnClientTool, team?._id],
+    [project?._id, rawOnClientTool, t, team?._id],
   );
 
   const selfHostedFetch = useMemo(
@@ -269,8 +273,8 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
       uploadStrategy: { type: "two_phase" },
     },
     onClientTool,
-    locale: "en",
-    frameTitle: "Vibe assistant",
+    locale,
+    frameTitle: t("aiShell", "frameTitle"),
     theme,
     initialThread: initialThreadId ?? null,
     header: {
@@ -285,11 +289,11 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
       showRename: true,
     },
     startScreen: {
-      greeting: "Hi, I'm Vibe.",
+      greeting: t("aiShell", "startGreeting"),
       prompts,
     },
     composer: {
-      placeholder: "Ask Vibe",
+      placeholder: t("aiShell", "composerPlaceholder"),
       attachments: composerAttachments,
     },
     threadItemActions: {
@@ -309,7 +313,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
       setAssistantActivity("idle");
     },
     disclaimer: {
-      text: "AI can make mistakes. Verify important decisions before taking action.",
+      text: t("aiShell", "disclaimer"),
     },
     onThreadChange: ({ threadId }) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -326,7 +330,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
     },
     onError: ({ error }) => {
       console.error("ChatKit error", error);
-      const message = error?.message || "ChatKit error";
+      const message = error?.message || t("aiShell", "chatkitError");
       setBootError(message);
       toast.error(message);
     },
@@ -334,9 +338,9 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
 
   const assistantActivityLabel =
     assistantActivity === "responding"
-      ? "Vibe is thinking..."
+      ? t("aiShell", "vibeThinking")
       : assistantActivity === "loading_thread"
-        ? "Loading conversation..."
+        ? t("aiShell", "loadingConversation")
         : null;
 
   if (aiAccess !== undefined && !aiAccess.hasAccess && team?._id) {
@@ -386,15 +390,14 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
           />
           <Card className="w-full rounded-3xl border-border/70 bg-background/95 shadow-sm">
             <CardHeader>
-              <CardTitle>AI assistant unavailable</CardTitle>
+              <CardTitle>{t("aiShell", "assistantUnavailable")}</CardTitle>
               <CardDescription>
-                Your workspace does not currently have access to the self-hosted
-                assistant.
+                {t("aiShell", "assistantUnavailableDescription")}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               <Button onClick={() => router.push("/organisation/subscription")}>
-                Open billing settings
+                {t("aiShell", "openBillingSettings")}
               </Button>
               <Button
                 variant="outline"
@@ -402,7 +405,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
                   router.push(`/organisation/projects/${project.slug}/ai`)
                 }
               >
-                Open full AI page
+                {t("aiShell", "openFullAiPage")}
               </Button>
             </CardContent>
           </Card>
@@ -437,7 +440,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
       >
         <Loader2
           className="h-8 w-8 animate-spin text-primary"
-          aria-label="Loading"
+            aria-label={t("aiShell", "loading")}
         />
       </div>
     );
@@ -460,10 +463,9 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
         />
         <Card className="w-full max-w-xl rounded-3xl border-border/70 bg-background/95">
           <CardHeader>
-            <CardTitle>Self-hosted ChatKit error</CardTitle>
+            <CardTitle>{t("aiShell", "selfHostedErrorTitle")}</CardTitle>
             <CardDescription>
-              The AI assistant is wired to your self-hosted ChatKit backend, but
-              the integration could not be initialized.
+              {t("aiShell", "selfHostedErrorDescription")}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -478,7 +480,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
                 }}
               >
                 <RefreshCw className="size-4" />
-                Retry
+                {t("aiShell", "retry")}
               </Button>
             </div>
           </CardContent>
@@ -498,17 +500,19 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
         <div className="flex items-center justify-between gap-3 border-b border-border/70 bg-white px-4 py-2.5">
           <div className="min-w-0">
             <p className="text-[15px] font-semibold leading-tight text-foreground">
-              Vibe Assistant
+              {t("aiShell", "vibeAssistant")}
             </p>
             <p className="text-[11px] text-muted-foreground">
               {assistantActivityLabel ??
-                (canMakeChanges ? "Live changes enabled" : "Read-only mode")}
+                (canMakeChanges
+                  ? t("aiShell", "liveChangesEnabled")
+                  : t("aiShell", "readOnlyMode"))}
             </p>
           </div>
           <Switch
             checked={canMakeChanges}
             onCheckedChange={handleCanMakeChangesChange}
-            aria-label="Toggle whether ChatKit can make changes"
+            aria-label={t("aiShell", "toggleChanges")}
           />
         </div>
 
@@ -534,16 +538,16 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
         <div className="flex items-center gap-3 rounded-full border border-border/70 bg-background/95 px-4 py-2 shadow-sm">
           <div className="flex flex-col">
             <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-              Can make changes
+              {t("aiShell", "canMakeChanges")}
             </span>
             <span className="text-sm font-medium text-foreground">
-              {canMakeChanges ? "Enabled" : "Read-only"}
+              {canMakeChanges ? t("aiShell", "enabled") : t("aiShell", "readOnlyMode")}
             </span>
           </div>
           <Switch
             checked={canMakeChanges}
             onCheckedChange={handleCanMakeChangesChange}
-            aria-label="Toggle whether ChatKit can make changes"
+            aria-label={t("aiShell", "toggleChanges")}
           />
         </div>
       </div>

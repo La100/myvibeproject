@@ -32,7 +32,22 @@ export const SUBSCRIPTION_PLANS = {
     hasAdvancedFeatures: false,
     hasAIFeatures: true,
     price: 0,
+    pricePerUser: 0,
+    aiMonthlyTokensPerUser: tokenBudgetFromUsd(FREE_TRIAL_AI_BUDGET_USD),
     aiMonthlyTokens: tokenBudgetFromUsd(FREE_TRIAL_AI_BUDGET_USD),
+  },
+  core: {
+    id: "core",
+    name: "Core",
+    maxProjects: 50,
+    maxTeamMembers: 999,
+    maxStorageGB: 100,
+    hasAdvancedFeatures: true,
+    hasAIFeatures: false,
+    price: 15,
+    pricePerUser: 15,
+    aiMonthlyTokensPerUser: 0,
+    aiMonthlyTokens: 0,
   },
   basic: {
     id: "basic",
@@ -43,29 +58,35 @@ export const SUBSCRIPTION_PLANS = {
     hasAdvancedFeatures: false,
     hasAIFeatures: false,
     price: 19,
+    pricePerUser: 19,
+    aiMonthlyTokensPerUser: 0,
     aiMonthlyTokens: 0,
   },
   ai: {
     id: "ai",
-    name: "AI Pro",
-    maxProjects: 20,
-    maxTeamMembers: 2,
-    maxStorageGB: 50,
+    name: "Studio AI",
+    maxProjects: 100,
+    maxTeamMembers: 999,
+    maxStorageGB: 500,
     hasAdvancedFeatures: true,
     hasAIFeatures: true,
-    price: 39,
-    aiMonthlyTokens: AI_PRO_MONTHLY_TOKENS, // 60k credits per $1
+    price: 29,
+    pricePerUser: 29,
+    aiMonthlyTokensPerUser: AI_PRO_MONTHLY_TOKENS,
+    aiMonthlyTokens: AI_PRO_MONTHLY_TOKENS,
   },
   ai_scale: {
     id: "ai_scale",
-    name: "AI Scale",
-    maxProjects: 75,
-    maxTeamMembers: 100,
-    maxStorageGB: 250,
+    name: "Studio AI Plus",
+    maxProjects: 250,
+    maxTeamMembers: 999,
+    maxStorageGB: 1000,
     hasAdvancedFeatures: true,
     hasAIFeatures: true,
-    price: 99,
-    aiMonthlyTokens: AI_SCALE_MONTHLY_TOKENS, // ~91k credits per $1, 34% better value vs AI Pro
+    price: 59,
+    pricePerUser: 59,
+    aiMonthlyTokensPerUser: AI_SCALE_MONTHLY_TOKENS,
+    aiMonthlyTokens: AI_SCALE_MONTHLY_TOKENS,
   },
   pro: {
     id: "pro",
@@ -76,6 +97,8 @@ export const SUBSCRIPTION_PLANS = {
     hasAdvancedFeatures: true,
     hasAIFeatures: true,
     price: 49,
+    pricePerUser: 49,
+    aiMonthlyTokensPerUser: PRO_MONTHLY_TOKENS,
     aiMonthlyTokens: PRO_MONTHLY_TOKENS, // 60k credits per $1
   },
   enterprise: {
@@ -87,6 +110,8 @@ export const SUBSCRIPTION_PLANS = {
     hasAdvancedFeatures: true,
     hasAIFeatures: true,
     price: 199,
+    pricePerUser: 199,
+    aiMonthlyTokensPerUser: ENTERPRISE_MONTHLY_TOKENS,
     aiMonthlyTokens: ENTERPRISE_MONTHLY_TOKENS, // 60k credits per $1
   },
 } as const;
@@ -100,6 +125,8 @@ const subscriptionLimitsValidator = v.object({
   hasAdvancedFeatures: v.boolean(),
   hasAIFeatures: v.optional(v.boolean()),
   price: v.number(),
+  pricePerUser: v.optional(v.number()),
+  aiMonthlyTokensPerUser: v.optional(v.number()),
   aiMonthlyTokens: v.optional(v.number()),
 });
 
@@ -110,11 +137,40 @@ const teamLimitsAdditionalDataValidator = v.optional(
   }),
 );
 
-export function getEffectiveLimits(team: any) {
+const isBillableTeamMember = (member: any) =>
+  member?.isActive === true &&
+  (member.role === "admin" || member.role === "member");
+
+async function countBillableTeamMembers(ctx: any, teamId: Id<"teams">) {
+  const members = await ctx.db
+    .query("teamMembers")
+    .withIndex("by_team", (q: any) => q.eq("teamId", teamId))
+    .collect();
+
+  return members.filter(isBillableTeamMember).length;
+}
+
+const getBillingSeatQuantity = (team: any) =>
+  Math.max(1, Math.floor(Number(team?.billingSeatQuantity) || 1));
+
+const getPlanWithSeatQuantity = (team: any) => {
   const plan = (team.subscriptionPlan ||
     "free") as keyof typeof SUBSCRIPTION_PLANS;
-  const defaultLimits = SUBSCRIPTION_PLANS[plan];
+  const defaultLimits = SUBSCRIPTION_PLANS[plan] ?? SUBSCRIPTION_PLANS.free;
+  const seatQuantity = plan === "free" ? 1 : getBillingSeatQuantity(team);
+  return { plan, defaultLimits, seatQuantity };
+};
+
+export function getEffectiveLimits(team: any) {
+  const { plan, defaultLimits, seatQuantity } = getPlanWithSeatQuantity(team);
+  const defaults = defaultLimits as any;
   const storedLimits = team.subscriptionLimits;
+  const aiMonthlyTokensPerUser =
+    defaults.aiMonthlyTokensPerUser ?? defaults.aiMonthlyTokens ?? 0;
+  const aiMonthlyTokens =
+    plan === "free"
+      ? defaults.aiMonthlyTokens ?? 0
+      : aiMonthlyTokensPerUser * seatQuantity;
 
   if (plan === "free") {
     const mergedLimits = {
@@ -129,7 +185,9 @@ export function getEffectiveLimits(team: any) {
         defaultLimits.maxTeamMembers,
       ),
       hasAIFeatures: true,
-      aiMonthlyTokens: defaultLimits.aiMonthlyTokens ?? 0,
+      pricePerUser: 0,
+      aiMonthlyTokensPerUser,
+      aiMonthlyTokens,
     };
   }
 
@@ -137,12 +195,18 @@ export function getEffectiveLimits(team: any) {
     return {
       ...defaultLimits,
       ...(storedLimits || {}),
+      pricePerUser: defaults.pricePerUser ?? defaults.price,
+      aiMonthlyTokensPerUser,
+      aiMonthlyTokens,
     };
   }
 
   return {
     ...(storedLimits || {}),
     ...defaultLimits,
+    pricePerUser: defaults.pricePerUser ?? defaults.price,
+    aiMonthlyTokensPerUser,
+    aiMonthlyTokens,
   };
 }
 
@@ -238,9 +302,22 @@ export const ensureBillingWindow = mutation({
 async function evaluateAIAccess(ctx: any, team: any) {
   const plan = (team.subscriptionPlan ||
     "free") as keyof typeof SUBSCRIPTION_PLANS;
+  const limits = getEffectiveLimits(team);
+  if (limits.hasAIFeatures === false) {
+    return {
+      allowed: false,
+      message: "AI features are not included in your current plan.",
+      currentPlan: plan,
+      subscriptionStatus: team.subscriptionStatus || null,
+      totalTokens: 0,
+      usedTokens: 0,
+      remainingTokens: 0,
+    };
+  }
+
   const planTokens = Math.max(
     0,
-    getEffectiveLimits(team)?.aiMonthlyTokens ?? 0,
+    limits?.aiMonthlyTokens ?? 0,
   );
   const shouldUsePlanTokensAsBalance = typeof team.aiTokens !== "number";
 
@@ -357,6 +434,8 @@ export const getTeamSubscription = query({
     const plan = (team.subscriptionPlan ||
       "free") as keyof typeof SUBSCRIPTION_PLANS;
     const subscriptionLimits = getEffectiveLimits(team);
+    const billingSeatQuantity =
+      plan === "free" ? 1 : getBillingSeatQuantity(team);
 
     return {
       teamId: args.teamId,
@@ -364,6 +443,8 @@ export const getTeamSubscription = query({
       subscriptionPlan: plan,
       subscriptionId: team.subscriptionId,
       stripeCustomerId: team.stripeCustomerId,
+      subscriptionCurrency: team.subscriptionCurrency || null,
+      billingSeatQuantity,
       currentPeriodStart: team.currentPeriodStart,
       currentPeriodEnd: team.currentPeriodEnd,
       trialEnd: team.trialEnd,
@@ -371,9 +452,47 @@ export const getTeamSubscription = query({
       limits: subscriptionLimits,
       planDetails: SUBSCRIPTION_PLANS[plan] || SUBSCRIPTION_PLANS.free,
       checkoutPlans: {
-        ai: process.env.STRIPE_AI_PRICE_ID || null,
-        ai_scale: process.env.STRIPE_AI_SCALE_PRICE_ID || null,
+        core: {
+          usd: process.env.STRIPE_CORE_USER_USD_PRICE_ID || null,
+          pln: process.env.STRIPE_CORE_USER_PLN_PRICE_ID || null,
+        },
+        ai: {
+          usd: process.env.STRIPE_AI_USER_USD_PRICE_ID || null,
+          pln: process.env.STRIPE_AI_USER_PLN_PRICE_ID || null,
+        },
+        ai_scale: {
+          usd: process.env.STRIPE_AI_SCALE_USER_USD_PRICE_ID || null,
+          pln: process.env.STRIPE_AI_SCALE_USER_PLN_PRICE_ID || null,
+        },
       },
+    };
+  },
+});
+
+export const getTeamBillingSeatCount = internalQuery({
+  args: { teamId: v.id("teams") },
+  async handler(ctx, args) {
+    return Math.max(1, await countBillableTeamMembers(ctx, args.teamId));
+  },
+});
+
+export const getTeamBillingSeatSyncState = internalQuery({
+  args: { teamId: v.id("teams") },
+  async handler(ctx, args) {
+    const team = await ctx.db.get(args.teamId);
+    if (!team) {
+      return null;
+    }
+
+    return {
+      teamId: args.teamId,
+      subscriptionId: team.subscriptionId,
+      subscriptionStatus: team.subscriptionStatus || null,
+      subscriptionPriceId: team.subscriptionPriceId,
+      billingSeatQuantity: Math.max(
+        1,
+        await countBillableTeamMembers(ctx, args.teamId),
+      ),
     };
   },
 });
@@ -449,7 +568,11 @@ export const syncTeamSubscriptionFromStripe = internalMutation({
     // Determine plan from price ID
     const plan = determinePlanFromPriceId(subscription.priceId);
     const planKey = plan as keyof typeof SUBSCRIPTION_PLANS;
-    const limits = SUBSCRIPTION_PLANS[planKey] || SUBSCRIPTION_PLANS.free;
+    const limits = getEffectiveLimits({
+      subscriptionPlan: planKey,
+      billingSeatQuantity: 1,
+    });
+    const priceConfig = getStripePriceConfig(subscription.priceId);
 
     // Update team with subscription data
     await ctx.db.patch(args.teamId as Id<"teams">, {
@@ -457,6 +580,9 @@ export const syncTeamSubscriptionFromStripe = internalMutation({
       subscriptionStatus: subscription.status as any,
       subscriptionPlan: planKey,
       subscriptionPriceId: subscription.priceId,
+      subscriptionCurrency: (priceConfig?.currency || "usd") as "usd" | "pln",
+      billingSeatQuantity: 1,
+      billingModel: "per_user",
       currentPeriodEnd: subscription.currentPeriodEnd,
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
       subscriptionLimits: limits,
@@ -468,14 +594,59 @@ export const syncTeamSubscriptionFromStripe = internalMutation({
   },
 });
 
-// Helper function to determine plan from Stripe price ID
-function determinePlanFromPriceId(priceId: string): string {
-  const aiPriceId = process.env.STRIPE_AI_PRICE_ID;
-  const aiScalePriceId = process.env.STRIPE_AI_SCALE_PRICE_ID;
+const getStripePriceConfig = (priceId: string) => {
+  const entries = [
+    {
+      priceId: process.env.STRIPE_CORE_USER_USD_PRICE_ID,
+      plan: "core",
+      currency: "usd",
+    },
+    {
+      priceId: process.env.STRIPE_CORE_USER_PLN_PRICE_ID,
+      plan: "core",
+      currency: "pln",
+    },
+    {
+      priceId: process.env.STRIPE_AI_USER_USD_PRICE_ID,
+      plan: "ai",
+      currency: "usd",
+    },
+    {
+      priceId: process.env.STRIPE_AI_USER_PLN_PRICE_ID,
+      plan: "ai",
+      currency: "pln",
+    },
+    {
+      priceId: process.env.STRIPE_AI_SCALE_USER_USD_PRICE_ID,
+      plan: "ai_scale",
+      currency: "usd",
+    },
+    {
+      priceId: process.env.STRIPE_AI_SCALE_USER_PLN_PRICE_ID,
+      plan: "ai_scale",
+      currency: "pln",
+    },
+    {
+      priceId: process.env.STRIPE_AI_PRICE_ID,
+      plan: "ai",
+      currency: "usd",
+    },
+    {
+      priceId: process.env.STRIPE_AI_SCALE_PRICE_ID,
+      plan: "ai_scale",
+      currency: "usd",
+    },
+  ] as const;
 
-  if (aiScalePriceId && priceId === aiScalePriceId) return "ai_scale";
-  if (aiPriceId && priceId === aiPriceId) return "ai";
-  return "ai"; // Default to base AI plan if unknown
+  return entries.find((entry) => entry.priceId && entry.priceId === priceId);
+};
+
+function determinePlanFromPriceId(priceId: string): string {
+  const priceConfig = getStripePriceConfig(priceId);
+  if (!priceConfig) {
+    throw new Error(`Unknown Stripe price ID: ${priceId}`);
+  }
+  return priceConfig.plan;
 }
 
 const resolveTeamId = (ctx: any, teamId: string): Id<"teams"> | null =>
@@ -487,6 +658,8 @@ const buildSubscriptionPatch = (
     subscriptionId: string;
     status: string;
     priceId: string;
+    quantity?: number;
+    currency?: string;
     currentPeriodStart?: number;
     currentPeriodEnd: number;
     cancelAtPeriodEnd: boolean;
@@ -494,13 +667,33 @@ const buildSubscriptionPatch = (
 ) => {
   const plan = determinePlanFromPriceId(args.priceId);
   const planKey = plan as keyof typeof SUBSCRIPTION_PLANS;
-  const limits = SUBSCRIPTION_PLANS[planKey] || SUBSCRIPTION_PLANS.free;
+  const defaultLimits = SUBSCRIPTION_PLANS[planKey] || SUBSCRIPTION_PLANS.free;
+  const defaults = defaultLimits as any;
+  const priceConfig = getStripePriceConfig(args.priceId);
+  const billingSeatQuantity =
+    planKey === "free" ? 1 : Math.max(1, Math.floor(args.quantity || 1));
+  const aiMonthlyTokensPerUser =
+    defaults.aiMonthlyTokensPerUser ?? defaults.aiMonthlyTokens ?? 0;
+  const limits = {
+    ...defaultLimits,
+    pricePerUser: defaults.pricePerUser ?? defaults.price,
+    aiMonthlyTokensPerUser,
+    aiMonthlyTokens:
+      planKey === "free"
+        ? defaults.aiMonthlyTokens ?? 0
+        : aiMonthlyTokensPerUser * billingSeatQuantity,
+  };
   const isPaidActivePlan =
     (args.status === "active" || args.status === "trialing") &&
     (limits.aiMonthlyTokens || 0) > 0;
+  const isNewBillingPeriod =
+    typeof args.currentPeriodStart === "number" &&
+    (typeof team.currentPeriodStart !== "number" ||
+      args.currentPeriodStart > team.currentPeriodStart);
   const shouldRestorePaidCredits =
     isPaidActivePlan &&
-    (typeof team.aiTokens !== "number" ||
+    (isNewBillingPeriod ||
+      typeof team.aiTokens !== "number" ||
       team.aiTokens <= 0 ||
       team.subscriptionId !== args.subscriptionId ||
       team.subscriptionPlan !== planKey);
@@ -512,6 +705,11 @@ const buildSubscriptionPatch = (
       subscriptionStatus: args.status as any,
       subscriptionPlan: planKey,
       subscriptionPriceId: args.priceId,
+      subscriptionCurrency: (args.currency || priceConfig?.currency || "usd") as
+        | "usd"
+        | "pln",
+      billingSeatQuantity,
+      billingModel: "per_user" as const,
       ...(typeof args.currentPeriodStart === "number"
         ? { currentPeriodStart: args.currentPeriodStart }
         : {}),
@@ -540,6 +738,9 @@ export const updateTeamToFree = internalMutation({
       subscriptionId: undefined,
       subscriptionPlan: "free",
       subscriptionPriceId: undefined,
+      subscriptionCurrency: undefined,
+      billingSeatQuantity: 1,
+      billingModel: undefined,
       currentPeriodStart: undefined,
       currentPeriodEnd: undefined,
       trialEnd: undefined,
@@ -559,6 +760,8 @@ export const syncSubscriptionDirectly = internalMutation({
     subscriptionId: v.string(),
     status: v.string(),
     priceId: v.string(),
+    quantity: v.optional(v.number()),
+    currency: v.optional(v.string()),
     currentPeriodStart: v.optional(v.number()),
     currentPeriodEnd: v.number(),
     cancelAtPeriodEnd: v.boolean(),
@@ -586,6 +789,8 @@ export const syncSubscriptionFromStripeEvent = internalMutation({
     subscriptionId: v.string(),
     status: v.string(),
     priceId: v.string(),
+    quantity: v.optional(v.number()),
+    currency: v.optional(v.string()),
     currentPeriodStart: v.optional(v.number()),
     currentPeriodEnd: v.number(),
     cancelAtPeriodEnd: v.boolean(),
@@ -614,6 +819,36 @@ export const syncSubscriptionFromStripeEvent = internalMutation({
       `Team ${teamId} subscription synced from Stripe event: plan=${plan}, status=${args.status}`,
     );
     return { success: true, plan, status: args.status, teamId };
+  },
+});
+
+export const updateTeamBillingSeatState = internalMutation({
+  args: {
+    teamId: v.id("teams"),
+    billingSeatQuantity: v.number(),
+  },
+  async handler(ctx, args) {
+    const team = await ctx.db.get(args.teamId);
+    if (!team) {
+      return { success: false, reason: "team_not_found" };
+    }
+
+    const limits = getEffectiveLimits({
+      ...team,
+      billingSeatQuantity: args.billingSeatQuantity,
+    });
+
+    await ctx.db.patch(args.teamId, {
+      billingSeatQuantity: Math.max(1, Math.floor(args.billingSeatQuantity)),
+      subscriptionLimits: limits,
+      ...(team.subscriptionPlan &&
+      team.subscriptionPlan !== "free" &&
+      limits.hasAIFeatures
+        ? { aiTokens: Math.max(team.aiTokens || 0, limits.aiMonthlyTokens || 0) }
+        : {}),
+    });
+
+    return { success: true };
   },
 });
 

@@ -28,37 +28,15 @@ import {
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { BillingActionErrorDialog } from "@/components/billing/BillingActionErrorDialog";
+import { useI18n } from "@/lib/i18n";
 
 interface AISubscriptionWallProps {
   teamId: Id<"teams">;
   teamSlug?: string;
 }
 
-const AI_FEATURES = [
-  {
-    icon: MessageSquare,
-    title: "AI Assistant",
-    description:
-      "Intelligent project management assistant that understands your context",
-  },
-  {
-    icon: Wand2,
-    title: "Smart Task Creation",
-    description: "Generate tasks, notes, and content with natural language",
-  },
-  {
-    icon: ImageIcon,
-    title: "AI Image Generation",
-    description: "Create moodboards and visualizations with GPT Image",
-  },
-  {
-    icon: Brain,
-    title: "Context-Aware",
-    description: "AI that understands your entire project, team, and history",
-  },
-];
-
 export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
+  const { locale, t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [billingActionError, setBillingActionError] = useState<string | null>(
     null,
@@ -69,17 +47,51 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
     apiAny.stripeActions.createCheckoutSession,
   );
 
+  const aiFeatures = [
+    {
+      icon: MessageSquare,
+      title: t("aiShell", "featureAssistantTitle"),
+      description: t("aiShell", "featureAssistantDescription"),
+    },
+    {
+      icon: Wand2,
+      title: t("aiShell", "featureTasksTitle"),
+      description: t("aiShell", "featureTasksDescription"),
+    },
+    {
+      icon: ImageIcon,
+      title: t("aiShell", "featureImagesTitle"),
+      description: t("aiShell", "featureImagesDescription"),
+    },
+    {
+      icon: Brain,
+      title: t("aiShell", "featureContextTitle"),
+      description: t("aiShell", "featureContextDescription"),
+    },
+  ];
+  const benefits = [
+    t("aiShell", "benefitCredits"),
+    t("aiShell", "benefitTextImages"),
+    t("aiShell", "benefitTasks"),
+    t("aiShell", "benefitSuggestions"),
+    t("aiShell", "benefitProjects"),
+    t("aiShell", "benefitTeam"),
+    t("aiShell", "benefitStorage"),
+    t("aiShell", "benefitSupport"),
+  ];
+
   const handleSubscribe = async () => {
-    const priceId = subscription?.checkoutPlans?.ai ?? null;
+    const currency = locale === "pl" ? "pln" : "usd";
+    const priceId = subscription?.checkoutPlans?.ai?.[currency] ?? null;
 
     if (subscription === undefined) {
-      toast.error("Loading billing configuration. Try again in a moment.");
+      toast.error(t("aiShell", "billingLoading"));
       return;
     }
 
     if (!priceId) {
-      toast.error("Stripe price ID not configured. Please contact support.");
-      console.error("STRIPE_AI_PRICE_ID is not set");
+      toast.error(t("aiShell", "billingMissingPrice"));
+      console.error("STRIPE_AI_USER_*_PRICE_ID is not set");
       return;
     }
 
@@ -95,7 +107,7 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
         // Redirect to Stripe Checkout
         window.location.href = result.url;
       } else {
-        toast.error("Failed to create checkout session");
+        toast.error(t("aiShell", "checkoutFailed"));
       }
     } catch (error) {
       console.error("Error creating checkout session:", error);
@@ -135,24 +147,23 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
               className="mx-auto inline-flex items-center rounded-lg border border-border bg-background/50 px-3 py-1 text-sm font-medium text-muted-foreground backdrop-blur-sm lg:mx-0"
             >
               <Sparkles className="mr-2 h-4 w-4 text-foreground" />
-              Unlock the full potential
+              {t("aiShell", "unlockPotential")}
             </motion.div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight font-display">
-              Power up with <br />
+              {t("aiShell", "powerUpPrefix")} <br />
               <span className="italic text-muted-foreground font-serif">
-                AI Intelligence
+                {t("aiShell", "aiIntelligence")}
               </span>
             </h1>
 
             <p className="mx-auto max-w-lg text-xl leading-relaxed text-muted-foreground lg:mx-0">
-              Transform your project management with AI-powered assistance,
-              smart content generation, and creative image synthesis.
+              {t("aiShell", "subscriptionLead")}
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {AI_FEATURES.map((feature, index) => (
+            {aiFeatures.map((feature, index) => (
               <motion.div
                 key={feature.title}
                 initial={{ opacity: 0, y: 20 }}
@@ -188,34 +199,25 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
                 variant="secondary"
                 className="mx-auto mb-6 w-fit px-4 py-1.5 font-medium"
               >
-                Pro Plan
+                {t("aiShell", "proPlan")}
               </Badge>
 
               <div className="flex items-baseline justify-center gap-1">
                 <span className="text-5xl font-bold tracking-tight">$39</span>
                 <span className="text-lg font-normal text-muted-foreground">
-                  /month
+                  {t("aiShell", "perMonth")}
                 </span>
               </div>
 
               <CardDescription className="text-base mt-4 max-w-xs mx-auto">
-                Everything you need to supercharge your workflow with AI
+                {t("aiShell", "proDescription")}
               </CardDescription>
             </CardHeader>
 
             <CardContent className="relative flex flex-col gap-8 px-8 pb-8">
               {/* Benefits list */}
               <div className="flex flex-col gap-4">
-                {[
-                  "2.34M monthly AI credits",
-                  "Credits for text and images",
-                  "Smart task generation",
-                  "Context-aware suggestions",
-                  "20 projects included",
-                  "2 team members",
-                  "50 GB storage",
-                  "Priority support",
-                ].map((benefit, index) => (
+                {benefits.map((benefit, index) => (
                   <div key={index} className="flex items-center gap-3">
                     <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-foreground text-background">
                       <Check className="w-3 h-3" />
@@ -241,18 +243,18 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Processing...
+                      {t("aiShell", "processing")}
                     </>
                   ) : (
                     <>
-                      Subscribe Now
+                      {t("aiShell", "subscribeNow")}
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </>
                   )}
                 </Button>
 
                 <p className="text-center text-xs text-muted-foreground">
-                  Cancel anytime • Secure payment via Stripe
+                  {t("aiShell", "cancelAnytime")}
                 </p>
               </div>
             </CardContent>
@@ -268,13 +270,13 @@ export function AISubscriptionWall({ teamId }: AISubscriptionWallProps) {
             >
               <p className="inline-flex items-center rounded-lg bg-muted/50 px-3 py-1 text-sm text-muted-foreground">
                 <Lock className="w-3 h-3 mr-2" />
-                Current plan:{" "}
+                {t("aiShell", "currentPlan")}{" "}
                 <span className="font-medium ml-1">
                   {subscription.planDetails.name}
                 </span>
                 {subscription.subscriptionStatus === "trialing" && (
                   <Badge variant="secondary" className="ml-2 h-5">
-                    Trial
+                    {t("aiShell", "trial")}
                   </Badge>
                 )}
               </p>

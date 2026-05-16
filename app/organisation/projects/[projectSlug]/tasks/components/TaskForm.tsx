@@ -35,11 +35,12 @@ import {
 
 import { DatePicker } from "@/components/ui/date-picker";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useI18n } from "@/lib/i18n";
 
 
 
-const taskFormSchema = z.object({
-    title: z.string().min(1, "Title is required"),
+const buildTaskFormSchema = (t: ReturnType<typeof useI18n>["t"]) => z.object({
+    title: z.string().min(1, t("taskForm", "titleRequired")),
     description: z.string().optional(),
     priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
     status: z.enum(["todo", "in_progress", "review", "done"]).optional(),
@@ -48,7 +49,7 @@ const taskFormSchema = z.object({
     endDate: z.date().optional(),
 });
   
-type TaskFormValues = z.infer<typeof taskFormSchema>;
+type TaskFormValues = z.infer<ReturnType<typeof buildTaskFormSchema>>;
 
 interface TaskFormProps {
     projectId: Id<"projects">;
@@ -60,6 +61,8 @@ interface TaskFormProps {
 }
   
 export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskCreated, setIsOpen }: TaskFormProps) {
+    const { t } = useI18n();
+    const taskFormSchema = buildTaskFormSchema(t);
     const [singleDayTask, setSingleDayTask] = useState(false);
     const [isAllDay, setIsAllDay] = useState(false);
     const [startTime, setStartTime] = useState("09:00");
@@ -206,7 +209,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
           typeof endDateTimestamp === "number" &&
           endDateTimestamp < startDateTimestamp
         ) {
-          toast.error("End date cannot be earlier than start date.");
+          toast.error(t("taskForm", "endDateCannotBeEarlier"));
           return;
         }
 
@@ -225,7 +228,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
             taskId: task._id,
             ...submissionData,
           });
-          toast.success("Task updated");
+          toast.success(t("taskForm", "taskUpdated"));
         } else {
           await createTask({
             projectId,
@@ -233,13 +236,13 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
             ...submissionData,
             tags: [], 
           });
-          toast.success("Task created");
+          toast.success(t("taskForm", "taskCreated"));
           form.reset();
         }
         onTaskCreated?.();
         setIsOpen(false);
       } catch (error) {
-        toast.error("Could not save task.", {
+        toast.error(t("taskForm", "unableToSaveTask"), {
           description: toUserFacingErrorMessage(error),
         });
         console.error(error);
@@ -255,9 +258,9 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
                     name="title"
                     render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Title</FormLabel>
+                        <FormLabel>{t("taskForm", "title")}</FormLabel>
                         <FormControl>
-                        <Input placeholder="e.g. Implement new feature" {...field} />
+                        <Input placeholder={t("taskForm", "taskTitlePlaceholder")} {...field} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
@@ -269,18 +272,18 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
                         name="status"
                         render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Status</FormLabel>
+                            <FormLabel>{t("taskForm", "status")}</FormLabel>
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
                                 <SelectTrigger>
-                                <SelectValue placeholder="Select status" />
+                                <SelectValue placeholder={t("taskForm", "selectStatus")} />
                                 </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                                <SelectItem value="todo">To Do</SelectItem>
-                                <SelectItem value="in_progress">In Progress</SelectItem>
-                                <SelectItem value="review">Review</SelectItem>
-                                <SelectItem value="done">Done</SelectItem>
+                                <SelectItem value="todo">{t("taskForm", "toDo")}</SelectItem>
+                                <SelectItem value="in_progress">{t("taskForm", "inProgress")}</SelectItem>
+                                <SelectItem value="review">{t("taskForm", "review")}</SelectItem>
+                                <SelectItem value="done">{t("taskForm", "statusDone")}</SelectItem>
                             </SelectContent>
                             </Select>
                             <FormMessage />
@@ -292,19 +295,19 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
                         name="priority"
                         render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Priority</FormLabel>
+                            <FormLabel>{t("taskForm", "priority")}</FormLabel>
                             <Select onValueChange={(value) => field.onChange(value === "none" ? undefined : value)} value={field.value || "none"}>
                             <FormControl>
                                 <SelectTrigger>
-                                <SelectValue placeholder="Select priority" />
+                                <SelectValue placeholder={t("taskForm", "selectPriority")} />
                                 </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                                <SelectItem value="none">No priority</SelectItem>
-                                <SelectItem value="low">Low</SelectItem>
-                                <SelectItem value="medium">Medium</SelectItem>
-                                <SelectItem value="high">High</SelectItem>
-                                <SelectItem value="urgent">Urgent</SelectItem>
+                                <SelectItem value="none">{t("taskForm", "noPriority")}</SelectItem>
+                                <SelectItem value="low">{t("taskForm", "low")}</SelectItem>
+                                <SelectItem value="medium">{t("taskForm", "medium")}</SelectItem>
+                                <SelectItem value="high">{t("taskForm", "high")}</SelectItem>
+                                <SelectItem value="urgent">{t("taskForm", "urgent")}</SelectItem>
                             </SelectContent>
                             </Select>
                             <FormMessage />
@@ -317,15 +320,15 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
                     name="assignedTo"
                     render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Assign to</FormLabel>
+                        <FormLabel>{t("taskForm", "assignTo")}</FormLabel>
                         <Select onValueChange={(value) => field.onChange(value === "none" ? undefined : value)} value={field.value || "none"}>
                         <FormControl>
                             <SelectTrigger>
-                            <SelectValue placeholder="Select a team member" />
+                            <SelectValue placeholder={t("taskForm", "selectTeamMember")} />
                             </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                            <SelectItem value="none">No assignee</SelectItem>
+                            <SelectItem value="none">{t("taskForm", "noAssignee")}</SelectItem>
                             {teamMembers?.map((member) => (
                                 <SelectItem key={member.clerkUserId} value={member.clerkUserId}>
                                     {member.name}
@@ -340,7 +343,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
                 {/* Date and Time Options */}
                 <div className="flex flex-col gap-4 rounded-lg border p-4">
                     <div className="flex items-center justify-between">
-                        <Label className="text-base font-medium">Date & Time</Label>
+                        <Label className="text-base font-medium">{t("taskForm", "dateTime")}</Label>
                         <div className="flex items-center gap-2">
                             <Checkbox
                                 id="all-day"
@@ -348,7 +351,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
                                 onCheckedChange={(checked) => setIsAllDay(checked as boolean)}
                             />
                             <Label htmlFor="all-day" className="text-sm font-normal cursor-pointer">
-                                All day
+                                {t("taskForm", "allDay")}
                             </Label>
                         </div>
                     </div>
@@ -368,7 +371,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
                             }}
                         />
                         <Label htmlFor="single-day" className="text-sm font-normal cursor-pointer">
-                            Single day event
+                            {t("taskForm", "singleDayEvent")}
                         </Label>
                     </div>
 
@@ -381,7 +384,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
                                 name="startDate"
                                 render={({ field }) => (
                                 <FormItem className="flex flex-col">
-                                    <FormLabel>{singleDayTask ? "Date" : "Start Date"}</FormLabel>
+                                    <FormLabel>{singleDayTask ? t("taskForm", "date") : t("taskForm", "startDate")}</FormLabel>
                                     <DatePicker
                                         date={field.value}
                                         onDateChange={(date) => {
@@ -403,7 +406,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
                                     name="endDate"
                                     render={({ field }) => (
                                     <FormItem className="flex flex-col">
-                                        <FormLabel>End Date</FormLabel>
+                                        <FormLabel>{t("taskForm", "endDate")}</FormLabel>
                                         <DatePicker
                                             date={field.value}
                                             onDateChange={field.onChange}
@@ -420,7 +423,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
                             <div className="flex flex-col gap-3">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <Label className="text-sm text-muted-foreground">Start Time</Label>
+                                        <Label className="text-sm text-muted-foreground">{t("taskForm", "startTime")}</Label>
                                         <Input
                                             type="time"
                                             value={startTime}
@@ -430,7 +433,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
                                     </div>
                                     {hasEndTime && (
                                         <div>
-                                            <Label className="text-sm text-muted-foreground">End Time</Label>
+                                            <Label className="text-sm text-muted-foreground">{t("taskForm", "endTime")}</Label>
                                             <Input
                                                 type="time"
                                                 value={endTime}
@@ -455,7 +458,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
                                         }}
                                     />
                                     <Label htmlFor="has-end-time" className="text-sm font-normal cursor-pointer">
-                                        Specify end time (default: event/reminder at specific time)
+                                        {t("taskForm", "specifyEndTime")}
                                     </Label>
                                 </div>
                             </div>
@@ -468,10 +471,10 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
                     name="description"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Description</FormLabel>
+                            <FormLabel>{t("taskForm", "description")}</FormLabel>
                             <FormControl>
                                 <Textarea
-                                    placeholder="Add a more detailed description..."
+                                    placeholder={t("taskForm", "addDetailedDescription")}
                                     className="resize-none"
                                     {...field}
                                     value={field.value ?? ""}
@@ -483,7 +486,7 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
                 />
                 <Button type="submit" disabled={form.formState.isSubmitting} className="w-full sm:w-auto">
                     {form.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    {task ? "Save Changes" : "Create Task"}
+                    {task ? t("taskForm", "saveChanges") : t("taskForm", "createTask")}
                 </Button>
                 </form>
             </Form>

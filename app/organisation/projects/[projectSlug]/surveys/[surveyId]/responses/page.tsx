@@ -25,6 +25,7 @@ import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { AppLoadingState } from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 interface SurveyResponsesPageProps {
   params: Promise<{
@@ -37,6 +38,7 @@ export default function SurveyResponsesPage({
   params,
 }: SurveyResponsesPageProps) {
   const router = useRouter();
+  const { t } = useI18n();
   const [routeParams, setRouteParams] = useState<{
     surveyId: Id<"surveys">;
     projectSlug: string;
@@ -72,8 +74,8 @@ export default function SurveyResponsesPage({
     return (
       <AppLoadingState
         variant="section"
-        title="Loading responses"
-        description="Preparing survey response data."
+        title={t("surveys", "loadingResponses")}
+        description={t("surveys", "preparingSurveyResponseData")}
       />
     );
   }
@@ -135,7 +137,7 @@ export default function SurveyResponsesPage({
       case "boolean":
         return (
           <Badge variant={answer.booleanAnswer ? "secondary" : "outline"}>
-            {answer.booleanAnswer ? "Yes" : "No"}
+            {answer.booleanAnswer ? t("surveys", "yes") : t("surveys", "no")}
           </Badge>
         );
       case "file": {
@@ -164,7 +166,7 @@ export default function SurveyResponsesPage({
                   {file.fileName}
                 </span>
                 <span className="shrink-0 text-xs text-muted-foreground">
-                  {fileSize || "Open"}
+                  {fileSize || t("surveys", "open")}
                 </span>
               </div>
             </a>
@@ -184,7 +186,7 @@ export default function SurveyResponsesPage({
                 <span className="truncate font-medium">{file.fileName}</span>
               </span>
               <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-                {fileSize || "Open"}
+                {fileSize || t("surveys", "open")}
                 <ExternalLink className="h-3.5 w-3.5" />
               </span>
             </a>
@@ -212,7 +214,7 @@ export default function SurveyResponsesPage({
 
   const getUserName = (respondentId: string) => {
     const user = users?.find((u) => u.clerkUserId === respondentId);
-    return user?.name || user?.email || "Unknown user";
+    return user?.name || user?.email || t("surveys", "unknownUser");
   };
 
   const sortedResponses = [...(responses || [])].sort(
@@ -228,7 +230,7 @@ export default function SurveyResponsesPage({
     <ProjectPageLayout>
       <div className="flex flex-col gap-6">
         <ProjectPageHeader
-          title="Survey Responses"
+          title={t("surveys", "surveyResponses")}
           icon={<Users className="h-8 w-8 text-primary" />}
           subtitle={survey.title}
           actions={
@@ -243,7 +245,7 @@ export default function SurveyResponsesPage({
               className="shrink-0 bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
             >
               <ArrowLeft className="mr-2 h-5 w-5 stroke-[2.4]" />
-              Back to surveys
+              {t("surveys", "backToSurveys")}
             </Button>
           }
         />
@@ -253,12 +255,12 @@ export default function SurveyResponsesPage({
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Users className="h-5 w-5 text-foreground" />
-                Responses
+                {t("surveys", "responses")}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{responses?.length ?? 0}</div>
-              <p className="text-sm text-muted-foreground">Total responses</p>
+              <p className="text-sm text-muted-foreground">{t("surveys", "totalResponses")}</p>
             </CardContent>
           </Card>
 
@@ -266,7 +268,7 @@ export default function SurveyResponsesPage({
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <FileText className="h-5 w-5 text-foreground" />
-                Questions
+                {t("surveys", "questions")}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -274,7 +276,7 @@ export default function SurveyResponsesPage({
                 {survey.questions ? survey.questions.length : 0}
               </div>
               <p className="text-sm text-muted-foreground">
-                Number of questions
+                {t("surveys", "numberOfQuestions")}
               </p>
             </CardContent>
           </Card>
@@ -283,7 +285,7 @@ export default function SurveyResponsesPage({
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <ImageIcon className="h-5 w-5 text-foreground" />
-                Attachments
+                {t("surveys", "attachments")}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -298,7 +300,7 @@ export default function SurveyResponsesPage({
                 )}
               </div>
               <p className="text-sm text-muted-foreground">
-                Uploaded with responses
+                {t("surveys", "uploadedWithResponses")}
               </p>
             </CardContent>
           </Card>
@@ -307,9 +309,9 @@ export default function SurveyResponsesPage({
         {(responses?.length ?? 0) === 0 ? (
           <Card>
             <CardHeader>
-              <CardTitle>No responses</CardTitle>
+              <CardTitle>{t("surveys", "noResponses")}</CardTitle>
               <CardDescription>
-                No one has responded to this survey yet.
+                {t("surveys", "noResponsesDescription")}
               </CardDescription>
             </CardHeader>
           </Card>
@@ -317,9 +319,9 @@ export default function SurveyResponsesPage({
           <div className="grid gap-6 lg:grid-cols-[minmax(280px,360px)_1fr]">
             <Card className="h-fit">
               <CardHeader>
-                <CardTitle>Responses list</CardTitle>
+                <CardTitle>{t("surveys", "responsesList")}</CardTitle>
                 <CardDescription>
-                  Select a response to review answers.
+                  {t("surveys", "selectResponseToReview")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
@@ -344,12 +346,18 @@ export default function SurveyResponsesPage({
                             getUserName(response.respondentId)}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Submitted:{" "}
-                          {new Date(response.submittedAt || 0).toLocaleString()}
+                          {t("surveys", "submittedAt", {
+                            date: new Date(response.submittedAt || 0).toLocaleString(),
+                          })}
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {response.answers.length} answer
-                          {response.answers.length === 1 ? "" : "s"}
+                          {t("surveys", "answersCount", {
+                            count: response.answers.length,
+                            answerLabel:
+                              response.answers.length === 1
+                                ? t("surveys", "answerSingular")
+                                : t("surveys", "answerPlural"),
+                          })}
                         </p>
                       </div>
                       <span className="ml-4 inline-block rounded-full border border-border bg-card px-2 py-1 text-xs font-semibold">
@@ -369,18 +377,25 @@ export default function SurveyResponsesPage({
                       {selectedResponse
                         ? selectedResponse.respondentName ||
                           getUserName(selectedResponse.respondentId)
-                        : "Response"}
+                        : t("surveys", "response")}
                     </CardTitle>
                     <CardDescription>
                       {selectedResponse?.submittedAt
-                        ? `Submitted ${new Date(selectedResponse.submittedAt).toLocaleString()}`
-                        : "No response selected"}
+                        ? t("surveys", "submitted", {
+                            date: new Date(selectedResponse.submittedAt).toLocaleString(),
+                          })
+                        : t("surveys", "noResponseSelected")}
                     </CardDescription>
                   </div>
                   {selectedResponse ? (
                     <Badge variant="outline">
-                      {selectedResponse.answers.length} answer
-                      {selectedResponse.answers.length === 1 ? "" : "s"}
+                      {t("surveys", "answersCount", {
+                        count: selectedResponse.answers.length,
+                        answerLabel:
+                          selectedResponse.answers.length === 1
+                            ? t("surveys", "answerSingular")
+                            : t("surveys", "answerPlural"),
+                      })}
                     </Badge>
                   ) : null}
                 </div>
@@ -399,7 +414,7 @@ export default function SurveyResponsesPage({
                         >
                           <div>
                             <Badge variant="outline" className="rounded-full">
-                              Question {questionIndex + 1}
+                              {t("surveys", "question", { number: questionIndex + 1 })}
                             </Badge>
                             <p className="mt-2 text-xs text-muted-foreground">
                               {question.questionType.replace(/_/g, " ")}
@@ -414,7 +429,7 @@ export default function SurveyResponsesPage({
                                 renderAnswerDisplay(answer)
                               ) : (
                                 <span className="italic text-muted-foreground">
-                                  No answer
+                                  {t("surveys", "noAnswer")}
                                 </span>
                               )}
                             </div>
@@ -425,7 +440,7 @@ export default function SurveyResponsesPage({
                   </div>
                 ) : (
                   <div className="p-6 text-sm text-muted-foreground">
-                    Select a response to view answers.
+                    {t("surveys", "selectResponseToViewAnswers")}
                   </div>
                 )}
               </CardContent>

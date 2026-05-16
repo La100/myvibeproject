@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2 } from "lucide-react";
 import { AISubscriptionWall } from "./AISubscriptionWall";
 import type { Id } from "@/convex/_generated/dataModel";
+import { useI18n } from "@/lib/i18n";
 
 type AIAccessStatus = {
   hasAccess: boolean;
@@ -15,7 +16,8 @@ type AccessGateProps = {
   team: { _id: Id<"teams">; slug: string } | null | undefined;
 };
 
-const renderAccessGate = ({ aiAccess, team }: AccessGateProps) => {
+function AccessGateContent({ aiAccess, team }: AccessGateProps) {
+  const { t } = useI18n();
   const hasTeam = !!team?._id;
   if (!hasTeam) return null;
 
@@ -40,10 +42,12 @@ const renderAccessGate = ({ aiAccess, team }: AccessGateProps) => {
                 variant="destructive"
                 className="w-fit"
               >
-                Tokens exhausted
+                {t("aiShell", "accessTokensExhausted")}
               </Badge>
               <div className="flex flex-col gap-2">
-                <CardTitle className="text-2xl tracking-tight">No AI tokens available</CardTitle>
+                <CardTitle className="text-2xl tracking-tight">
+                  {t("aiShell", "accessNoTokens")}
+                </CardTitle>
                 <CardDescription className="text-base">{aiAccess.message}</CardDescription>
               </div>
             </CardHeader>
@@ -51,7 +55,7 @@ const renderAccessGate = ({ aiAccess, team }: AccessGateProps) => {
               <div className="flex flex-col gap-3 rounded-2xl border border-border/50 bg-muted/30 p-4">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-                    Remaining tokens
+                    {t("aiShell", "accessRemainingTokens")}
                   </span>
                   <span className="text-sm font-semibold text-foreground">
                     {remainingTokens.toLocaleString()}
@@ -64,7 +68,7 @@ const renderAccessGate = ({ aiAccess, team }: AccessGateProps) => {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Upgrade your plan in Billing to continue using AI.
+                  {t("aiShell", "accessUpgradeBilling")}
                 </p>
               </div>
             </CardContent>
@@ -81,13 +85,19 @@ const renderAccessGate = ({ aiAccess, team }: AccessGateProps) => {
       <div className="flex min-h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Checking access...</p>
+          <p className="text-muted-foreground">
+            {t("aiShell", "checkingAccess")}
+          </p>
         </div>
       </div>
     );
   }
 
   return null;
-};
+}
+
+const renderAccessGate = (props: AccessGateProps) => (
+  <AccessGateContent {...props} />
+);
 
 export { renderAccessGate };

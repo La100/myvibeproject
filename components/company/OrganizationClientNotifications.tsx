@@ -9,6 +9,7 @@ import { dedupeActivityLogActivities } from "@/lib/activityLogDeduplication";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { ClientNotificationsFeed } from "@/components/shared/ClientNotificationsFeed";
+import { useI18n } from "@/lib/i18n";
 
 type OrganizationNotification = {
   _id: string;
@@ -41,6 +42,7 @@ export function OrganizationClientNotifications({
   showHeader = true,
   className,
 }: OrganizationClientNotificationsProps) {
+  const { t } = useI18n();
   const { organization } = useOrganization();
   const markOrganizationNotificationsRead = useMutation(
     apiAny.teams.markOrganizationClientNotificationsRead,
@@ -125,17 +127,19 @@ export function OrganizationClientNotifications({
         <div className="mb-4 lg:mb-6">
           <div className="mb-2 flex items-center gap-2">
             <BellRing className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-bold lg:text-3xl">Notifications</h1>
+            <h1 className="text-2xl font-bold lg:text-3xl">
+              {t("organizationNotifications", "title")}
+            </h1>
           </div>
           <p className="text-sm text-muted-foreground lg:text-base">
-            Client responses from all projects in this organization.
+            {t("organizationNotifications", "description")}
           </p>
         </div>
       ) : null}
 
       <ClientNotificationsFeed
-        title="Organization Notifications"
-        emptyState="No client notifications yet. Actions from client portals will appear here."
+        title={t("organizationNotifications", "feedTitle")}
+        emptyState={t("organizationNotifications", "emptyState")}
         notifications={notifications}
         unreadCount={unreadNotifications.length}
         showProjectBadge

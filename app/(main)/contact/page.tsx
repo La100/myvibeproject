@@ -1,8 +1,13 @@
+"use client";
+
 import { Mail } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ContactForm } from "./contact-form";
+import { useI18n } from "@/lib/i18n";
 
 export default function ContactPage() {
+  const { t } = useI18n();
+
   return (
     <div className="min-h-[calc(100svh-6rem)] bg-background px-5 pb-12 pt-6 md:px-8">
       <section className="mx-auto flex w-full max-w-2xl justify-center">
@@ -13,9 +18,11 @@ export default function ContactPage() {
             </div>
             <div className="flex flex-col gap-2">
               <CardTitle className="font-serif text-4xl font-medium leading-none">
-                Hello 👋
+                {t("publicPages", "contactTitle")}
               </CardTitle>
-              <CardDescription>Feel free to message us about anything :)</CardDescription>
+              <CardDescription>
+                {t("publicPages", "contactDescription")}
+              </CardDescription>
             </div>
           </CardHeader>
           <CardContent>

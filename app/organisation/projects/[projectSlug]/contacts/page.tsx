@@ -38,9 +38,11 @@ import { Doc, Id } from "@/convex/_generated/dataModel";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 export default function ContactsPage() {
   const { project, team } = useProject();
+  const { t } = useI18n();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<
@@ -80,9 +82,9 @@ export default function ContactsPage() {
         contactId,
       });
 
-      toast.success("Contact removed from project");
+      toast.success(t("projectContacts", "contactRemoved"));
     } catch (error) {
-      toast.error("Error removing contact", {
+      toast.error(t("projectContacts", "errorRemovingContact"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -95,7 +97,7 @@ export default function ContactsPage() {
 
   const handleAssignContact = async () => {
     if (!selectedContactId) {
-      toast.error("Select a contact first");
+      toast.error(t("projectContacts", "selectContactFirst"));
       return;
     }
 
@@ -106,9 +108,9 @@ export default function ContactsPage() {
       });
       setSelectedContactId("");
       setIsAssignDialogOpen(false);
-      toast.success("Contact added to project");
+      toast.success(t("projectContacts", "contactAdded"));
     } catch (error) {
-      toast.error("Error adding contact to project", {
+      toast.error(t("projectContacts", "errorAddingContact"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -117,12 +119,13 @@ export default function ContactsPage() {
 
   const getTypeLabel = (type: string) => {
     const labels = {
-      contractor: "Contractor",
-      supplier: "Supplier",
-      subcontractor: "Subcontractor",
-      other: "Other",
-    };
-    return labels[type as keyof typeof labels] || type;
+      contractor: "contractor",
+      supplier: "supplier",
+      subcontractor: "subcontractor",
+      other: "other",
+    } as const;
+    const key = labels[type as keyof typeof labels];
+    return key ? t("projectContacts", key) : type;
   };
 
   const getTypeVariant = (type: string) => {
@@ -157,7 +160,7 @@ export default function ContactsPage() {
     <ProjectPageLayout>
       <div>
         <ProjectPageHeader
-          title="Contacts"
+          title={t("projectContacts", "contacts")}
           icon={<User className="h-8 w-8 text-primary" />}
         />
 
@@ -165,10 +168,10 @@ export default function ContactsPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-xl font-semibold tracking-tight">
-                Project Contacts
+                {t("projectContacts", "projectContacts")}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                People and vendors tied to this project.
+                {t("projectContacts", "peopleAndVendors")}
               </p>
             </div>
 
@@ -180,14 +183,14 @@ export default function ContactsPage() {
                 <DialogTrigger asChild>
                   <Button variant="outline">
                     <UserPlus data-icon="inline-start" />
-                    Add Existing
+                    {t("projectContacts", "addExisting")}
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Add Existing Contact</DialogTitle>
+                    <DialogTitle>{t("projectContacts", "addExistingContact")}</DialogTitle>
                     <DialogDescription>
-                      Select a contact from the company address book.
+                      {t("projectContacts", "selectFromCompanyAddressBook")}
                     </DialogDescription>
                   </DialogHeader>
 
@@ -199,7 +202,7 @@ export default function ContactsPage() {
                       }
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select contact" />
+                        <SelectValue placeholder={t("projectContacts", "selectContact")} />
                       </SelectTrigger>
                       <SelectContent>
                         {availableContacts.map((contact) => (
@@ -215,8 +218,7 @@ export default function ContactsPage() {
 
                     {organizationContacts && availableContacts.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
-                        All company contacts are already assigned to this
-                        project.
+                        {t("projectContacts", "allContactsAssigned")}
                       </p>
                     ) : null}
 
@@ -226,14 +228,14 @@ export default function ContactsPage() {
                         variant="outline"
                         onClick={() => setIsAssignDialogOpen(false)}
                       >
-                        Cancel
+                        {t("projectContacts", "cancel")}
                       </Button>
                       <Button
                         type="button"
                         onClick={handleAssignContact}
                         disabled={!selectedContactId}
                       >
-                        Add to Project
+                        {t("projectContacts", "addToProject")}
                       </Button>
                     </div>
                   </div>
@@ -247,14 +249,14 @@ export default function ContactsPage() {
                 <DialogTrigger asChild>
                   <Button>
                     <Plus data-icon="inline-start" />
-                    Create Contact
+                    {t("projectContacts", "createContact")}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Create New Contact</DialogTitle>
+                    <DialogTitle>{t("projectContacts", "createNewContact")}</DialogTitle>
                     <DialogDescription>
-                      Create a company contact and assign it to this project.
+                      {t("projectContacts", "createAndAssign")}
                     </DialogDescription>
                   </DialogHeader>
 
@@ -273,7 +275,7 @@ export default function ContactsPage() {
               {projectContacts.map((contact) => (
                 <article
                   key={contact._id}
-                  className="group flex min-h-[220px] flex-col rounded-2xl border border-border/80 bg-card p-4 shadow-[0_16px_44px_-36px_rgba(24,20,16,0.38)] transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-border hover:shadow-sm"
+                  className="group flex min-h-[220px] flex-col rounded-2xl border border-border/80 bg-card p-4 transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-border hover:shadow-sm"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-2.5">
@@ -374,11 +376,10 @@ export default function ContactsPage() {
           ) : (
             <div className="rounded-2xl border border-dashed border-border/70 bg-card px-6 py-12 text-center">
               <p className="font-medium text-foreground">
-                No contacts assigned to this project yet
+                {t("projectContacts", "noContactsAssigned")}
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Add an existing company contact or create a new one for this
-                project.
+                {t("projectContacts", "noContactsAssignedDescription")}
               </p>
             </div>
           )}

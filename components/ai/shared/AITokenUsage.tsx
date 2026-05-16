@@ -2,8 +2,10 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 const AITokenUsageStats = () => {
+  const { t } = useI18n();
 
   return (
     <div className="p-6">
@@ -11,13 +13,15 @@ const AITokenUsageStats = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5" />
-            AI Token Usage
+            {t("aiShell", "tokenUsageTitle")}
           </CardTitle>
-          <CardDescription>Token usage tracking is currently disabled.</CardDescription>
+          <CardDescription>
+            {t("aiShell", "tokenUsageDisabled")}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
-            Token usage statistics are not available at this time.
+            {t("aiShell", "tokenUsageUnavailable")}
           </p>
         </CardContent>
       </Card>
@@ -26,7 +30,6 @@ const AITokenUsageStats = () => {
 };
 
 export default AITokenUsageStats;
-
 
 
 

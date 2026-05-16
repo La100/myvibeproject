@@ -10,6 +10,7 @@ import { formatCurrency } from "@/lib/utils";
 import { AddToProjectModal } from "./AddToProjectModal";
 import { EditProductModal } from "./EditProductModal";
 import { Id } from "@/convex/_generated/dataModel";
+import { useI18n } from "@/lib/i18n";
 
 interface ProductModalProps {
   product: { _id: string; name: string; brand?: string; model?: string; sku?: string; supplierSku?: string; dimensions?: string; weight?: number; material?: string; color?: string; unitPrice?: number; supplier?: string; category?: string; tags: string[]; description?: string; notes?: string; creatorName?: string; _creationTime: number; imageUrl?: string; productLink?: string; };
@@ -19,6 +20,7 @@ interface ProductModalProps {
 }
 
 export function ProductModal({ product, onClose, teamCurrency, teamId }: ProductModalProps) {
+  const { t } = useI18n();
   const [showAddToProjectModal, setShowAddToProjectModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
 
@@ -49,29 +51,29 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="flex flex-col gap-4">
               <div>
-                <h3 className="font-semibold mb-2">Product Details</h3>
+                <h3 className="font-semibold mb-2">{t("productLibrary", "productDetails")}</h3>
                 <div className="flex flex-col gap-2 text-sm">
                   {product.brand && (
                     <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">Brand:</span>
+                      <span className="text-muted-foreground">{t("productLibrary", "brand")}:</span>
                       <span>{product.brand}</span>
                     </div>
                   )}
                   {product.model && (
                     <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">Model:</span>
+                      <span className="text-muted-foreground">{t("productLibrary", "model")}:</span>
                       <span>{product.model}</span>
                     </div>
                   )}
                   {product.sku && (
                     <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">SKU:</span>
+                      <span className="text-muted-foreground">{t("productLibrary", "sku")}:</span>
                       <span>{product.sku}</span>
                     </div>
                   )}
                   {product.supplierSku && (
                     <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">Supplier SKU:</span>
+                      <span className="text-muted-foreground">{t("productLibrary", "supplierSku")}:</span>
                       <span>{product.supplierSku}</span>
                     </div>
                   )}
@@ -81,7 +83,7 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
               {/* Physical Properties */}
               {(product.dimensions || product.weight || product.material || product.color) && (
                 <div>
-                  <h3 className="font-semibold mb-2">Physical Properties</h3>
+                  <h3 className="font-semibold mb-2">{t("productLibrary", "physicalProperties")}</h3>
                   <div className="flex flex-col gap-2 text-sm">
                     {product.dimensions && (
                       <div className="flex items-center gap-2">
@@ -91,13 +93,13 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
                     )}
                     {product.weight && (
                       <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground">Weight:</span>
+                        <span className="text-muted-foreground">{t("productLibrary", "weight")}:</span>
                         <span>{product.weight} kg</span>
                       </div>
                     )}
                     {product.material && (
                       <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground">Material:</span>
+                        <span className="text-muted-foreground">{t("productLibrary", "material")}:</span>
                         <span>{product.material}</span>
                       </div>
                     )}
@@ -115,7 +117,7 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
             <div className="flex flex-col gap-4">
               {/* Pricing & Availability */}
               <div>
-                <h3 className="font-semibold mb-2">Pricing & Availability</h3>
+                <h3 className="font-semibold mb-2">{t("productLibrary", "pricingAvailability")}</h3>
                 <div className="flex flex-col gap-2">
                   {product.unitPrice && (
                     <div className="text-xl font-bold">
@@ -128,7 +130,7 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
               {/* Supplier Info */}
               {product.supplier && (
                 <div>
-                  <h3 className="font-semibold mb-2">Supplier</h3>
+                  <h3 className="font-semibold mb-2">{t("productLibrary", "supplier")}</h3>
                   <p className="text-sm">{product.supplier}</p>
                 </div>
               )}
@@ -137,7 +139,7 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
               <div className="flex flex-col gap-3">
                 {product.category && (
                   <div>
-                    <h4 className="font-medium text-sm mb-1">Category</h4>
+                    <h4 className="font-medium text-sm mb-1">{t("productLibrary", "category")}</h4>
                     <Badge variant="secondary">{product.category}</Badge>
                   </div>
                 )}
@@ -146,7 +148,7 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
                   <div>
                     <h4 className="font-medium text-sm mb-2 flex items-center gap-1">
                       <Tag className="h-3 w-3" />
-                      Tags
+                      {t("productLibrary", "tags")}
                     </h4>
                     <div className="flex flex-wrap gap-1">
                       {product.tags.map((tag: string, index: number) => (
@@ -166,7 +168,7 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
             <>
               <Separator />
               <div>
-                <h3 className="font-semibold mb-2">Description</h3>
+                <h3 className="font-semibold mb-2">{t("productLibrary", "description")}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {product.description}
                 </p>
@@ -179,7 +181,7 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
             <>
               <Separator />
               <div>
-                <h3 className="font-semibold mb-2">Notes</h3>
+                <h3 className="font-semibold mb-2">{t("productLibrary", "notes")}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {product.notes}
                 </p>
@@ -192,7 +194,7 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
           <div className="flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-4">
             <div className="flex items-center gap-1">
               <User className="h-3 w-3" />
-              <span>Added by {product.creatorName || "Unknown User"}</span>
+              <span>{t("productLibrary", "addedBy", { name: product.creatorName || t("productLibrary", "unknownUser") })}</span>
             </div>
             <div className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />
@@ -207,7 +209,7 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
               onClick={() => setShowAddToProjectModal(true)}
             >
               <ShoppingCart className="h-4 w-4 mr-2" />
-              Add to Project
+              {t("productLibrary", "addToProject")}
             </Button>
             <Button
               variant="outline"
@@ -215,7 +217,7 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
               onClick={() => setShowEditModal(true)}
             >
               <Edit className="h-4 w-4 mr-2" />
-              Edit
+              {t("productLibrary", "edit")}
             </Button>
             {product.productLink && (
               <Button
@@ -225,7 +227,7 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
               >
                 <a href={product.productLink} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="h-4 w-4 mr-2" />
-                  View Product
+                  {t("productLibrary", "viewProduct")}
                 </a>
               </Button>
             )}

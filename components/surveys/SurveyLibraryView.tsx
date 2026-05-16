@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { useI18n } from "@/lib/i18n";
 
 type SurveyTemplateSummary = {
   _id: Id<"surveyTemplates">;
@@ -30,6 +31,7 @@ type SurveyTemplateSummary = {
 };
 
 export function SurveyLibraryView() {
+  const { t } = useI18n();
   const router = useRouter();
   const { organization } = useOrganization();
   const [searchTerm, setSearchTerm] = useState("");
@@ -61,16 +63,23 @@ export function SurveyLibraryView() {
   }, [searchTerm, templates]);
 
   const handleDelete = async (template: SurveyTemplateSummary) => {
-    if (!confirm(`Delete "${template.title}" from the survey library?`)) {
+    if (
+      !confirm(
+        t("surveys", "deleteTemplateConfirm").replace(
+          "{title}",
+          template.title,
+        ),
+      )
+    ) {
       return;
     }
 
     setDeletingId(template._id);
     try {
       await deleteTemplate({ templateId: template._id });
-      toast.success("Survey template deleted");
+      toast.success(t("surveys", "surveyTemplateDeleted"));
     } catch (error) {
-      toast.error("Could not delete survey template", {
+      toast.error(t("surveys", "couldNotDeleteTemplate"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -85,17 +94,17 @@ export function SurveyLibraryView() {
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0">
             <h1 className="font-serif text-[2rem] leading-none tracking-[-0.04em] text-foreground">
-              Survey Library
+              {t("surveys", "surveyLibrary")}
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Save reusable survey templates and apply them across projects.
+              {t("surveys", "saveReusableTemplates")}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 xl:justify-end">
             <div className="relative min-w-[220px] flex-1 xl:w-[320px] xl:flex-none">
               <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search templates"
+                placeholder={t("surveys", "searchTemplates")}
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 className="h-10 rounded-2xl border-border/70 bg-card pl-10 shadow-none"
@@ -104,7 +113,7 @@ export function SurveyLibraryView() {
             <Button asChild className="h-10 rounded-2xl px-4">
               <Link href="/organisation/survey-library/new">
                 <Plus data-icon="inline-start" />
-                New Template
+                {t("surveys", "newTemplate")}
               </Link>
             </Button>
           </div>
@@ -114,10 +123,10 @@ export function SurveyLibraryView() {
       <div className="flex-1 overflow-auto px-5 py-6 md:px-7">
         {filteredTemplates.length === 0 ? (
           <EmptyState
-            title="Create your first survey template"
-            description="Reusable templates keep client onboarding, sign-offs, and feedback forms consistent across projects."
+            title={t("surveys", "createFirstTemplate")}
+            description={t("surveys", "saveReusableTemplatesEmpty")}
             action={{
-              label: "New Template",
+              label: t("surveys", "newTemplate"),
               onClick: () => router.push("/organisation/survey-library/new"),
               icon: Plus,
             }}
@@ -134,8 +143,8 @@ export function SurveyLibraryView() {
                       <Badge variant="secondary">
                         {template.questionCount}{" "}
                         {template.questionCount === 1
-                          ? "question"
-                          : "questions"}
+                          ? t("surveys", "questionCountSingular")
+                          : t("surveys", "questionCountPlural")}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-1">
@@ -144,7 +153,7 @@ export function SurveyLibraryView() {
                           href={`/organisation/survey-library/${template._id}/edit`}
                         >
                           <Edit />
-                          <span className="sr-only">Edit template</span>
+                          <span className="sr-only">{t("surveys", "editTemplate")}</span>
                         </Link>
                       </Button>
                       <Button
@@ -155,7 +164,7 @@ export function SurveyLibraryView() {
                         onClick={() => handleDelete(template)}
                       >
                         <Trash2 />
-                        <span className="sr-only">Delete template</span>
+                        <span className="sr-only">{t("surveys", "deleteTemplate")}</span>
                       </Button>
                     </div>
                   </div>

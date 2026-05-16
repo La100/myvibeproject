@@ -22,6 +22,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { formatDateInput, parseDateInput } from "@/lib/dateInput";
+import { useI18n } from "@/lib/i18n";
 import { parseDecimalInput } from "@/lib/numberInput";
 import { cn, formatCurrency } from "@/lib/utils";
 
@@ -141,10 +142,12 @@ function InvoiceField({
 function SummaryField({
   label,
   value,
+  fallback,
   className,
 }: {
   label: ReactNode;
   value?: ReactNode;
+  fallback?: ReactNode;
   className?: string;
 }) {
   return (
@@ -152,7 +155,7 @@ function SummaryField({
       <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
         {label}
       </p>
-      <p className="text-sm text-foreground">{value || "Not set"}</p>
+      <p className="text-sm text-foreground">{value || fallback}</p>
     </div>
   );
 }
@@ -187,20 +190,23 @@ export function ProjectInvoiceDraftEditor({
   editorTotalLabel,
   onApplyProjectClientDetailsToEditor,
 }: ProjectInvoiceDraftEditorProps) {
+  const { t } = useI18n();
+  const notSetLabel = t("projectPayments", "notSet");
+
   return (
     <div className="rounded-3xl border border-border/70 bg-card shadow-sm">
       <div className="flex flex-col gap-8 p-6 md:p-10">
         <div className="flex flex-col gap-6 border-b border-border/60 pb-8 md:flex-row md:items-start md:justify-between">
           <div className="flex flex-col gap-3">
             <p className="text-xs font-medium uppercase tracking-[0.28em] text-muted-foreground">
-              {isCreateMode ? "Invoice draft" : "Invoice editor"}
+              {isCreateMode ? t("projectPayments", "invoiceDraft") : t("projectPayments", "invoiceEditor")}
             </p>
             <div>
-              <h2 className="text-3xl font-semibold tracking-tight">Invoice</h2>
+              <h2 className="text-3xl font-semibold tracking-tight">{t("projectPayments", "invoice")}</h2>
               <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
                 {isCreateMode
-                  ? "Seller and payment details come from the organization billing profile. Review client details and invoice line items before saving."
-                  : "Edit the invoice snapshot directly before saving changes."}
+                  ? t("projectPayments", "invoiceDraftDescription")
+                  : t("projectPayments", "invoiceEditorDescription")}
               </p>
             </div>
           </div>
@@ -208,13 +214,13 @@ export function ProjectInvoiceDraftEditor({
           <div className="grid gap-4 rounded-2xl border border-border/70 bg-secondary/70 p-4 md:min-w-[280px]">
             <div className="flex flex-wrap gap-2">
               <Badge variant={invoiceSetupReady ? "outline" : "destructive"}>
-                {invoiceSetupReady ? "Ready to issue" : "Setup incomplete"}
+                {invoiceSetupReady ? t("projectPayments", "readyToIssue") : t("projectPayments", "setupIncomplete")}
               </Badge>
               <Badge variant="secondary">{paymentRouteLabel}</Badge>
             </div>
             <div className="grid gap-3">
               <div>
-                <InlineLabel>Invoice number</InlineLabel>
+                <InlineLabel>{t("projectPayments", "invoiceNumber")}</InlineLabel>
                 {isIssuedInvoiceEdit ? (
                   <Input
                     id="installment-invoice-number"
@@ -222,25 +228,25 @@ export function ProjectInvoiceDraftEditor({
                     onChange={(event) =>
                       setForm((current) => ({ ...current, invoiceNumber: event.target.value }))
                     }
-                    placeholder="INV/2026/0001"
+                    placeholder={t("projectPayments", "invoiceNumberPlaceholder")}
                     className="mt-2"
                   />
                 ) : (
-                  <p className="mt-2 text-sm text-foreground">Assigned automatically on issue</p>
+                  <p className="mt-2 text-sm text-foreground">{t("projectPayments", "assignedAutomaticallyOnIssue")}</p>
                 )}
               </div>
               <div>
-                <InlineLabel>Issue date</InlineLabel>
+                <InlineLabel>{t("projectPayments", "issueDate")}</InlineLabel>
                 <p className="mt-2 text-sm text-foreground">{issueDateLabel}</p>
               </div>
               <div>
-                <InlineLabel>Due date</InlineLabel>
+                <InlineLabel>{t("projectPayments", "dueDateLabel")}</InlineLabel>
                 <DatePicker
                   date={parseDateInput(form.dueDate)}
                   onDateChange={(date) =>
                     setForm((current) => ({ ...current, dueDate: formatDateInput(date) }))
                   }
-                  placeholder="Select due date"
+                  placeholder={t("projectPayments", "selectDueDate")}
                   className="mt-2 w-full"
                 />
               </div>
@@ -252,15 +258,14 @@ export function ProjectInvoiceDraftEditor({
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
-                From
+                {t("projectPayments", "from")}
               </p>
             </div>
             {isCreateMode ? (
               <div className="rounded-2xl border border-border/70 bg-secondary/70 p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <p className="max-w-md text-sm text-muted-foreground">
-                    These details are pulled from the organization billing profile and saved as the
-                    invoice seller snapshot when you create the draft.
+                    {t("projectPayments", "sellerSnapshotDescription")}
                   </p>
                   <Button type="button" variant="outline" size="sm" asChild>
                     <Link
@@ -268,25 +273,25 @@ export function ProjectInvoiceDraftEditor({
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      Manage organization profile
+                      {t("projectPayments", "manageOrganizationProfile")}
                     </Link>
                   </Button>
                 </div>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <SummaryField label="Seller name" value={editorBillingProfile.sellerName} />
-                  <SummaryField label="Tax ID / VAT ID" value={editorBillingProfile.sellerTaxId} />
-                  <SummaryField label="Billing email" value={editorBillingProfile.sellerEmail} />
-                  <SummaryField label="Phone" value={editorBillingProfile.sellerPhone} />
-                  <SummaryField label="Address line 1" value={editorBillingProfile.sellerAddressLine1} />
-                  <SummaryField label="Address line 2" value={editorBillingProfile.sellerAddressLine2} />
-                  <SummaryField label="Postal code" value={editorBillingProfile.sellerPostalCode} />
-                  <SummaryField label="City" value={editorBillingProfile.sellerCity} />
-                  <SummaryField label="Country" value={editorBillingProfile.sellerCountry} />
+                  <SummaryField label={t("projectPayments", "sellerName")} value={editorBillingProfile.sellerName} fallback={notSetLabel} />
+                  <SummaryField label={t("projectPayments", "taxIdVatId")} value={editorBillingProfile.sellerTaxId} fallback={notSetLabel} />
+                  <SummaryField label={t("projectPayments", "billingEmail")} value={editorBillingProfile.sellerEmail} fallback={notSetLabel} />
+                  <SummaryField label={t("projectPayments", "phone")} value={editorBillingProfile.sellerPhone} fallback={notSetLabel} />
+                  <SummaryField label={t("projectPayments", "addressLine1")} value={editorBillingProfile.sellerAddressLine1} fallback={notSetLabel} />
+                  <SummaryField label={t("projectPayments", "addressLine2")} value={editorBillingProfile.sellerAddressLine2} fallback={notSetLabel} />
+                  <SummaryField label={t("projectPayments", "postalCode")} value={editorBillingProfile.sellerPostalCode} fallback={notSetLabel} />
+                  <SummaryField label={t("projectPayments", "city")} value={editorBillingProfile.sellerCity} fallback={notSetLabel} />
+                  <SummaryField label={t("projectPayments", "country")} value={editorBillingProfile.sellerCountry} fallback={notSetLabel} />
                 </div>
               </div>
             ) : (
               <FieldGroup className="grid gap-4">
-                <InvoiceField label="Seller name" htmlFor="editor-seller-name">
+                <InvoiceField label={t("projectPayments", "sellerName")} htmlFor="editor-seller-name">
                   <Input
                     id="editor-seller-name"
                     value={editorBillingProfile.sellerName}
@@ -296,7 +301,7 @@ export function ProjectInvoiceDraftEditor({
                   />
                 </InvoiceField>
                 <FieldGroup className="grid gap-4 md:grid-cols-2">
-                  <InvoiceField label="Billing email" htmlFor="editor-seller-email">
+                  <InvoiceField label={t("projectPayments", "billingEmail")} htmlFor="editor-seller-email">
                     <Input
                       id="editor-seller-email"
                       type="email"
@@ -306,7 +311,7 @@ export function ProjectInvoiceDraftEditor({
                       }
                     />
                   </InvoiceField>
-                  <InvoiceField label="Phone" htmlFor="editor-seller-phone">
+                  <InvoiceField label={t("projectPayments", "phone")} htmlFor="editor-seller-phone">
                     <Input
                       id="editor-seller-phone"
                       value={editorBillingProfile.sellerPhone}
@@ -316,7 +321,7 @@ export function ProjectInvoiceDraftEditor({
                     />
                   </InvoiceField>
                 </FieldGroup>
-                <InvoiceField label="Tax ID / VAT ID" htmlFor="editor-seller-tax-id">
+                <InvoiceField label={t("projectPayments", "taxIdVatId")} htmlFor="editor-seller-tax-id">
                   <Input
                     id="editor-seller-tax-id"
                     value={editorBillingProfile.sellerTaxId}
@@ -325,7 +330,7 @@ export function ProjectInvoiceDraftEditor({
                     }
                   />
                 </InvoiceField>
-                <InvoiceField label="Address line 1" htmlFor="editor-seller-address-1">
+                <InvoiceField label={t("projectPayments", "addressLine1")} htmlFor="editor-seller-address-1">
                   <Input
                     id="editor-seller-address-1"
                     value={editorBillingProfile.sellerAddressLine1}
@@ -337,7 +342,7 @@ export function ProjectInvoiceDraftEditor({
                     }
                   />
                 </InvoiceField>
-                <InvoiceField label="Address line 2" htmlFor="editor-seller-address-2">
+                <InvoiceField label={t("projectPayments", "addressLine2")} htmlFor="editor-seller-address-2">
                   <Input
                     id="editor-seller-address-2"
                     value={editorBillingProfile.sellerAddressLine2}
@@ -350,7 +355,7 @@ export function ProjectInvoiceDraftEditor({
                   />
                 </InvoiceField>
                 <FieldGroup className="grid gap-4 md:grid-cols-3">
-                  <InvoiceField label="Postal code" htmlFor="editor-seller-postal-code">
+                  <InvoiceField label={t("projectPayments", "postalCode")} htmlFor="editor-seller-postal-code">
                     <Input
                       id="editor-seller-postal-code"
                       value={editorBillingProfile.sellerPostalCode}
@@ -362,7 +367,7 @@ export function ProjectInvoiceDraftEditor({
                       }
                     />
                   </InvoiceField>
-                  <InvoiceField label="City" htmlFor="editor-seller-city">
+                  <InvoiceField label={t("projectPayments", "city")} htmlFor="editor-seller-city">
                     <Input
                       id="editor-seller-city"
                       value={editorBillingProfile.sellerCity}
@@ -371,7 +376,7 @@ export function ProjectInvoiceDraftEditor({
                       }
                     />
                   </InvoiceField>
-                  <InvoiceField label="Country" htmlFor="editor-seller-country">
+                  <InvoiceField label={t("projectPayments", "country")} htmlFor="editor-seller-country">
                     <Input
                       id="editor-seller-country"
                       value={editorBillingProfile.sellerCountry}
@@ -388,16 +393,16 @@ export function ProjectInvoiceDraftEditor({
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
-                Bill to
+                {t("projectPayments", "billTo")}
               </p>
               <Button type="button" variant="outline" size="sm" onClick={onApplyProjectClientDetailsToEditor}>
                 <RefreshCw data-icon="inline-start" />
-                Use project client details
+                {t("projectPayments", "useProjectClientDetails")}
               </Button>
             </div>
             <FieldGroup className="grid gap-4">
               <FieldGroup className="grid gap-4 md:grid-cols-2">
-                <InvoiceField label="Company name" htmlFor="editor-customer-company-name">
+                <InvoiceField label={t("projectPayments", "companyName")} htmlFor="editor-customer-company-name">
                   <Input
                     id="editor-customer-company-name"
                     value={editorCustomer.companyName}
@@ -406,7 +411,7 @@ export function ProjectInvoiceDraftEditor({
                     }
                   />
                 </InvoiceField>
-                <InvoiceField label="Contact / buyer name" htmlFor="editor-customer-name">
+                <InvoiceField label={t("projectPayments", "contactBuyerName")} htmlFor="editor-customer-name">
                   <Input
                     id="editor-customer-name"
                     value={editorCustomer.name}
@@ -417,7 +422,7 @@ export function ProjectInvoiceDraftEditor({
                 </InvoiceField>
               </FieldGroup>
               <FieldGroup className="grid gap-4 md:grid-cols-2">
-                <InvoiceField label="Billing email" htmlFor="editor-customer-email">
+                <InvoiceField label={t("projectPayments", "billingEmail")} htmlFor="editor-customer-email">
                   <Input
                     id="editor-customer-email"
                     type="email"
@@ -427,7 +432,7 @@ export function ProjectInvoiceDraftEditor({
                     }
                   />
                 </InvoiceField>
-                <InvoiceField label="Phone" htmlFor="editor-customer-phone">
+                <InvoiceField label={t("projectPayments", "phone")} htmlFor="editor-customer-phone">
                   <Input
                     id="editor-customer-phone"
                     value={editorCustomer.phone}
@@ -437,7 +442,7 @@ export function ProjectInvoiceDraftEditor({
                   />
                 </InvoiceField>
               </FieldGroup>
-              <InvoiceField label="Tax ID / VAT ID" htmlFor="editor-customer-tax-id">
+              <InvoiceField label={t("projectPayments", "taxIdVatId")} htmlFor="editor-customer-tax-id">
                 <Input
                   id="editor-customer-tax-id"
                   value={editorCustomer.taxId}
@@ -446,7 +451,7 @@ export function ProjectInvoiceDraftEditor({
                   }
                 />
               </InvoiceField>
-              <InvoiceField label="Address line 1" htmlFor="editor-customer-address-1">
+              <InvoiceField label={t("projectPayments", "addressLine1")} htmlFor="editor-customer-address-1">
                 <Input
                   id="editor-customer-address-1"
                   value={editorCustomer.addressLine1}
@@ -455,7 +460,7 @@ export function ProjectInvoiceDraftEditor({
                   }
                 />
               </InvoiceField>
-              <InvoiceField label="Address line 2" htmlFor="editor-customer-address-2">
+              <InvoiceField label={t("projectPayments", "addressLine2")} htmlFor="editor-customer-address-2">
                 <Input
                   id="editor-customer-address-2"
                   value={editorCustomer.addressLine2}
@@ -465,7 +470,7 @@ export function ProjectInvoiceDraftEditor({
                 />
               </InvoiceField>
               <FieldGroup className="grid gap-4 md:grid-cols-3">
-                <InvoiceField label="Postal code" htmlFor="editor-customer-postal-code">
+                <InvoiceField label={t("projectPayments", "postalCode")} htmlFor="editor-customer-postal-code">
                   <Input
                     id="editor-customer-postal-code"
                     value={editorCustomer.postalCode}
@@ -474,7 +479,7 @@ export function ProjectInvoiceDraftEditor({
                     }
                   />
                 </InvoiceField>
-                <InvoiceField label="City" htmlFor="editor-customer-city">
+                <InvoiceField label={t("projectPayments", "city")} htmlFor="editor-customer-city">
                   <Input
                     id="editor-customer-city"
                     value={editorCustomer.city}
@@ -483,7 +488,7 @@ export function ProjectInvoiceDraftEditor({
                     }
                   />
                 </InvoiceField>
-                <InvoiceField label="Country" htmlFor="editor-customer-country">
+                <InvoiceField label={t("projectPayments", "country")} htmlFor="editor-customer-country">
                   <Input
                     id="editor-customer-country"
                     value={editorCustomer.country}
@@ -502,15 +507,15 @@ export function ProjectInvoiceDraftEditor({
             <div className="flex items-center justify-between gap-4 border-b border-border/60 bg-secondary/70 px-4 py-3">
               <div>
                 <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                  Line items
+                  {t("projectPayments", "lineItems")}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Add invoice rows with quantity and net unit price.
+                  {t("projectPayments", "lineItemsDescription")}
                 </p>
               </div>
               <Button type="button" variant="outline" size="sm" onClick={addEditorLineItem}>
                 <Plus data-icon="inline-start" />
-                Add item
+                {t("projectPayments", "addItem")}
               </Button>
             </div>
             <div className="flex flex-col gap-4 px-4 py-4">
@@ -524,7 +529,7 @@ export function ProjectInvoiceDraftEditor({
                   <div key={`invoice-line-item-${index}`} className="vibe-row rounded-2xl p-4">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                        Item {index + 1}
+                        {t("projectPayments", "itemNumber", { number: index + 1 })}
                       </p>
                       <Button
                         type="button"
@@ -533,22 +538,22 @@ export function ProjectInvoiceDraftEditor({
                         onClick={() => removeEditorLineItem(index)}
                       >
                         <Trash2 data-icon="inline-start" />
-                        Remove
+                        {t("projectPayments", "remove")}
                       </Button>
                     </div>
                     <div className="mt-4 grid gap-4">
                       <FieldGroup className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_120px_180px_180px]">
-                        <InvoiceField label="Product / service" htmlFor={`installment-title-${index}`}>
+                        <InvoiceField label={t("projectPayments", "productService")} htmlFor={`installment-title-${index}`}>
                           <Input
                             id={`installment-title-${index}`}
                             value={item.title}
                             onChange={(event) =>
                               updateEditorLineItem(index, "title", event.target.value)
                             }
-                            placeholder="Interior design project"
+                            placeholder={t("projectPayments", "lineItemTitlePlaceholder")}
                           />
                         </InvoiceField>
-                        <InvoiceField label="Qty" htmlFor={`installment-quantity-${index}`}>
+                        <InvoiceField label={t("projectPayments", "qty")} htmlFor={`installment-quantity-${index}`}>
                           <Input
                             id={`installment-quantity-${index}`}
                             type="text"
@@ -561,7 +566,7 @@ export function ProjectInvoiceDraftEditor({
                           />
                         </InvoiceField>
                         <InvoiceField
-                          label={editorTaxSettings.taxEnabled ? "Unit price (net)" : "Unit price"}
+                          label={editorTaxSettings.taxEnabled ? t("projectPayments", "unitPriceNet") : t("projectPayments", "unitPrice")}
                           htmlFor={`installment-unit-price-${index}`}
                         >
                           <InputGroup>
@@ -581,18 +586,19 @@ export function ProjectInvoiceDraftEditor({
                           </InputGroup>
                         </InvoiceField>
                         <SummaryField
-                          label="Line total"
+                          label={t("projectPayments", "lineTotal")}
                           value={formatCurrency(lineTotal || 0, activeCurrency)}
+                          fallback={notSetLabel}
                         />
                       </FieldGroup>
-                      <InvoiceField label="Description" htmlFor={`installment-description-${index}`}>
+                      <InvoiceField label={t("projectPayments", "description")} htmlFor={`installment-description-${index}`}>
                         <Textarea
                           id={`installment-description-${index}`}
                           value={item.description}
                           onChange={(event) =>
                             updateEditorLineItem(index, "description", event.target.value)
                           }
-                          placeholder="Optional note visible on the invoice"
+                          placeholder={t("projectPayments", "lineItemDescriptionPlaceholder")}
                           rows={3}
                         />
                       </InvoiceField>
@@ -604,23 +610,26 @@ export function ProjectInvoiceDraftEditor({
             <div className="flex flex-col gap-4 border-t border-border/60 bg-secondary/70 px-4 py-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex flex-col gap-3">
                 <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                  Payment details
+                  {t("projectPayments", "paymentDetails")}
                 </p>
                 {isCreateMode ? (
                   <div className="grid gap-4 md:grid-cols-2">
                     <SummaryField
-                      label="Bank account number / IBAN"
+                      label={t("projectPayments", "bankAccountNumberIban")}
                       value={editorBillingProfile.bankAccountNumber}
+                      fallback={notSetLabel}
                     />
-                    <SummaryField label="SWIFT" value={editorBillingProfile.bankSwift} />
+                    <SummaryField label={t("projectPayments", "swift")} value={editorBillingProfile.bankSwift} fallback={notSetLabel} />
                     <SummaryField
-                      label="Account holder"
+                      label={t("projectPayments", "accountHolder")}
                       value={editorBillingProfile.bankAccountHolder}
+                      fallback={notSetLabel}
                     />
-                    <SummaryField label="Bank name" value={editorBillingProfile.bankName} />
+                    <SummaryField label={t("projectPayments", "bankName")} value={editorBillingProfile.bankName} fallback={notSetLabel} />
                     <SummaryField
-                      label="Payment instructions"
+                      label={t("projectPayments", "paymentInstructions")}
                       value={editorBillingProfile.paymentInstructions}
+                      fallback={notSetLabel}
                       className="md:col-span-2"
                     />
                   </div>
@@ -636,7 +645,7 @@ export function ProjectInvoiceDraftEditor({
                             bankAccountNumber: event.target.value,
                           }))
                         }
-                        placeholder="Bank account number / IBAN"
+                        placeholder={t("projectPayments", "bankAccountNumberIban")}
                       />
                       <Input
                         id="editor-bank-swift"
@@ -644,7 +653,7 @@ export function ProjectInvoiceDraftEditor({
                         onChange={(event) =>
                           setEditorBillingProfile((prev) => ({ ...prev, bankSwift: event.target.value }))
                         }
-                        placeholder="SWIFT"
+                        placeholder={t("projectPayments", "swift")}
                       />
                       <Input
                         id="editor-bank-account-holder"
@@ -655,7 +664,7 @@ export function ProjectInvoiceDraftEditor({
                             bankAccountHolder: event.target.value,
                           }))
                         }
-                        placeholder="Account holder"
+                        placeholder={t("projectPayments", "accountHolder")}
                       />
                       <Input
                         id="editor-bank-name"
@@ -663,7 +672,7 @@ export function ProjectInvoiceDraftEditor({
                         onChange={(event) =>
                           setEditorBillingProfile((prev) => ({ ...prev, bankName: event.target.value }))
                         }
-                        placeholder="Bank name"
+                        placeholder={t("projectPayments", "bankName")}
                       />
                     </div>
                     <Textarea
@@ -676,7 +685,7 @@ export function ProjectInvoiceDraftEditor({
                           paymentInstructions: event.target.value,
                         }))
                       }
-                      placeholder="Payment instructions"
+                      placeholder={t("projectPayments", "paymentInstructions")}
                     />
                   </>
                 )}
@@ -684,18 +693,18 @@ export function ProjectInvoiceDraftEditor({
 
               <div className="min-w-[220px] rounded-2xl border border-border/70 bg-card px-5 py-4">
                 <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                  Summary
+                  {t("projectPayments", "summary")}
                 </p>
                 <div className="mt-4 flex flex-col gap-3 text-sm">
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="text-muted-foreground">{t("projectPayments", "subtotal")}</span>
                     <span>{formatCurrency(editorTaxBreakdown.net, activeCurrency)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-4">
                     <span className="text-muted-foreground">
                       {editorTaxSettings.taxEnabled
                         ? `${editorTaxSettings.taxLabel} (${editorTaxSettings.taxRate.toFixed(0)}%)`
-                        : `${editorTaxSettings.taxLabel} disabled`}
+                        : t("projectPayments", "taxDisabled", { label: editorTaxSettings.taxLabel })}
                     </span>
                     <span>
                       {editorTaxSettings.taxEnabled
@@ -706,14 +715,14 @@ export function ProjectInvoiceDraftEditor({
                   <div className="border-t border-border/60 pt-3">
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                        Total
+                        {t("projectPayments", "total")}
                       </span>
                       <span className="text-2xl font-semibold tracking-tight">{editorTotalLabel}</span>
                     </div>
                   </div>
                 </div>
                 <p className="mt-3 text-xs text-muted-foreground">
-                  Tax settings come from organization settings and are saved with the invoice snapshot.
+                  {t("projectPayments", "taxSnapshotDescription")}
                 </p>
               </div>
             </div>

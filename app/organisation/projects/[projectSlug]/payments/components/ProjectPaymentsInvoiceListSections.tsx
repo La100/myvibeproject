@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TabsContent } from "@/components/ui/tabs";
 import { Id } from "@/convex/_generated/dataModel";
+import { useI18n } from "@/lib/i18n";
 import { cn, formatCurrency } from "@/lib/utils";
 import {
   CheckCircle2,
@@ -81,12 +82,17 @@ const getStatusBadgeVariant = (
   return "secondary";
 };
 
-const getStatusLabel = (installment: Installment) => {
+const getStatusLabelKey = (installment: Installment) => {
   if (installment.isOverdue) {
-    return "OVERDUE";
+    return "statusOverdue";
   }
 
-  return installment.status.toUpperCase();
+  return `status${installment.status[0].toUpperCase()}${installment.status.slice(1)}` as
+    | "statusDraft"
+    | "statusOpen"
+    | "statusPaid"
+    | "statusVoid"
+    | "statusUncollectible";
 };
 
 const actionButtonClassName =
@@ -117,12 +123,13 @@ function InvoiceListItem({
   onCopyPaymentLink: (value?: string) => void;
   onCopyReference: (value?: string) => void;
 }) {
+  const { t } = useI18n();
   const isDraft = installment.status === "draft";
   const canVoid =
     installment.status !== "paid" && installment.status !== "void";
 
   return (
-    <div className="rounded-2xl border border-border/80 bg-card px-4 py-4 shadow-[0_16px_44px_-34px_rgba(24,20,16,0.34)] transition-[border-color,box-shadow] hover:border-border hover:shadow-sm sm:px-5">
+    <div className="rounded-2xl border border-border/80 bg-card px-4 py-4 transition-[border-color,box-shadow] hover:border-border hover:shadow-sm sm:px-5">
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
         <div className="min-w-0">
           <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -133,7 +140,7 @@ function InvoiceListItem({
               variant={getStatusBadgeVariant(installment)}
               className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.08em]"
             >
-              {getStatusLabel(installment)}
+              {t("projectPayments", getStatusLabelKey(installment))}
             </Badge>
             {installment.invoiceNumber ? (
               <Badge
@@ -154,7 +161,7 @@ function InvoiceListItem({
           <div className="mt-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
             <span className="inline-flex shrink-0 items-baseline gap-1.5 whitespace-nowrap rounded-full bg-secondary/55 px-2.5 py-1">
               <span className="text-xs font-medium text-muted-foreground">
-                Total
+                {t("projectPayments", "total")}
               </span>
               <span className="font-semibold text-foreground">
                 {formatCurrency(installment.amount, installment.currency)}
@@ -162,26 +169,26 @@ function InvoiceListItem({
             </span>
             <span className={metaPillClassName}>
               {installment.dueDate
-                ? `Due ${new Date(installment.dueDate).toLocaleDateString()}`
-                : "No due date"}
+                ? t("projectPayments", "dueDate", { date: new Date(installment.dueDate).toLocaleDateString() })
+                : t("projectPayments", "noDueDate")}
             </span>
             {installment.paymentReference ? (
               <span className={cn(metaPillClassName, "max-w-[360px] truncate")}>
-                Ref {installment.paymentReference}
+                {t("projectPayments", "reference", { reference: installment.paymentReference })}
               </span>
             ) : null}
             {installment.paidAt ? (
               <span className={metaPillClassName}>
-                Paid {new Date(installment.paidAt).toLocaleDateString()}
+                {t("projectPayments", "paidDate", { date: new Date(installment.paidAt).toLocaleDateString() })}
               </span>
             ) : null}
             {installment.sentAt ? (
               <span className={metaPillClassName}>
-                Emailed {new Date(installment.sentAt).toLocaleDateString()}
+                {t("projectPayments", "emailedDate", { date: new Date(installment.sentAt).toLocaleDateString() })}
               </span>
             ) : null}
             {installment.stripeHostedInvoiceUrl ? (
-              <span className={metaPillClassName}>Payment link ready</span>
+              <span className={metaPillClassName}>{t("projectPayments", "paymentLinkReady")}</span>
             ) : null}
           </div>
         </div>
@@ -196,7 +203,7 @@ function InvoiceListItem({
                   className="h-8 shrink-0 rounded-full px-3 text-[12px] font-medium"
                   onClick={() => onOpenEditDialog(installment)}
                 >
-                  Edit
+                  {t("projectPayments", "edit")}
                 </Button>
                 <Button
                   type="button"
@@ -206,7 +213,7 @@ function InvoiceListItem({
                   onClick={() => onOpenPreview(installment)}
                   disabled={busy}
                 >
-                  View
+                  {t("projectPayments", "view")}
                 </Button>
                 <Button
                   type="button"
@@ -217,7 +224,7 @@ function InvoiceListItem({
                   disabled={busy}
                 >
                   <FileText data-icon="inline-start" />
-                  Issue
+                  {t("projectPayments", "issue")}
                 </Button>
                 <Button
                   type="button"
@@ -228,7 +235,7 @@ function InvoiceListItem({
                   disabled={busy}
                 >
                   <ExternalLink data-icon="inline-start" />
-                  Create payment link
+                  {t("projectPayments", "createPaymentLink")}
                 </Button>
                 <Button
                   type="button"
@@ -239,7 +246,7 @@ function InvoiceListItem({
                   disabled={busy}
                 >
                   <Mail data-icon="inline-start" />
-                  Send via email
+                  {t("projectPayments", "sendViaEmail")}
                 </Button>
                 <Button
                   type="button"
@@ -250,7 +257,7 @@ function InvoiceListItem({
                   disabled={busy}
                 >
                   <Trash2 data-icon="inline-start" />
-                  Delete
+                  {t("projectPayments", "delete")}
                 </Button>
               </>
             ) : (
@@ -268,7 +275,7 @@ function InvoiceListItem({
                     Boolean(installment.stripeInvoiceId)
                   }
                 >
-                  Edit invoice
+                  {t("projectPayments", "editInvoice")}
                 </Button>
                 <Button
                   type="button"
@@ -278,7 +285,7 @@ function InvoiceListItem({
                   onClick={() => onOpenPreview(installment)}
                   disabled={busy}
                 >
-                  View PDF
+                  {t("projectPayments", "viewPdf")}
                 </Button>
                 <Button
                   type="button"
@@ -289,7 +296,7 @@ function InvoiceListItem({
                   disabled={busy || !installment.hasInvoicePdf}
                 >
                   <Download data-icon="inline-start" />
-                  Download PDF
+                  {t("projectPayments", "downloadPdf")}
                 </Button>
                 <Button
                   type="button"
@@ -306,8 +313,8 @@ function InvoiceListItem({
                 >
                   <ExternalLink data-icon="inline-start" />
                   {installment.stripeHostedInvoiceUrl
-                    ? "Open payment link"
-                    : "Create payment link"}
+                    ? t("projectPayments", "openPaymentLink")
+                    : t("projectPayments", "createPaymentLink")}
                 </Button>
                 <Button
                   type="button"
@@ -320,7 +327,7 @@ function InvoiceListItem({
                   disabled={!installment.stripeHostedInvoiceUrl}
                 >
                   <Copy data-icon="inline-start" />
-                  Copy payment link
+                  {t("projectPayments", "copyPaymentLink")}
                 </Button>
                 <Button
                   type="button"
@@ -331,7 +338,7 @@ function InvoiceListItem({
                   disabled={busy}
                 >
                   <Mail data-icon="inline-start" />
-                  Send email
+                  {t("projectPayments", "sendEmail")}
                 </Button>
                 <Button
                   type="button"
@@ -342,7 +349,7 @@ function InvoiceListItem({
                   disabled={!installment.paymentReference}
                 >
                   <Copy data-icon="inline-start" />
-                  Copy reference
+                  {t("projectPayments", "copyReference")}
                 </Button>
                 {installment.status !== "paid" ? (
                   <Button
@@ -357,7 +364,7 @@ function InvoiceListItem({
                     disabled={busy}
                   >
                     <CheckCircle2 data-icon="inline-start" />
-                    Mark paid
+                    {t("projectPayments", "markPaid")}
                   </Button>
                 ) : (
                   <Button
@@ -368,7 +375,7 @@ function InvoiceListItem({
                     onClick={() => onRunAction(installment._id, "open")}
                     disabled={busy}
                   >
-                    Reopen
+                    {t("projectPayments", "reopen")}
                   </Button>
                 )}
                 {canVoid ? (
@@ -380,7 +387,7 @@ function InvoiceListItem({
                     onClick={() => onRunAction(installment._id, "void")}
                     disabled={busy}
                   >
-                    Void
+                    {t("projectPayments", "void")}
                   </Button>
                 ) : null}
               </>
@@ -470,20 +477,22 @@ export function ProjectPaymentsInvoiceListSections({
   onCopyPaymentLink,
   onCopyReference,
 }: ProjectPaymentsInvoiceListSectionsProps) {
+  const { t } = useI18n();
+
   return (
     <>
       <TabsContent value="schedule" className="flex flex-col gap-4">
         <InvoiceListSection
-          title="Draft invoices"
+          title={t("projectPayments", "draftInvoices")}
           icon={<Wallet />}
           action={
             <Button type="button" onClick={onNewInvoice}>
               <Plus data-icon="inline-start" />
-              New invoice
+              {t("projectPayments", "newInvoice")}
             </Button>
           }
           items={draftInstallments}
-          emptyMessage="No draft invoices yet. Create one here and issue it from the next tab when it is ready."
+          emptyMessage={t("projectPayments", "noDraftInvoices")}
           busyInstallmentId={busyInstallmentId}
           onOpenEditDialog={onOpenEditDialog}
           onOpenPreview={onOpenPreview}
@@ -496,10 +505,10 @@ export function ProjectPaymentsInvoiceListSections({
 
       <TabsContent value="invoices" className="flex flex-col gap-4">
         <InvoiceListSection
-          title="Issued invoices"
+          title={t("projectPayments", "issuedInvoices")}
           icon={<Banknote />}
           items={issuedInstallments}
-          emptyMessage="No issued invoices yet. Issue a draft invoice and it will appear here."
+          emptyMessage={t("projectPayments", "noIssuedInvoices")}
           busyInstallmentId={busyInstallmentId}
           onOpenEditDialog={onOpenEditDialog}
           onOpenPreview={onOpenPreview}

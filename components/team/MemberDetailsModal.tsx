@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useI18n } from "@/lib/i18n";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,6 +72,7 @@ export default function MemberDetailsModal({
   currentUserRole,
   currentUserClerkId,
 }: MemberDetailsModalProps) {
+  const { t } = useI18n();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
 
@@ -91,9 +93,9 @@ export default function MemberDetailsModal({
         teamId: member.teamId,
         role: newRole,
       });
-      toast.success("Role updated successfully");
+      toast.success(t("memberDetails", "roleUpdated"));
     } catch (error) {
-      toast.error("Failed to update role", {
+      toast.error(t("memberDetails", "failedToUpdateRole"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -109,10 +111,10 @@ export default function MemberDetailsModal({
         clerkUserId: member.clerkUserId,
         teamId: member.teamId,
       });
-      toast.success("Member removed from team");
+      toast.success(t("memberDetails", "memberRemoved"));
       onClose();
     } catch (error) {
-      toast.error("Failed to remove member", {
+      toast.error(t("memberDetails", "failedToRemoveMember"), {
         description: toUserFacingErrorMessage(error),
       });
     }
@@ -134,9 +136,9 @@ export default function MemberDetailsModal({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Member Details</DialogTitle>
+            <DialogTitle>{t("memberDetails", "title")}</DialogTitle>
             <DialogDescription>
-              View and manage team member information
+              {t("memberDetails", "description")}
             </DialogDescription>
           </DialogHeader>
 
@@ -157,11 +159,16 @@ export default function MemberDetailsModal({
                 </p>
                 <div className="flex items-center gap-2 mt-2">
                   <Badge variant={getRoleBadgeVariant(member.role)}>
-                    {member.role === 'admin' ? 'Administrator' :
-                     member.role === 'member' ? 'Member' : 'Unknown'}
+                    {member.role === "admin"
+                      ? t("memberDetails", "administrator")
+                      : member.role === "member"
+                        ? t("memberDetails", "member")
+                        : t("memberDetails", "unknown")}
                   </Badge>
                   {member.clerkUserId === currentUserClerkId && (
-                    <Badge variant="outline" className="text-xs">You</Badge>
+                    <Badge variant="outline" className="text-xs">
+                      {t("memberDetails", "you")}
+                    </Badge>
                   )}
                 </div>
               </div>
@@ -172,7 +179,9 @@ export default function MemberDetailsModal({
               <div className="flex items-start gap-3">
                 <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium">Joined</p>
+                  <p className="text-sm font-medium">
+                    {t("memberDetails", "joined")}
+                  </p>
                   <p className="text-sm text-muted-foreground">
                     {member.joinedAt
                       ? new Date(member.joinedAt).toLocaleDateString('en-US', {
@@ -180,7 +189,7 @@ export default function MemberDetailsModal({
                           month: 'long',
                           day: 'numeric',
                         })
-                      : 'Unknown'}
+                      : t("memberDetails", "unknown")}
                   </p>
                 </div>
               </div>
@@ -188,11 +197,13 @@ export default function MemberDetailsModal({
               <div className="flex items-start gap-3">
                 <Shield className="h-4 w-4 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium">Permissions</p>
+                  <p className="text-sm font-medium">
+                    {t("memberDetails", "permissions")}
+                  </p>
                   <p className="text-sm text-muted-foreground">
                     {member.permissions && member.permissions.length > 0
                       ? member.permissions.join(', ')
-                      : 'Standard permissions'}
+                      : t("memberDetails", "standardPermissions")}
                   </p>
                 </div>
               </div>
@@ -204,9 +215,13 @@ export default function MemberDetailsModal({
                   <Clock className="mt-0.5 h-4 w-4 text-muted-foreground" />
                 )}
                 <div>
-                  <p className="text-sm font-medium">Status</p>
+                  <p className="text-sm font-medium">
+                    {t("memberDetails", "status")}
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    {member.isActive ? 'Active' : 'Inactive'}
+                    {member.isActive
+                      ? t("memberDetails", "active")
+                      : t("memberDetails", "inactive")}
                   </p>
                 </div>
               </div>
@@ -215,9 +230,17 @@ export default function MemberDetailsModal({
                 <div className="flex items-start gap-3">
                   <Building2 className="h-4 w-4 text-muted-foreground mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium">Project Access</p>
+                    <p className="text-sm font-medium">
+                      {t("memberDetails", "projectAccess")}
+                    </p>
                     <p className="text-sm text-muted-foreground">
-                      Access to {member.projectIds.length} specific {member.projectIds.length === 1 ? 'project' : 'projects'}
+                      {t(
+                        "memberDetails",
+                        member.projectIds.length === 1
+                          ? "projectAccessSingular"
+                          : "projectAccessPlural",
+                        { count: member.projectIds.length },
+                      )}
                     </p>
                   </div>
                 </div>
@@ -228,7 +251,9 @@ export default function MemberDetailsModal({
             {canManageMember && (
               <div className="flex flex-col gap-4 border-t pt-4">
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium">Change Role</label>
+                  <label className="text-sm font-medium">
+                    {t("memberDetails", "changeRole")}
+                  </label>
                   <Select
                     value={member.role}
                     onValueChange={(value) => handleRoleChange(value as "admin" | "member")}
@@ -238,8 +263,12 @@ export default function MemberDetailsModal({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Administrator</SelectItem>
-                      <SelectItem value="member">Member</SelectItem>
+                      <SelectItem value="admin">
+                        {t("memberDetails", "administrator")}
+                      </SelectItem>
+                      <SelectItem value="member">
+                        {t("memberDetails", "member")}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -250,7 +279,7 @@ export default function MemberDetailsModal({
                   onClick={() => setShowDeleteDialog(true)}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Remove from Team
+                  {t("memberDetails", "removeFromTeam")}
                 </Button>
               </div>
             )}
@@ -258,7 +287,7 @@ export default function MemberDetailsModal({
 
           <DialogFooter>
             <Button variant="outline" onClick={onClose}>
-              Close
+              {t("memberDetails", "close")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -268,19 +297,22 @@ export default function MemberDetailsModal({
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove Team Member</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("memberDetails", "removeTeamMember")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove <strong>{member.name}</strong> from the team?
-              This action cannot be undone and they will lose access to all team resources.
+              {t("memberDetails", "removeConfirmPrefix")}{" "}
+              <strong>{member.name}</strong>{" "}
+              {t("memberDetails", "removeConfirmSuffix")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("memberDetails", "cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleRemoveMember}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Remove Member
+              {t("memberDetails", "removeMember")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { useI18n } from "@/lib/i18n";
 
 export type ProjectBookSectionKey =
   | "shoppingList"
@@ -29,13 +30,21 @@ export type ProjectBookExportOptions = {
   showSupplier: boolean;
 };
 
-const SECTION_LABELS: Record<ProjectBookSectionKey, string> = {
-  shoppingList: "Shopping List",
-  labor: "Labor",
-  tasks: "Tasks",
-  budget: "Budget",
-  payments: "Payments",
-  moodboard: "Moodboard",
+const SECTION_LABEL_KEYS: Record<
+  ProjectBookSectionKey,
+  | "shoppingList"
+  | "labor"
+  | "tasks"
+  | "budget"
+  | "payments"
+  | "moodboard"
+> = {
+  shoppingList: "shoppingList",
+  labor: "labor",
+  tasks: "tasks",
+  budget: "budget",
+  payments: "payments",
+  moodboard: "moodboard",
 };
 
 type ProjectBookExportDialogProps = {
@@ -55,24 +64,26 @@ export function ProjectBookExportDialog({
   onExport,
   onExportOptionsChange,
 }: ProjectBookExportDialogProps) {
+  const { t } = useI18n();
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Export Project Book</DialogTitle>
+          <DialogTitle>{t("projectBookExport", "exportProjectBook")}</DialogTitle>
           <DialogDescription>
-            Build one PDF with selected project sections.
+            {t("projectBookExport", "buildOnePdf")}
           </DialogDescription>
         </DialogHeader>
 
         <FieldGroup>
           <Field>
-            <FieldLabel>Sections</FieldLabel>
+            <FieldLabel>{t("projectBookExport", "sections")}</FieldLabel>
             <FieldDescription>
-              All sections start selected by default. Uncheck the ones you want to skip.
+              {t("projectBookExport", "sectionsDescription")}
             </FieldDescription>
             <div className="grid gap-3 sm:grid-cols-2">
-              {(Object.keys(SECTION_LABELS) as ProjectBookSectionKey[]).map((section) => (
+              {(Object.keys(SECTION_LABEL_KEYS) as ProjectBookSectionKey[]).map((section) => (
                 <label
                   key={section}
                   className="flex items-start gap-3 rounded-lg border border-border/70 px-3 py-3 text-sm"
@@ -90,7 +101,9 @@ export function ProjectBookExportDialog({
                     }
                   />
                   <div className="flex flex-col">
-                    <span className="font-medium">{SECTION_LABELS[section]}</span>
+                    <span className="font-medium">
+                      {t("projectBookExport", SECTION_LABEL_KEYS[section])}
+                    </span>
                   </div>
                 </label>
               ))}
@@ -98,9 +111,9 @@ export function ProjectBookExportDialog({
           </Field>
 
           <Field>
-            <FieldLabel>Detail Visibility</FieldLabel>
+            <FieldLabel>{t("projectBookExport", "detailVisibility")}</FieldLabel>
             <FieldDescription>
-              Control which shopping and labor details are included in the PDF.
+              {t("projectBookExport", "controlDetails")}
             </FieldDescription>
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="flex items-start gap-3 rounded-lg border border-border/70 px-3 py-3 text-sm">
@@ -114,7 +127,7 @@ export function ProjectBookExportDialog({
                   }
                 />
                 <div className="flex flex-col">
-                  <span className="font-medium">Prices</span>
+                  <span className="font-medium">{t("projectBookExport", "prices")}</span>
                 </div>
               </label>
               <label className="flex items-start gap-3 rounded-lg border border-border/70 px-3 py-3 text-sm">
@@ -128,7 +141,7 @@ export function ProjectBookExportDialog({
                   }
                 />
                 <div className="flex flex-col">
-                  <span className="font-medium">Suppliers</span>
+                  <span className="font-medium">{t("projectBookExport", "suppliers")}</span>
                 </div>
               </label>
               <label className="flex items-start gap-3 rounded-lg border border-border/70 px-3 py-3 text-sm">
@@ -142,7 +155,7 @@ export function ProjectBookExportDialog({
                   }
                 />
                 <div className="flex flex-col">
-                  <span className="font-medium">Notes</span>
+                  <span className="font-medium">{t("projectBookExport", "notes")}</span>
                 </div>
               </label>
             </div>
@@ -158,10 +171,12 @@ export function ProjectBookExportDialog({
             type="button"
           >
             <FileText className="mr-2 h-4 w-4" />
-            {isPending ? "Exporting..." : "Export PDF"}
+            {isPending
+              ? t("projectBookExport", "exporting")
+              : t("projectBookExport", "exportPdf")}
           </Button>
           <Button onClick={onClose} type="button" variant="outline">
-            Cancel
+            {t("projectBookExport", "cancel")}
           </Button>
         </DialogFooter>
       </DialogContent>

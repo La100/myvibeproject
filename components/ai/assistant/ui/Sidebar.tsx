@@ -18,6 +18,7 @@ import {
   MessageSquare,
   Plus,
 } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 export interface ThreadListItem {
   threadId: string;
@@ -65,6 +66,8 @@ function ChatSidebarBody({
   className?: string;
   hideInlineClose?: boolean;
 }) {
+  const { t } = useI18n();
+
   return (
     <div className={cn("flex h-full flex-col", className)}>
         <div className="border-b border-border/60 px-5 py-4">
@@ -108,7 +111,7 @@ function ChatSidebarBody({
           {isThreadListLoading ? (
             <div className="flex flex-col items-center justify-center p-8 text-muted-foreground">
               <Loader2 className="h-6 w-6 animate-spin mb-2" />
-              <span className="text-xs">Loading history...</span>
+              <span className="text-xs">{t("assistantUi", "loadingHistory")}</span>
             </div>
           ) : hasThreads ? (
             <div className="flex flex-col gap-2 p-3">
@@ -119,11 +122,11 @@ function ChatSidebarBody({
                   previewRaw.length > 0
                     ? previewRaw
                     : thread.messageCount === 0
-                      ? "No messages yet."
+                      ? t("assistantUi", "noMessagesYet")
                       : thread.lastMessageRole === "assistant"
-                        ? "Assistant replied."
+                        ? t("assistantUi", "assistantReplied")
                         : thread.lastMessageRole === "user"
-                          ? "You replied."
+                          ? t("assistantUi", "youReplied")
                           : "";
                 const relativeTime = formatDistanceToNow(
                   new Date(thread.lastMessageAt ?? Date.now()),
@@ -169,16 +172,15 @@ function ChatSidebarBody({
                     <div className="mt-3 flex w-full flex-wrap items-center gap-2">
                       {typeof thread.imageCount === "number" && (
                         <span className="rounded-full border border-border/70 bg-background/80 px-2.5 py-1 text-[11px] font-medium text-foreground/80">
-                          {thread.imageCount} image{thread.imageCount !== 1 ? "s" : ""}
+                          {t("assistantUi", thread.imageCount === 1 ? "imageCountSingular" : "imageCountPlural", { count: thread.imageCount })}
                         </span>
                       )}
                       <span className="rounded-full border border-border/70 bg-background/80 px-2.5 py-1 text-[11px] font-medium text-foreground/80">
-                        {thread.messageCount ?? 0} message
-                        {(thread.messageCount ?? 0) !== 1 ? "s" : ""}
+                        {t("assistantUi", (thread.messageCount ?? 0) === 1 ? "messageCountSingular" : "messageCountPlural", { count: thread.messageCount ?? 0 })}
                       </span>
                       {isActive && (
                         <span className="rounded-full border border-border bg-foreground/[0.05] px-2.5 py-1 text-[11px] font-medium text-foreground/75">
-                          Current
+                          {t("assistantUi", "current")}
                         </span>
                       )}
                     </div>
@@ -210,12 +212,18 @@ function ChatSidebar({
   currentThreadId,
   onThreadSelect,
   onNewChat,
-  title = "Project chats",
-  newChatLabel = "New Chat",
-  emptyStateTitle = "No chats yet",
-  emptyStateDescription = "Start a new conversation to get help with your project.",
+  title,
+  newChatLabel,
+  emptyStateTitle,
+  emptyStateDescription,
 }: ChatSidebarProps) {
+  const { t } = useI18n();
   const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const resolvedTitle = title ?? t("assistantUi", "projectChats");
+  const resolvedNewChatLabel = newChatLabel ?? t("assistantUi", "newChat");
+  const resolvedEmptyStateTitle = emptyStateTitle ?? t("assistantUi", "noChatsYet");
+  const resolvedEmptyStateDescription =
+    emptyStateDescription ?? t("assistantUi", "emptyStateDescription");
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 767px)");
@@ -235,10 +243,10 @@ function ChatSidebar({
     currentThreadId,
     onThreadSelect,
     onNewChat,
-    title,
-    newChatLabel,
-    emptyStateTitle,
-    emptyStateDescription,
+    title: resolvedTitle,
+    newChatLabel: resolvedNewChatLabel,
+    emptyStateTitle: resolvedEmptyStateTitle,
+    emptyStateDescription: resolvedEmptyStateDescription,
   };
 
   return (
@@ -249,7 +257,7 @@ function ChatSidebar({
             side="right"
             className="w-[min(92vw,26rem)] border-l border-border/80 bg-background p-0"
           >
-            <SheetTitle className="sr-only">{title}</SheetTitle>
+            <SheetTitle className="sr-only">{resolvedTitle}</SheetTitle>
             <ChatSidebarBody
               {...sharedProps}
               onClose={() => setShowHistory(false)}

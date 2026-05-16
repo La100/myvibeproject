@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { dedupeActivityLogActivities } from "@/lib/activityLogDeduplication";
 import { isClientNotificationActivity } from "@/lib/projectClientNotifications";
 import { ClientNotificationsFeed } from "@/components/shared/ClientNotificationsFeed";
+import { useI18n } from "@/lib/i18n";
 
 type ProjectClientNotificationsProps = {
   enabled?: boolean;
@@ -27,6 +28,7 @@ export function ProjectClientNotifications({
   className,
 }: ProjectClientNotificationsProps) {
   const { project, markClientNotificationsReadLocally } = useProject();
+  const { t } = useI18n();
   const markClientNotificationsRead = useMutation(apiAny.projects.markClientNotificationsRead);
   const activities = useQuery(
     apiAny.activityLog.getForProject,
@@ -84,17 +86,19 @@ export function ProjectClientNotifications({
         <div className="mb-4 lg:mb-6">
           <div className="mb-2 flex items-center gap-2">
             <BellRing className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-bold lg:text-3xl">Client Notifications</h1>
+            <h1 className="text-2xl font-bold lg:text-3xl">
+              {t("projectWorkspace", "clientNotifications")}
+            </h1>
           </div>
           <p className="text-sm text-muted-foreground lg:text-base">
-            Recent responses sent by your client from the client portal.
+            {t("projectWorkspace", "clientNotificationsDescription")}
           </p>
         </div>
       )}
 
       <ClientNotificationsFeed
-        title="Client Notifications"
-        emptyState="No client notifications yet. Actions from client portal will appear here."
+        title={t("projectWorkspace", "clientNotifications")}
+        emptyState={t("projectWorkspace", "clientNotificationsEmpty")}
         notifications={notifications}
       />
     </div>

@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useI18n } from "@/lib/i18n";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { getCurrencySymbol } from "@/lib/utils";
 
@@ -52,6 +53,7 @@ function formatDateInput(date: Date | undefined) {
 export default function NewProjectPage() {
   const router = useRouter();
   const { organization } = useOrganization();
+  const { t } = useI18n();
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOptimizingCoverImage, setIsOptimizingCoverImage] = useState(false);
@@ -130,7 +132,7 @@ export default function NewProjectPage() {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file");
+      toast.error(t("newProject", "toastSelectImage"));
       return;
     }
 
@@ -142,8 +144,10 @@ export default function NewProjectPage() {
 
       if (optimized.optimized) {
         const savedKb = Math.max(1, Math.round((optimized.originalSize - optimized.file.size) / 1024));
-        toast.success("Cover image optimized", {
-          description: `Reduced by about ${savedKb} KB before upload.`,
+        toast.success(t("newProject", "toastCoverOptimized"), {
+          description: t("newProject", "toastCoverOptimizedDescription", {
+            savedKb,
+          }),
         });
       }
     } catch {
@@ -204,7 +208,7 @@ export default function NewProjectPage() {
       parsedEndDate &&
       parsedEndDate.getTime() < parsedStartDate.getTime()
     ) {
-      toast.error("End date cannot be earlier than start date.");
+      toast.error(t("newProject", "toastEndBeforeStart"));
       return;
     }
 
@@ -250,11 +254,11 @@ export default function NewProjectPage() {
       }
 
       if (createdProject?.slug) {
-        toast.success("Project created");
+        toast.success(t("newProject", "toastProjectCreated"));
         router.push(`/organisation/projects/${createdProject.slug}`);
       }
     } catch (error) {
-      toast.error("Error creating project", {
+      toast.error(t("newProject", "toastCreateError"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error("Error creating project:", error);
@@ -268,16 +272,16 @@ export default function NewProjectPage() {
       <form onSubmit={handleCreateProject} className="mx-auto flex max-w-2xl flex-col gap-10">
         <section className="flex flex-col gap-5">
           <div>
-            <h2 className="text-lg font-semibold">Details</h2>
-            <p className="text-sm text-muted-foreground">Basic information about your project</p>
+            <h2 className="text-lg font-semibold">{t("newProject", "detailsTitle")}</h2>
+            <p className="text-sm text-muted-foreground">{t("newProject", "detailsDescription")}</p>
           </div>
 
           <div className="flex flex-col gap-5 rounded-lg border bg-card p-6">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="name">Project name</Label>
+              <Label htmlFor="name">{t("newProject", "projectName")}</Label>
               <Input
                 id="name"
-                placeholder="Enter project name"
+                placeholder={t("newProject", "projectNamePlaceholder")}
                 value={newProject.name}
                 onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
                 required
@@ -286,7 +290,7 @@ export default function NewProjectPage() {
 
             <div className="flex flex-col gap-2">
               <Label>
-                Timeframe <span className="font-normal text-muted-foreground">(Optional)</span>
+                {t("newProject", "timeframe")} <span className="font-normal text-muted-foreground">{t("newProject", "optional")}</span>
               </Label>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <DatePicker
@@ -294,25 +298,25 @@ export default function NewProjectPage() {
                   onDateChange={(date) =>
                     setNewProject({ ...newProject, startDate: formatDateInput(date) })
                   }
-                  placeholder="Select start date"
+                  placeholder={t("newProject", "selectStartDate")}
                 />
                 <DatePicker
                   date={parseDateInput(newProject.endDate)}
                   onDateChange={(date) =>
                     setNewProject({ ...newProject, endDate: formatDateInput(date) })
                   }
-                  placeholder="Select end date"
+                  placeholder={t("newProject", "selectEndDate")}
                 />
               </div>
             </div>
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="description">
-                Description <span className="font-normal text-muted-foreground">(Optional)</span>
+                {t("newProject", "description")} <span className="font-normal text-muted-foreground">{t("newProject", "optional")}</span>
               </Label>
               <Textarea
                 id="description"
-                placeholder="Describe your project"
+                placeholder={t("newProject", "descriptionPlaceholder")}
                 value={newProject.description}
                 onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
                 rows={3}
@@ -322,7 +326,7 @@ export default function NewProjectPage() {
 
             <div className="flex flex-col gap-2">
               <Label>
-                Cover image <span className="font-normal text-muted-foreground">(Optional)</span>
+                {t("newProject", "coverImage")} <span className="font-normal text-muted-foreground">{t("newProject", "optional")}</span>
               </Label>
               <input
                 ref={coverFileInputRef}
@@ -340,7 +344,7 @@ export default function NewProjectPage() {
                   disabled={isOptimizingCoverImage}
                 >
                   <ImagePlus className="mr-2 h-4 w-4" />
-                  {isOptimizingCoverImage ? "Optimizing..." : "Upload image"}
+                  {isOptimizingCoverImage ? t("newProject", "optimizing") : t("newProject", "uploadImage")}
                 </Button>
                 {coverImageFile ? (
                   <Button
@@ -351,7 +355,7 @@ export default function NewProjectPage() {
                     disabled={isOptimizingCoverImage}
                   >
                     <X className="mr-2 h-4 w-4" />
-                    Remove upload
+                    {t("newProject", "removeUpload")}
                   </Button>
                 ) : null}
               </div>
@@ -359,13 +363,13 @@ export default function NewProjectPage() {
                 <div className="overflow-hidden rounded-md border bg-secondary/70">
                   <img
                     src={coverImagePreviewUrl}
-                    alt="Cover preview"
+                    alt={t("newProject", "coverPreviewAlt")}
                     className="h-40 w-full object-cover"
                   />
                 </div>
               ) : null}
               <p className="text-xs text-muted-foreground">
-                Upload an image to use it as project cover. Large files are resized and compressed automatically.
+                {t("newProject", "coverHelp")}
               </p>
             </div>
           </div>
@@ -374,8 +378,8 @@ export default function NewProjectPage() {
         {projectMemberOptions.length > 0 ? (
           <section className="flex flex-col gap-5">
             <div>
-              <h2 className="text-lg font-semibold">Project access</h2>
-              <p className="text-sm text-muted-foreground">Choose which organization members can access this project.</p>
+              <h2 className="text-lg font-semibold">{t("newProject", "projectAccessTitle")}</h2>
+              <p className="text-sm text-muted-foreground">{t("newProject", "projectAccessDescription")}</p>
             </div>
 
             <div className="flex flex-col gap-3 rounded-lg border bg-card p-6">
@@ -399,7 +403,9 @@ export default function NewProjectPage() {
                     <span className="min-w-0">
                       <span className="block truncate font-medium">{label}</span>
                       <span className="block truncate text-xs text-muted-foreground">
-                        {isSelected ? "Will have project access" : "No access to this project"}
+                        {isSelected
+                          ? t("newProject", "willHaveProjectAccess")
+                          : t("newProject", "noProjectAccess")}
                       </span>
                     </span>
                     <span className={isSelected ? "text-primary" : "text-muted-foreground"}>
@@ -414,16 +420,18 @@ export default function NewProjectPage() {
 
         <section className="flex flex-col gap-5">
           <div>
-            <h2 className="text-lg font-semibold">Address <span className="font-normal text-sm text-muted-foreground">(Optional)</span></h2>
-            <p className="text-sm text-muted-foreground">Project location details</p>
+            <h2 className="text-lg font-semibold">
+              {t("newProject", "addressTitle")} <span className="font-normal text-sm text-muted-foreground">{t("newProject", "optional")}</span>
+            </h2>
+            <p className="text-sm text-muted-foreground">{t("newProject", "addressDescription")}</p>
           </div>
 
           <div className="flex flex-col gap-5 rounded-lg border bg-card p-6">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="location">Street address</Label>
+              <Label htmlFor="location">{t("newProject", "streetAddress")}</Label>
               <Input
                 id="location"
-                placeholder="Street address line 1"
+                placeholder={t("newProject", "streetAddressPlaceholder")}
                 value={newProject.location}
                 onChange={(e) => setNewProject({ ...newProject, location: e.target.value })}
               />
@@ -431,11 +439,11 @@ export default function NewProjectPage() {
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="streetAddress2">
-                Address line 2 <span className="font-normal text-muted-foreground">(Optional)</span>
+                {t("newProject", "addressLine2")} <span className="font-normal text-muted-foreground">{t("newProject", "optional")}</span>
               </Label>
               <Input
                 id="streetAddress2"
-                placeholder="Street address line 2"
+                placeholder={t("newProject", "addressLine2Placeholder")}
                 value={newProject.streetAddress2}
                 onChange={(e) => setNewProject({ ...newProject, streetAddress2: e.target.value })}
               />
@@ -443,28 +451,28 @@ export default function NewProjectPage() {
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="city">City</Label>
+                <Label htmlFor="city">{t("newProject", "city")}</Label>
                 <Input
                   id="city"
-                  placeholder="City"
+                  placeholder={t("newProject", "city")}
                   value={newProject.city}
                   onChange={(e) => setNewProject({ ...newProject, city: e.target.value })}
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="state">State</Label>
+                <Label htmlFor="state">{t("newProject", "state")}</Label>
                 <Input
                   id="state"
-                  placeholder="State"
+                  placeholder={t("newProject", "state")}
                   value={newProject.state}
                   onChange={(e) => setNewProject({ ...newProject, state: e.target.value })}
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="postcode">Postcode</Label>
+                <Label htmlFor="postcode">{t("newProject", "postcode")}</Label>
                 <Input
                   id="postcode"
-                  placeholder="Postcode"
+                  placeholder={t("newProject", "postcode")}
                   value={newProject.postcode}
                   onChange={(e) => setNewProject({ ...newProject, postcode: e.target.value })}
                 />
@@ -475,17 +483,17 @@ export default function NewProjectPage() {
 
         <section className="flex flex-col gap-5">
           <div>
-            <h2 className="text-lg font-semibold">Currency & Measurements</h2>
+            <h2 className="text-lg font-semibold">{t("newProject", "currencyMeasurementsTitle")}</h2>
             <p className="text-sm text-muted-foreground">
-              Set the currency and measurement system for this project.
+              {t("newProject", "currencyMeasurementsDescription")}
             </p>
           </div>
 
           <div className="flex flex-col gap-5 rounded-lg border bg-card p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium">Use default settings</p>
-                <p className="text-xs text-muted-foreground">{team?.currency || "PLN"}, Metric</p>
+                <p className="text-sm font-medium">{t("newProject", "useDefaultSettings")}</p>
+                <p className="text-xs text-muted-foreground">{team?.currency || "PLN"}, {t("newProject", "metric")}</p>
               </div>
               <Switch
                 id="defaultCurrency"
@@ -497,16 +505,16 @@ export default function NewProjectPage() {
             {!useDefaultCurrency && (
               <div className="flex flex-col gap-5">
                 <div className="flex flex-col gap-2">
-                  <Label>Project Currency</Label>
+                  <Label>{t("newProject", "projectCurrency")}</Label>
                   <Select value={newProject.currency} onValueChange={(v) => setNewProject({ ...newProject, currency: v })}>
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="PLN">Polish Zloty (PLN-zl)</SelectItem>
-                      <SelectItem value="USD">US Dollar (USD-$)</SelectItem>
-                      <SelectItem value="EUR">Euro (EUR-€)</SelectItem>
-                      <SelectItem value="GBP">British Pound (GBP-£)</SelectItem>
+                      <SelectItem value="PLN">{t("newProject", "polishZloty")}</SelectItem>
+                      <SelectItem value="USD">{t("newProject", "usDollar")}</SelectItem>
+                      <SelectItem value="EUR">{t("newProject", "euro")}</SelectItem>
+                      <SelectItem value="GBP">{t("newProject", "britishPound")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -515,14 +523,14 @@ export default function NewProjectPage() {
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
               <div className="flex flex-col gap-2">
-                <Label>Measurements</Label>
+                <Label>{t("newProject", "measurements")}</Label>
                 <Select value={newProject.measurements} onValueChange={(v) => setNewProject({ ...newProject, measurements: v })}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="metric">Metric</SelectItem>
-                    <SelectItem value="imperial">Imperial</SelectItem>
+                    <SelectItem value="metric">{t("newProject", "metric")}</SelectItem>
+                    <SelectItem value="imperial">{t("newProject", "imperial")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -532,19 +540,19 @@ export default function NewProjectPage() {
 
         <section className="flex flex-col gap-5">
           <div>
-            <h2 className="text-lg font-semibold">Client & Budget</h2>
-            <p className="text-sm text-muted-foreground">Financial and client information</p>
+            <h2 className="text-lg font-semibold">{t("newProject", "clientBudgetTitle")}</h2>
+            <p className="text-sm text-muted-foreground">{t("newProject", "clientBudgetDescription")}</p>
           </div>
 
           <div className="flex flex-col gap-5 rounded-lg border bg-card p-6">
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="client">
-                  Client <span className="font-normal text-muted-foreground">(Optional)</span>
+                  {t("newProject", "client")} <span className="font-normal text-muted-foreground">{t("newProject", "optional")}</span>
                 </Label>
                 <Input
                   id="client"
-                  placeholder="Client name"
+                  placeholder={t("newProject", "clientPlaceholder")}
                   value={newProject.client}
                   onChange={(e) => setNewProject({ ...newProject, client: e.target.value })}
                 />
@@ -552,12 +560,12 @@ export default function NewProjectPage() {
 
               <div className="flex flex-col gap-2">
                 <Label htmlFor="customerEmail">
-                  Customer Email <span className="font-normal text-muted-foreground">(Optional)</span>
+                  {t("newProject", "customerEmail")} <span className="font-normal text-muted-foreground">{t("newProject", "optional")}</span>
                 </Label>
                 <Input
                   id="customerEmail"
                   type="email"
-                  placeholder="client@example.com"
+                  placeholder={t("newProject", "customerEmailPlaceholder")}
                   value={newProject.customerEmail}
                   onChange={(e) => setNewProject({ ...newProject, customerEmail: e.target.value })}
                 />
@@ -565,7 +573,7 @@ export default function NewProjectPage() {
 
               <div className="flex flex-col gap-2 md:col-span-2">
                 <Label htmlFor="budget">
-                  Budget <span className="font-normal text-muted-foreground">(Optional)</span>
+                  {t("newProject", "budget")} <span className="font-normal text-muted-foreground">{t("newProject", "optional")}</span>
                 </Label>
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
@@ -574,7 +582,7 @@ export default function NewProjectPage() {
                   <Input
                     id="budget"
                     type="number"
-                    placeholder="0.00"
+                    placeholder={t("newProject", "budgetPlaceholder")}
                     value={newProject.budget}
                     onChange={(e) => setNewProject({ ...newProject, budget: e.target.value })}
                     className="pl-10"
@@ -589,11 +597,11 @@ export default function NewProjectPage() {
         <div className="flex items-center justify-end gap-3 border-t pt-6">
           <Link href="/organisation">
             <Button type="button" variant="outline" size="sm">
-              Cancel
+              {t("newProject", "cancel")}
             </Button>
           </Link>
           <Button type="submit" size="sm" disabled={isSubmitting}>
-            {isSubmitting ? "Creating..." : "Create Project"}
+            {isSubmitting ? t("newProject", "creating") : t("companyProjects", "createProject")}
           </Button>
         </div>
       </form>
@@ -605,9 +613,11 @@ export default function NewProjectPage() {
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
               <AlertTriangle className="h-7 w-7 text-primary" />
             </div>
-            <DialogTitle className="text-xl font-medium">Project limit reached</DialogTitle>
+            <DialogTitle className="text-xl font-medium">{t("newProject", "projectLimitReached")}</DialogTitle>
             <DialogDescription className="text-base">
-              You&apos;ve reached the maximum number of projects ({checkLimits?.limit || 3}) for the Free plan.
+              {t("newProject", "projectLimitDescription", {
+                limit: checkLimits?.limit || 3,
+              })}
             </DialogDescription>
           </DialogHeader>
 
@@ -617,12 +627,17 @@ export default function NewProjectPage() {
                 <Sparkles className="h-5 w-5 text-primary-foreground" />
               </div>
               <div>
-                <p className="font-medium">AI Pro</p>
-                <p className="text-sm text-muted-foreground">$39/month</p>
+                <p className="font-medium">{t("newProject", "aiPro")}</p>
+                <p className="text-sm text-muted-foreground">{t("newProject", "aiProPrice")}</p>
               </div>
             </div>
             <ul className="flex flex-col gap-2.5 text-sm">
-              {["20 projects", "25 team members", "AI Assistant & image generation", "50 GB storage"].map((feature) => (
+              {[
+                t("newProject", "featureProjects"),
+                t("newProject", "featureTeamMembers"),
+                t("newProject", "featureAi"),
+                t("newProject", "featureStorage"),
+              ].map((feature) => (
                 <li key={feature} className="flex items-center gap-2.5">
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
                     <Check className="h-3 w-3" strokeWidth={2.5} />
@@ -642,14 +657,14 @@ export default function NewProjectPage() {
               }}
             >
               <Sparkles className="mr-2 h-4 w-4" />
-              Upgrade to AI Pro
+              {t("newProject", "upgradeToAiPro")}
             </Button>
             <Button
               variant="ghost"
               className="w-full"
               onClick={() => setShowUpgradeDialog(false)}
             >
-              Maybe later
+              {t("newProject", "maybeLater")}
             </Button>
           </DialogFooter>
         </DialogContent>

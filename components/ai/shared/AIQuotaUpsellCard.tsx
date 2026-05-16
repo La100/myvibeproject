@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { ArrowRight, Coins, CreditCard, Loader2 } from "lucide-react";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { BillingActionErrorDialog } from "@/components/billing/BillingActionErrorDialog";
+import { useI18n } from "@/lib/i18n";
 
 type AIQuotaUpsellCardProps = {
   teamId: Id<"teams">;
@@ -37,6 +38,7 @@ export function AIQuotaUpsellCard({
   remainingTokens = 0,
   className,
 }: AIQuotaUpsellCardProps) {
+  const { locale, t } = useI18n();
   const router = useRouter();
   const subscription = useQuery(apiAny.stripe.getTeamSubscription, { teamId });
   const createCheckoutSession = useAction(
@@ -56,25 +58,24 @@ export function AIQuotaUpsellCard({
   const isFreePlan = currentPlan === "free";
   const canOpenPortal =
     !!subscriptionStatus && subscriptionStatus !== "canceled";
-  const aiPriceId = subscription?.checkoutPlans?.ai ?? null;
+  const billingCurrency = locale === "pl" ? "pln" : "usd";
+  const aiPriceId = subscription?.checkoutPlans?.ai?.[billingCurrency] ?? null;
   const resolvedMessage =
     message && message.trim().length > 0
       ? message.replace(
           /contact your administrator\.?/i,
-          "Open Billing to upgrade and continue.",
+          t("aiShell", "adminUpgradeReplacement"),
         )
-      : "AI credits are exhausted.";
+      : t("aiShell", "defaultCreditsMessage");
 
   const handleUpgrade = async () => {
     if (subscription === undefined) {
-      toast.error("Loading billing configuration. Try again in a moment.");
+      toast.error(t("aiShell", "billingLoading"));
       return;
     }
 
     if (!aiPriceId) {
-      toast.error(
-        "Billing is not configured yet. Please open Settings > Billing.",
-      );
+      toast.error(t("aiShell", "billingNotConfigured"));
       return;
     }
 
@@ -86,7 +87,7 @@ export function AIQuotaUpsellCard({
         baseUrl: window.location.origin,
       });
       if (!result.url) {
-        toast.error("Could not open checkout.");
+        toast.error(t("aiShell", "checkoutOpenFailed"));
         return;
       }
       window.location.href = result.url;
@@ -106,7 +107,7 @@ export function AIQuotaUpsellCard({
         baseUrl: window.location.origin,
       });
       if (!result.url) {
-        toast.error("Could not open billing portal.");
+        toast.error(t("aiShell", "billingPortalOpenFailed"));
         return;
       }
       window.location.href = result.url;
@@ -129,11 +130,11 @@ export function AIQuotaUpsellCard({
       <Card className={cn("border-border/60 bg-card/70", className)}>
         <CardHeader className="flex flex-col gap-3 pb-3">
           <Badge variant="secondary" className="w-fit">
-            AI credits exhausted
+            {t("aiShell", "creditsExhausted")}
           </Badge>
           <div className="flex flex-col gap-1">
             <CardTitle className="text-lg tracking-tight">
-              AI usage paused
+              {t("aiShell", "usagePaused")}
             </CardTitle>
             <CardDescription>{resolvedMessage}</CardDescription>
           </div>
@@ -141,7 +142,7 @@ export function AIQuotaUpsellCard({
         <CardContent className="flex flex-col gap-4 pt-0">
           <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5">
             <span className="text-xs uppercase tracking-wide text-muted-foreground">
-              Remaining credits
+              {t("aiShell", "remainingCredits")}
             </span>
             <span className="text-sm font-semibold tabular-nums">
               {remainingTokens.toLocaleString()}
@@ -154,12 +155,12 @@ export function AIQuotaUpsellCard({
                 {pendingAction === "checkout" ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Opening checkout...
+                    {t("aiShell", "openingCheckout")}
                   </>
                 ) : (
                   <>
                     <Coins className="mr-2 h-4 w-4" />
-                    Upgrade to AI Pro
+                    {t("aiShell", "upgradeToAiPro")}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </>
                 )}
@@ -173,12 +174,12 @@ export function AIQuotaUpsellCard({
                 {pendingAction === "portal" ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Opening billing...
+                    {t("aiShell", "openingBilling")}
                   </>
                 ) : (
                   <>
                     <CreditCard className="mr-2 h-4 w-4" />
-                    Manage billing
+                    {t("aiShell", "manageBilling")}
                   </>
                 )}
               </Button>
@@ -187,12 +188,12 @@ export function AIQuotaUpsellCard({
                 {pendingAction === "checkout" ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Opening checkout...
+                    {t("aiShell", "openingCheckout")}
                   </>
                 ) : (
                   <>
                     <Coins className="mr-2 h-4 w-4" />
-                    Renew / Upgrade plan
+                    {t("aiShell", "renewUpgradePlan")}
                   </>
                 )}
               </Button>
@@ -204,7 +205,7 @@ export function AIQuotaUpsellCard({
               onClick={() => router.push("/organisation/subscription")}
               disabled={isBusy}
             >
-              Open billing settings
+              {t("aiShell", "openBillingSettings")}
             </Button>
           </div>
         </CardContent>

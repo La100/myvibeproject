@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useI18n } from "@/lib/i18n";
 
 interface InviteMemberDialogProps {
   teamId: Id<"teams">;
@@ -30,44 +31,48 @@ interface InviteMemberDialogProps {
 
 type InvitationRole = "admin" | "member";
 
-const getInviteErrorToast = (error: unknown) => {
+const getInviteErrorToast = (
+  error: unknown,
+  t: ReturnType<typeof useI18n>["t"],
+) => {
   const message = toUserFacingErrorMessage(error);
 
   if (message === "Only organization admins can invite new team members.") {
     return {
-      title: "Admin access required",
-      description: message,
+      title: t("inviteMember", "adminAccessRequired"),
+      description: t("inviteMember", "adminAccessRequiredDescription"),
     };
   }
 
   if (message === "This user is already a member of this workspace.") {
     return {
-      title: "Member already exists",
-      description: message,
+      title: t("inviteMember", "memberAlreadyExists"),
+      description: t("inviteMember", "memberAlreadyExistsDescription"),
     };
   }
 
   if (message === "An invitation has already been sent to this email address.") {
     return {
-      title: "Invitation already pending",
-      description: message,
+      title: t("inviteMember", "invitationAlreadyPending"),
+      description: t("inviteMember", "invitationAlreadyPendingDescription"),
     };
   }
 
   if (message.startsWith("You've reached the maximum number of team members")) {
     return {
-      title: "Team member limit reached",
+      title: t("inviteMember", "teamMemberLimitReached"),
       description: message,
     };
   }
 
   return {
-    title: "Failed to send invitation",
+    title: t("inviteMember", "failedToSendInvitation"),
     description: message,
   };
 };
 
 export function InviteMemberDialog({ teamId, children }: InviteMemberDialogProps) {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<InvitationRole>("member");
   const [isOpen, setIsOpen] = useState(false);
@@ -80,14 +85,14 @@ export function InviteMemberDialog({ teamId, children }: InviteMemberDialogProps
     setIsSubmitting(true);
     try {
       await inviteTeamMember({ teamId, email, role });
-      toast.success("Invitation Sent", {
-        description: `An invitation has been sent to ${email}.`,
+      toast.success(t("inviteMember", "invitationSent"), {
+        description: t("inviteMember", "invitationSentDescription", { email }),
       });
       setIsOpen(false);
       setEmail("");
       setRole("member");
     } catch (error) {
-      const toastContent = getInviteErrorToast(error);
+      const toastContent = getInviteErrorToast(error, t);
       toast.error(toastContent.title, {
         description: toastContent.description,
       });
@@ -101,16 +106,16 @@ export function InviteMemberDialog({ teamId, children }: InviteMemberDialogProps
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Invite Team Member</DialogTitle>
+          <DialogTitle>{t("inviteMember", "title")}</DialogTitle>
           <DialogDescription>
-            Enter the email address and select a role to invite a new member to your team.
+            {t("inviteMember", "description")}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="email" className="text-right">
-                Email
+                {t("inviteMember", "email")}
               </Label>
               <Input
                 id="email"
@@ -123,15 +128,19 @@ export function InviteMemberDialog({ teamId, children }: InviteMemberDialogProps
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="role" className="text-right">
-                Role
+                {t("inviteMember", "role")}
               </Label>
               <Select value={role} onValueChange={(value) => setRole(value as InvitationRole)}>
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select a role" />
+                  <SelectValue placeholder={t("inviteMember", "selectRole")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="member">Member</SelectItem>
+                  <SelectItem value="admin">
+                    {t("inviteMember", "admin")}
+                  </SelectItem>
+                  <SelectItem value="member">
+                    {t("inviteMember", "member")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -139,11 +148,13 @@ export function InviteMemberDialog({ teamId, children }: InviteMemberDialogProps
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="secondary">
-                Cancel
+                {t("inviteMember", "cancel")}
               </Button>
             </DialogClose>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Sending..." : "Send Invitation"}
+              {isSubmitting
+                ? t("inviteMember", "sending")
+                : t("inviteMember", "sendInvitation")}
             </Button>
           </DialogFooter>
         </form>

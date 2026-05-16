@@ -7,6 +7,9 @@ import { Toaster } from "@/components/ui/sonner";
 import localFont from "next/font/local";
 import { cn } from "@/lib/utils";
 import AnalyticsProvider from "@/components/providers/AnalyticsProvider";
+import { I18nProvider } from "@/lib/i18n";
+import { getLocaleFromAcceptLanguage, type Locale } from "@/lib/i18nConfig";
+import { cookies, headers } from "next/headers";
 import {
   signInFallbackRedirectUrl,
   signInUrl,
@@ -78,14 +81,22 @@ const clerkAppearance: ComponentProps<typeof ClerkProvider>["appearance"] = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const headerStore = await headers();
+  const cookieLocale = cookieStore.get("myvibe.locale")?.value;
+  const initialLocale: Locale =
+    cookieLocale === "en" || cookieLocale === "pl"
+      ? cookieLocale
+      : getLocaleFromAcceptLanguage(headerStore.get("accept-language"));
+
   return (
     <html
-      lang="en"
+      lang={initialLocale}
       className={cn("font-sans", appSans.variable)}
       style={brandFontVariables}
     >
@@ -98,13 +109,15 @@ export default function RootLayout({
           signUpFallbackRedirectUrl={signUpFallbackRedirectUrl}
           taskUrls={{ "choose-organization": "/session-tasks/choose-organization" }}
         >
-          <ConvexClientProvider>
-            <Suspense fallback={null}>
-              <AnalyticsProvider />
-            </Suspense>
-            {children}
-            <Toaster />
-          </ConvexClientProvider>
+          <I18nProvider initialLocale={initialLocale}>
+            <ConvexClientProvider>
+              <Suspense fallback={null}>
+                <AnalyticsProvider />
+              </Suspense>
+              {children}
+              <Toaster />
+            </ConvexClientProvider>
+          </I18nProvider>
         </ClerkProvider>
       </body>
     </html>

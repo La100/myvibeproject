@@ -57,6 +57,7 @@ import {
 import { getCurrencySymbol } from '@/lib/utils';
 import { exportEstimationPdf, openEstimationPdfInNewTab } from '@/lib/estimationPdfExport';
 import { sanitizeFileName } from '@/lib/pdfExport';
+import { useI18n } from '@/lib/i18n';
 
 type VisibleEstimationStatus = 'draft' | 'accepted' | 'rejected';
 
@@ -65,6 +66,7 @@ export function EstimationsViewLoading() {
 }
 
 export default function EstimationsView() {
+  const { t } = useI18n();
   const { project, team } = useProject();
   const convex = useConvex();
 
@@ -85,7 +87,7 @@ export default function EstimationsView() {
   }
 
   if (project === null) {
-    return <div>Project not found</div>;
+    return <div>{t('estimations', 'projectNotFound')}</div>;
   }
 
   const currencySymbol = getCurrencySymbol(project.currency);
@@ -96,7 +98,7 @@ export default function EstimationsView() {
           team.customOrganizationImageSetAt && team.imageUrl?.trim()
             ? team.imageUrl
             : undefined,
-        teamName: team.name || 'Organization',
+        teamName: team.name || t('estimations', 'organization'),
       }
     : undefined;
 
@@ -142,7 +144,10 @@ export default function EstimationsView() {
 
     return {
       kind,
-      label: getTaxAmountKindLabel(kind, taxSettings),
+      label:
+        kind === 'tax'
+          ? getTaxAmountKindLabel(kind, taxSettings)
+          : t('estimations', kind === 'gross' ? 'gross' : 'net'),
       value: breakdown[kind],
     };
   };
@@ -158,42 +163,42 @@ export default function EstimationsView() {
 
   const getStatusLabel = (status: VisibleEstimationStatus) => {
     switch (status) {
-      case 'draft': return 'Draft';
-      case 'accepted': return 'Accepted';
-      case 'rejected': return 'Rejected';
+      case 'draft': return t('estimations', 'draft');
+      case 'accepted': return t('estimations', 'accepted');
+      case 'rejected': return t('estimations', 'rejected');
       default: return status;
     }
   };
 
   const handleDelete = async (id: Id<"costEstimations">) => {
-    if (!confirm('Are you sure you want to delete this estimation?')) return;
+    if (!confirm(t('estimations', 'deleteConfirm'))) return;
     try {
       await deleteEstimation({ estimationId: id });
-      toast.success('Estimation deleted');
+      toast.success(t('estimations', 'estimationDeleted'));
     } catch {
-      toast.error('Failed to delete estimation');
+      toast.error(t('estimations', 'failedToDeleteEstimation'));
     }
   };
 
   const handleStatusChange = async (id: Id<"costEstimations">, status: VisibleEstimationStatus) => {
     try {
       await updateStatus({ estimationId: id, status });
-      toast.success(`Status updated to ${getStatusLabel(status)}`);
+      toast.success(t('estimations', 'statusUpdatedTo', { status: getStatusLabel(status) }));
     } catch {
-      toast.error('Failed to update status');
+      toast.error(t('estimations', 'failedToUpdateStatus'));
     }
   };
 
   const handleOpenPdf = async (estimationId: Id<"costEstimations">) => {
     const previewWindow = window.open('', '_blank');
     if (!previewWindow) {
-      toast.error('Allow pop-ups to open the PDF in a new tab');
+      toast.error(t('estimations', 'allowPopups'));
       return;
     }
 
     previewWindow.opener = null;
     previewWindow.document.write(
-      '<!doctype html><html><head><title>Opening PDF…</title></head><body style="font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f4f1ec;color:#4a3b2e;">Preparing PDF…</body></html>',
+      `<!doctype html><html><head><title>${t('estimations', 'openingPdf')}</title></head><body style="font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f4f1ec;color:#4a3b2e;">${t('estimations', 'preparingPdf')}</body></html>`,
     );
     previewWindow.document.close();
 
@@ -206,7 +211,7 @@ export default function EstimationsView() {
 
       if (!estimation) {
         previewWindow.close();
-        toast.error('Estimation not found');
+        toast.error(t('estimations', 'estimationNotFound'));
         return;
       }
 
@@ -222,7 +227,7 @@ export default function EstimationsView() {
     } catch (error) {
       previewWindow.close();
       console.error('Open PDF error:', error);
-      toast.error('Failed to open PDF in a new tab', {
+      toast.error(t('estimations', 'failedToOpenPdf'), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -239,7 +244,7 @@ export default function EstimationsView() {
       );
 
       if (!estimation) {
-        toast.error('Estimation not found');
+        toast.error(t('estimations', 'estimationNotFound'));
         return;
       }
 
@@ -254,7 +259,7 @@ export default function EstimationsView() {
       });
     } catch (error) {
       console.error('Download PDF error:', error);
-      toast.error('Failed to export PDF', {
+      toast.error(t('estimations', 'failedToExportPdf'), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -301,7 +306,7 @@ export default function EstimationsView() {
     <ProjectPageLayout>
       {/* Header */}
     <ProjectPageHeader
-        title="Cost Estimations"
+        title={t('estimations', 'costEstimations')}
         icon={<Calculator className="h-8 w-8 text-primary" />}
         tags={
           <>
@@ -309,7 +314,7 @@ export default function EstimationsView() {
               {project.name}
             </Badge>
             <Badge variant="secondary" className="px-4 py-2 text-sm font-medium">
-              {visibleStats.total} estimations
+              {t('estimations', 'estimationsCount', { count: visibleStats.total })}
             </Badge>
           </>
         }
@@ -319,7 +324,7 @@ export default function EstimationsView() {
             className="px-6"
           >
             <PlusIcon data-icon="inline-start" />
-            New Estimation
+            {t('estimations', 'newEstimation')}
           </Button>
         }
       />
@@ -328,7 +333,7 @@ export default function EstimationsView() {
         <Input
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Search by title, number, customer, or location"
+          placeholder={t('estimations', 'searchPlaceholder')}
           className="h-11 md:max-w-md"
         />
         <Select
@@ -338,13 +343,13 @@ export default function EstimationsView() {
           }
         >
           <SelectTrigger className="h-11 md:w-[220px]">
-            <SelectValue placeholder="Filter by status" />
+            <SelectValue placeholder={t('estimations', 'filterByStatus')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="accepted">Accepted</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
+            <SelectItem value="all">{t('estimations', 'allStatuses')}</SelectItem>
+            <SelectItem value="draft">{t('estimations', 'draft')}</SelectItem>
+            <SelectItem value="accepted">{t('estimations', 'accepted')}</SelectItem>
+            <SelectItem value="rejected">{t('estimations', 'rejected')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -352,9 +357,9 @@ export default function EstimationsView() {
       {/* Stats Cards */}
       <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
         {[
-          { label: 'Draft', count: visibleStats.draft, className: 'border-border bg-muted text-muted-foreground' },
-          { label: 'Accepted', count: visibleStats.accepted, className: 'border-border bg-primary/5 text-primary' },
-          { label: 'Rejected', count: visibleStats.rejected, className: 'border-border bg-destructive/10 text-destructive' },
+          { label: t('estimations', 'draft'), count: visibleStats.draft, className: 'border-border bg-muted text-muted-foreground' },
+          { label: t('estimations', 'accepted'), count: visibleStats.accepted, className: 'border-border bg-primary/5 text-primary' },
+          { label: t('estimations', 'rejected'), count: visibleStats.rejected, className: 'border-border bg-destructive/10 text-destructive' },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -373,15 +378,15 @@ export default function EstimationsView() {
             <EmptyMedia variant="icon">
               <FileTextIcon />
             </EmptyMedia>
-            <EmptyTitle>No Estimations Yet</EmptyTitle>
+            <EmptyTitle>{t('estimations', 'noEstimationsYet')}</EmptyTitle>
             <EmptyDescription>
-              Create your first cost estimation to generate professional quotations for clients.
+              {t('estimations', 'noEstimationsDescription')}
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Button onClick={() => setIsCreateOpen(true)}>
               <PlusIcon data-icon="inline-start" />
-              Create Estimation
+              {t('estimations', 'createEstimation')}
             </Button>
           </EmptyContent>
         </Empty>
@@ -391,9 +396,9 @@ export default function EstimationsView() {
             <EmptyMedia variant="icon">
               <FileTextIcon />
             </EmptyMedia>
-            <EmptyTitle>No Matching Estimations</EmptyTitle>
+            <EmptyTitle>{t('estimations', 'noMatchingEstimations')}</EmptyTitle>
             <EmptyDescription>
-              Adjust the search or status filter to see more documents.
+              {t('estimations', 'noMatchingDescription')}
             </EmptyDescription>
           </EmptyHeader>
           {hasActiveFilters ? (
@@ -405,7 +410,7 @@ export default function EstimationsView() {
                   setStatusFilter('all');
                 }}
               >
-                Clear Filters
+                {t('estimations', 'clearFilters')}
               </Button>
             </EmptyContent>
           ) : null}
@@ -439,22 +444,22 @@ export default function EstimationsView() {
                         {estimation.estimationNumber && (
                           <span>#{estimation.estimationNumber}</span>
                         )}
-                        <span>Created: {format(new Date(estimation.estimationDate), 'MMM d, yyyy')}</span>
+                        <span>{t('estimations', 'createdWithDate', { date: format(new Date(estimation.estimationDate), 'MMM d, yyyy') })}</span>
                         {validUntilLabel && (
-                          <span>Valid until: {validUntilLabel}</span>
+                          <span>{t('estimations', 'validUntilWithDate', { date: validUntilLabel })}</span>
                         )}
                         {estimation.location && (
                           <span>{estimation.location}</span>
                         )}
                         {estimation.customerName && (
-                          <span>Customer: {estimation.customerName}</span>
+                          <span>{t('estimations', 'customerWithName', { name: estimation.customerName })}</span>
                         )}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <div className="text-sm text-muted-foreground">{totalAmount.label} total</div>
+                        <div className="text-sm text-muted-foreground">{t('estimations', 'amountTotal', { amount: totalAmount.label })}</div>
                         <div className="text-xl font-semibold text-foreground">
                           {totalAmount.value.toFixed(2)} {currencySymbol}
                         </div>
@@ -467,7 +472,7 @@ export default function EstimationsView() {
                         onClick={() => void handleOpenPdf(estimation._id)}
                       >
                         <ExternalLinkIcon className="mr-2 h-4 w-4" />
-                        {openingPdfEstimationId === estimation._id ? 'Opening...' : 'Open PDF'}
+                        {openingPdfEstimationId === estimation._id ? t('estimations', 'opening') : t('estimations', 'openPdf')}
                       </Button>
 
                       <DropdownMenu>
@@ -482,21 +487,21 @@ export default function EstimationsView() {
                             onClick={() => void handleDownloadPdf(estimation._id)}
                           >
                             <DownloadIcon className="mr-2 h-4 w-4" />
-                            {downloadingPdfEstimationId === estimation._id ? 'Exporting PDF...' : 'Download PDF'}
+                            {downloadingPdfEstimationId === estimation._id ? t('estimations', 'exportingPdf') : t('estimations', 'downloadPdf')}
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setEditingEstimationId(estimation._id)}>
                             <EditIcon className="mr-2 h-4 w-4" />
-                            Edit
+                            {t('estimations', 'edit')}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => handleStatusChange(estimation._id, 'draft')}>
-                            Set as Draft
+                            {t('estimations', 'setAsDraft')}
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleStatusChange(estimation._id, 'accepted')}>
-                            Mark as Accepted
+                            {t('estimations', 'markAsAccepted')}
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleStatusChange(estimation._id, 'rejected')}>
-                            Mark as Rejected
+                            {t('estimations', 'markAsRejected')}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
@@ -504,7 +509,7 @@ export default function EstimationsView() {
                             onClick={() => handleDelete(estimation._id)}
                           >
                             <TrashIcon data-icon="inline-start" />
-                            Delete
+                            {t('estimations', 'delete')}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -512,11 +517,11 @@ export default function EstimationsView() {
                   </div>
                   <div className="mt-4 flex flex-wrap gap-6 border-t border-border pt-4 text-sm">
                     <div>
-                      <span className="text-muted-foreground">Labor ({laborAmount.label}): </span>
+                      <span className="text-muted-foreground">{t('estimations', 'laborAmountLabel', { amount: laborAmount.label })} </span>
                       <span className="font-medium">{laborAmount.value.toFixed(2)} {currencySymbol}</span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Materials ({materialsAmount.label}): </span>
+                      <span className="text-muted-foreground">{t('estimations', 'materialsAmountLabel', { amount: materialsAmount.label })} </span>
                       <span className="font-medium">{materialsAmount.value.toFixed(2)} {currencySymbol}</span>
                     </div>
                   </div>

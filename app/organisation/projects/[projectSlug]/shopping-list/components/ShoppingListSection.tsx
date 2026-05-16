@@ -45,6 +45,7 @@ import {
   type PriceTaxMode,
   type PriceTaxRateSnapshot,
 } from "@/lib/priceTax";
+import { useI18n } from "@/lib/i18n";
 
 type ShoppingListItem = Doc<"shoppingListItems">;
 type ShoppingSet = Doc<"shoppingSets"> & {
@@ -74,14 +75,20 @@ interface InlineEditState {
 
 const SHOPPING_STATUS_OPTIONS: Array<{
   value: ShoppingListItem["realizationStatus"];
-  label: string;
+  labelKey:
+    | "planned"
+    | "ordered"
+    | "inTransit"
+    | "delivered"
+    | "completed"
+    | "cancelled";
 }> = [
-  { value: "PLANNED", label: "Planned" },
-  { value: "ORDERED", label: "Ordered" },
-  { value: "IN_TRANSIT", label: "In transit" },
-  { value: "DELIVERED", label: "Delivered" },
-  { value: "COMPLETED", label: "Completed" },
-  { value: "CANCELLED", label: "Cancelled" },
+  { value: "PLANNED", labelKey: "planned" },
+  { value: "ORDERED", labelKey: "ordered" },
+  { value: "IN_TRANSIT", labelKey: "inTransit" },
+  { value: "DELIVERED", labelKey: "delivered" },
+  { value: "COMPLETED", labelKey: "completed" },
+  { value: "CANCELLED", labelKey: "cancelled" },
 ];
 
 const SHOPPING_STATUS_TRIGGER_CLASSNAMES: Record<
@@ -102,7 +109,7 @@ const SHOPPING_STATUS_TRIGGER_CLASSNAMES: Record<
     "border-destructive/20 bg-destructive/10 text-destructive hover:border-destructive/30 hover:bg-destructive/15",
 };
 
-const SHOPPING_PRIORITY_LABELS: Record<NonNullable<Priority>, string> = {
+const SHOPPING_PRIORITY_LABELS: Record<NonNullable<Priority>, NonNullable<Priority>> = {
   low: "low",
   medium: "medium",
   high: "high",
@@ -119,8 +126,6 @@ const SHOPPING_PRIORITY_OPTIONS: Array<{
   { value: "high", label: "High" },
   { value: "urgent", label: "Urgent" },
 ];
-
-const formatItemCountLabel = (count: number) => `${count} ${count === 1 ? "item" : "items"}`;
 
 interface EditFormData {
   name?: string;
@@ -211,6 +216,7 @@ export function ShoppingListSection({
   onDeleteSet,
   isPending,
 }: ShoppingListSectionProps) {
+  const { t, locale } = useI18n();
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<EditFormData>({});
   const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({});
@@ -246,6 +252,12 @@ export function ShoppingListSection({
 
   const setContext = buildShoppingSetContext(items, sets);
   const sectionTotal = calculateShoppingTotal(items, sets);
+  const getPriorityLabel = (priority: PrioritySelectValue) => {
+    if (priority === "none") return t("shoppingList", "noPriority");
+    return t("shoppingList", priority);
+  };
+  const formatItemCountLabel = (count: number) =>
+    `${count} ${count === 1 ? t("shoppingList", "item") : t("shoppingList", "items")}`;
   const renderPriceSpans = (
     amount: number | undefined,
     scope: "unit" | "total",
@@ -268,8 +280,8 @@ export function ShoppingListSection({
     return (
       <span className="inline-flex flex-wrap items-baseline gap-x-1.5 whitespace-nowrap font-semibold text-foreground">
         {scope === "unit"
-          ? `Unit: ${amount.toFixed(2)} ${currencySymbol}`
-          : `Total: ${amount.toFixed(2)} ${currencySymbol}`}
+          ? `${t("shoppingList", "unitLabel")} ${amount.toFixed(2)} ${currencySymbol}`
+          : `${t("shoppingList", "totalLabel")} ${amount.toFixed(2)} ${currencySymbol}`}
         {taxSummary ? (
           <span className="ml-2 text-xs font-normal text-muted-foreground">
             ({taxSummary})
@@ -409,7 +421,7 @@ export function ShoppingListSection({
       switch (field) {
         case "name":
           if (!trimmed) {
-            toast.error("Product name is required");
+            toast.error(t("shoppingList", "productNameRequired"));
             return;
           }
           updates = { name: trimmed };
@@ -429,7 +441,7 @@ export function ShoppingListSection({
         case "quantity": {
           const quantity = Number.parseInt(trimmed, 10);
           if (!Number.isFinite(quantity) || quantity < 1) {
-            toast.error("Quantity must be at least 1");
+            toast.error(t("shoppingList", "quantityAtLeastOne"));
             return;
           }
           updates = { quantity };
@@ -438,7 +450,7 @@ export function ShoppingListSection({
         case "unitPrice": {
           const unitPrice = trimmed === "" ? undefined : Number.parseFloat(trimmed);
           if (unitPrice !== undefined && (!Number.isFinite(unitPrice) || unitPrice < 0)) {
-            toast.error("Unit price must be zero or higher");
+            toast.error(t("shoppingList", "unitPriceZeroOrHigher"));
             return;
           }
           updates = { unitPrice };
@@ -457,7 +469,7 @@ export function ShoppingListSection({
           break;
       }
     } catch {
-      toast.error("Invalid product URL");
+      toast.error(t("shoppingList", "invalidProductUrl"));
       return;
     }
 
@@ -471,7 +483,7 @@ export function ShoppingListSection({
       await onUpdateItem(item._id, updates);
       setInlineEdit(null);
     } catch (error) {
-      toast.error("Could not update product", {
+      toast.error(t("shoppingList", "couldNotUpdateProduct"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -497,7 +509,7 @@ export function ShoppingListSection({
 
     const nextName = editFormData.name?.trim() || "";
     if (!nextName) {
-      toast.error("Product name is required");
+      toast.error(t("shoppingList", "productNameRequired"));
       return;
     }
 
@@ -517,7 +529,7 @@ export function ShoppingListSection({
       (normalizedPriceTaxMode === "net" || normalizedPriceTaxMode === "gross") &&
       !taxRateSnapshot
     ) {
-      toast.error("Select a tax rate or leave tax as not specified");
+      toast.error(t("shoppingList", "selectTaxRateOrLeaveUnspecified"));
       return;
     }
     const buyBefore = editFormData.buyBefore ? new Date(editFormData.buyBefore).getTime() : undefined;
@@ -537,7 +549,7 @@ export function ShoppingListSection({
 
     if (!wantsAlternatives && item.setId) {
       if (relatedSetItems.length > 1) {
-        toast.error("Remove the other alternative options first.");
+        toast.error(t("shoppingList", "removeOtherAlternativesFirst"));
         return;
       }
       await onDeleteSet(item.setId);
@@ -582,7 +594,7 @@ export function ShoppingListSection({
     try {
       normalizedUrl = normalizeProductUrl(rawUrl);
     } catch {
-      toast.error("Invalid product URL");
+      toast.error(t("shoppingList", "invalidProductUrl"));
       return;
     }
 
@@ -606,7 +618,7 @@ export function ShoppingListSection({
       };
 
       if (!response.ok) {
-        throw new Error(payload.message || "Failed to scrape product details");
+        throw new Error(payload.message || t("shoppingList", "failedToScrapeProductDetails"));
       }
 
       setEditFormData((current) => ({
@@ -624,9 +636,9 @@ export function ShoppingListSection({
         productLink: payload.productLink ?? current.productLink,
       }));
 
-      toast.success("Product details imported from URL");
+      toast.success(t("shoppingList", "productDetailsImported"));
     } catch (error) {
-      toast.error("Could not import product details", {
+      toast.error(t("shoppingList", "couldNotImportProductDetails"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -643,9 +655,9 @@ export function ShoppingListSection({
     setSavingToLibraryItemId(itemId);
     try {
       await createProductFromShoppingListItem({ itemId: item._id });
-      toast.success("Added to product library");
+      toast.success(t("shoppingList", "addedToProductLibrary"));
     } catch (error) {
-      toast.error("Could not add product to library", {
+      toast.error(t("shoppingList", "couldNotAddProductToLibrary"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -654,7 +666,11 @@ export function ShoppingListSection({
   };
 
   const getStatusLabel = (status: ShoppingListItem["realizationStatus"]) =>
-    SHOPPING_STATUS_OPTIONS.find((option) => option.value === status)?.label ?? status;
+    t(
+      "shoppingList",
+      SHOPPING_STATUS_OPTIONS.find((option) => option.value === status)
+        ?.labelKey ?? "status",
+    );
 
   const getInlineStatusClassName = (status: ShoppingListItem["realizationStatus"]) => {
     return (
@@ -678,8 +694,8 @@ export function ShoppingListSection({
   const getCustomerDecisionLabel = (
     decision: ShoppingListItem["customerDecision"] | undefined,
   ) => {
-    if (decision === "accepted") return "Accepted";
-    if (decision === "rejected") return "Rejected";
+    if (decision === "accepted") return t("shoppingList", "accepted");
+    if (decision === "rejected") return t("shoppingList", "rejected");
     return null;
   };
 
@@ -700,34 +716,34 @@ export function ShoppingListSection({
     selectionMode: ShoppingSet["selectionMode"],
   ) => {
     if (selectionMode === "multiple") {
-      return source ? "Chosen options" : "Suggested options";
+      return source ? t("shoppingList", "chosenOptions") : t("shoppingList", "suggestedOptions");
     }
-    return source ? "Chosen option" : "Suggested option";
+    return source ? t("shoppingList", "chosenOption") : t("shoppingList", "suggestedOption");
   };
 
   const renderEditForm = (item: ShoppingListItem) => (
     <div className="vibe-surface flex flex-col gap-5 p-5 shadow-none">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Field>
-          <FieldLabel>Product Name *</FieldLabel>
+          <FieldLabel>{t("shoppingList", "productName")}</FieldLabel>
           <Input
             value={editFormData.name || ""}
             onChange={(event) => setEditFormData({ ...editFormData, name: event.target.value })}
-            placeholder="e.g. Kitchen Countertop Navona"
+            placeholder={t("shoppingList", "productNamePlaceholder")}
             className="h-12 text-sm"
           />
         </Field>
         <Field>
-          <FieldLabel>Section</FieldLabel>
+          <FieldLabel>{t("shoppingList", "section")}</FieldLabel>
           <Select
             value={editFormData.sectionId || "none"}
             onValueChange={(value) => setEditFormData({ ...editFormData, sectionId: value })}
           >
             <SelectTrigger className="h-12 text-sm">
-              <SelectValue placeholder="Select section" />
+              <SelectValue placeholder={t("shoppingList", "selectSection")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">No Category</SelectItem>
+              <SelectItem value="none">{t("shoppingList", "noCategory")}</SelectItem>
               {sections.map((section) => (
                 <SelectItem key={section._id} value={section._id}>
                   {section.name}
@@ -737,38 +753,38 @@ export function ShoppingListSection({
           </Select>
         </Field>
         <Field>
-          <FieldLabel>Supplier</FieldLabel>
+          <FieldLabel>{t("shoppingList", "supplier")}</FieldLabel>
           <Input
             value={editFormData.supplier || ""}
             onChange={(event) => setEditFormData({ ...editFormData, supplier: event.target.value })}
-            placeholder="e.g. kronosfera.pl"
+            placeholder={t("shoppingList", "supplierPlaceholder")}
             className="h-12 text-sm"
           />
         </Field>
         <Field>
-          <FieldLabel>Catalog Number</FieldLabel>
+          <FieldLabel>{t("shoppingList", "catalogNumber")}</FieldLabel>
           <Input
             value={editFormData.catalogNumber || ""}
             onChange={(event) => setEditFormData({ ...editFormData, catalogNumber: event.target.value })}
-            placeholder="e.g. BU1K367PH-3BC1"
+            placeholder={t("shoppingList", "catalogNumberPlaceholder")}
             className="h-12 text-sm"
           />
         </Field>
         <Field>
-          <FieldLabel>Category</FieldLabel>
+          <FieldLabel>{t("shoppingList", "category")}</FieldLabel>
           <Input
             value={editFormData.category || ""}
             onChange={(event) => setEditFormData({ ...editFormData, category: event.target.value })}
-            placeholder="e.g. Furniture"
+            placeholder={t("shoppingList", "categoryPlaceholder")}
             className="h-12 text-sm"
           />
         </Field>
         <Field>
-          <FieldLabel>Dimensions</FieldLabel>
+          <FieldLabel>{t("shoppingList", "dimensions")}</FieldLabel>
           <Input
             value={editFormData.dimensions || ""}
             onChange={(event) => setEditFormData({ ...editFormData, dimensions: event.target.value })}
-            placeholder="e.g. 4100 x 1200"
+            placeholder={t("shoppingList", "dimensionsPlaceholder")}
             className="h-12 text-sm"
           />
         </Field>
@@ -776,7 +792,7 @@ export function ShoppingListSection({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Field>
-          <FieldLabel>Quantity</FieldLabel>
+          <FieldLabel>{t("shoppingList", "quantity")}</FieldLabel>
           <Input
             type="number"
             min="1"
@@ -786,7 +802,7 @@ export function ShoppingListSection({
           />
         </Field>
         <Field>
-          <FieldLabel>Unit Price ({currencySymbol})</FieldLabel>
+          <FieldLabel>{t("shoppingList", "unitPrice")} ({currencySymbol})</FieldLabel>
           <Input
             type="number"
             step="0.01"
@@ -797,7 +813,7 @@ export function ShoppingListSection({
           />
         </Field>
         <Field>
-          <FieldLabel>Status</FieldLabel>
+          <FieldLabel>{t("shoppingList", "status")}</FieldLabel>
           <Select
             value={editFormData.realizationStatus || "PLANNED"}
             onValueChange={(value) =>
@@ -808,19 +824,19 @@ export function ShoppingListSection({
             }
           >
             <SelectTrigger className="h-12 text-sm">
-              <SelectValue placeholder="Select status" />
+              <SelectValue placeholder={t("shoppingList", "selectStatus")} />
             </SelectTrigger>
             <SelectContent>
               {SHOPPING_STATUS_OPTIONS.map((status) => (
                 <SelectItem key={status.value} value={status.value}>
-                  {status.label}
+                  {t("shoppingList", status.labelKey)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </Field>
         <Field>
-          <FieldLabel>Priority</FieldLabel>
+          <FieldLabel>{t("shoppingList", "priority")}</FieldLabel>
           <Select
             value={editFormData.priority ?? "none"}
             onValueChange={(value) =>
@@ -831,19 +847,19 @@ export function ShoppingListSection({
             }
           >
             <SelectTrigger className="h-12 text-sm">
-              <SelectValue placeholder="Select priority" />
+              <SelectValue placeholder={t("shoppingList", "selectPriority")} />
             </SelectTrigger>
             <SelectContent>
               {SHOPPING_PRIORITY_OPTIONS.map((priority) => (
                 <SelectItem key={priority.value} value={priority.value}>
-                  {priority.label}
+                  {getPriorityLabel(priority.value)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </Field>
         <Field>
-          <FieldLabel>Tax treatment</FieldLabel>
+          <FieldLabel>{t("shoppingList", "taxTreatment")}</FieldLabel>
           <Select
             value={editFormData.priceTaxMode || "unspecified"}
             onValueChange={(value) => {
@@ -862,26 +878,26 @@ export function ShoppingListSection({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="unspecified">Not specified</SelectItem>
+              <SelectItem value="unspecified">{t("shoppingList", "notSpecified")}</SelectItem>
               <SelectItem value="net" disabled={activeTaxRates.length === 0}>
-                Net + tax
+                {t("shoppingList", "netPlusTax")}
               </SelectItem>
               <SelectItem value="gross" disabled={activeTaxRates.length === 0}>
-                Gross incl. tax
+                {t("shoppingList", "grossInclTax")}
               </SelectItem>
-              <SelectItem value="exempt">Tax exempt</SelectItem>
+              <SelectItem value="exempt">{t("shoppingList", "taxExempt")}</SelectItem>
             </SelectContent>
           </Select>
         </Field>
         {editFormData.priceTaxMode === "net" || editFormData.priceTaxMode === "gross" ? (
           <Field>
-            <FieldLabel>Tax rate</FieldLabel>
+            <FieldLabel>{t("shoppingList", "taxRate")}</FieldLabel>
             <Select
               value={editFormData.taxRateId || ""}
               onValueChange={(value) => setEditFormData({ ...editFormData, taxRateId: value })}
             >
               <SelectTrigger className="h-12 text-sm">
-                <SelectValue placeholder="Select tax rate" />
+                <SelectValue placeholder={t("shoppingList", "selectTaxRate")} />
               </SelectTrigger>
               <SelectContent>
                 {activeTaxRates.map((rate) => (
@@ -897,7 +913,7 @@ export function ShoppingListSection({
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Field>
-          <FieldLabel>Product Link</FieldLabel>
+          <FieldLabel>{t("shoppingList", "productLink")}</FieldLabel>
           <div className="flex items-center gap-2">
             <Input
               value={editFormData.productLink || ""}
@@ -913,12 +929,14 @@ export function ShoppingListSection({
               className="h-12 shrink-0 px-4"
             >
               {isEditScraping ? <Loader2 className="h-4 w-4 animate-spin" /> : <WandSparkles className="h-4 w-4" />}
-              <span className="ml-2 hidden xl:inline">{isEditScraping ? "Scraping..." : "Auto-fill"}</span>
+              <span className="ml-2 hidden xl:inline">
+                {isEditScraping ? t("shoppingList", "scrapeProductDetails") : t("shoppingList", "autoFill")}
+              </span>
             </Button>
           </div>
         </Field>
         <Field className="lg:col-span-2">
-          <FieldLabel>Image URL</FieldLabel>
+          <FieldLabel>{t("shoppingList", "imageUrl")}</FieldLabel>
           <Input
             value={editFormData.imageUrl || ""}
             onChange={(event) => setEditFormData({ ...editFormData, imageUrl: event.target.value })}
@@ -930,16 +948,16 @@ export function ShoppingListSection({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Field>
-          <FieldLabel>Assign To</FieldLabel>
+          <FieldLabel>{t("shoppingList", "assignTo")}</FieldLabel>
           <Select
             value={editFormData.assigneeId || "none"}
             onValueChange={(value) => setEditFormData({ ...editFormData, assigneeId: value })}
           >
             <SelectTrigger className="h-12 text-sm">
-              <SelectValue placeholder="Select user" />
+              <SelectValue placeholder={t("shoppingList", "selectUser")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">Unassigned</SelectItem>
+              <SelectItem value="none">{t("shoppingList", "unassigned")}</SelectItem>
               {teamMembers?.map((member) => (
                 <SelectItem key={member.clerkUserId} value={member.clerkUserId}>
                   <div className="flex items-center gap-2">
@@ -955,7 +973,7 @@ export function ShoppingListSection({
           </Select>
         </Field>
         <Field>
-          <FieldLabel>Buy Before</FieldLabel>
+          <FieldLabel>{t("shoppingList", "buyBefore")}</FieldLabel>
           <DatePicker
             date={parseDateInput(editFormData.buyBefore)}
             onDateChange={(date) =>
@@ -964,7 +982,7 @@ export function ShoppingListSection({
                 buyBefore: formatDateInput(date),
               })
             }
-            placeholder="Pick a date"
+            placeholder={t("shoppingList", "pickDate")}
             className="h-12 w-full text-sm"
           />
         </Field>
@@ -981,16 +999,16 @@ export function ShoppingListSection({
             className="mt-0.5"
           />
           <label htmlFor={`item-${item._id}-has-alternatives`} className="cursor-pointer text-sm leading-6">
-            <span className="font-medium text-foreground">Offer alternatives?</span>
+            <span className="font-medium text-foreground">{t("shoppingList", "offerAlternatives")}</span>
             <span className="block text-muted-foreground">
-              Add this product to an alternative group so the client can choose one option in the portal.
+              {t("shoppingList", "addToAlternativeGroupDescription")}
             </span>
           </label>
         </div>
         {item.setId &&
         items.filter((entry) => String(entry.setId ?? "") === String(item.setId)).length > 1 ? (
           <p className="mt-3 text-xs text-foreground/70">
-            To remove this alternative group, first delete the other options in it.
+            {t("shoppingList", "removeAlternativeGroupHint")}
           </p>
         ) : null}
       </div>
@@ -1008,7 +1026,7 @@ export function ShoppingListSection({
           ) : (
             <LibraryBig className="mr-1 h-4 w-4" />
           )}
-          Add to product library
+          {t("shoppingList", "addToProductLibrary")}
         </Button>
         <Button
           size="sm"
@@ -1017,11 +1035,11 @@ export function ShoppingListSection({
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <SaveIcon className="mr-1 h-4 w-4" />
-          Save
+          {t("shoppingList", "save")}
         </Button>
         <Button variant="outline" size="sm" onClick={() => setEditingItemId(null)}>
           <XIcon className="mr-1 h-4 w-4" />
-          Cancel
+          {t("shoppingList", "cancel")}
         </Button>
       </div>
     </div>
@@ -1117,7 +1135,7 @@ export function ShoppingListSection({
           <SelectContent>
             {SHOPPING_PRIORITY_OPTIONS.map((priority) => (
               <SelectItem key={priority.value} value={priority.value}>
-                {priority.label}
+                {getPriorityLabel(priority.value)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -1141,11 +1159,11 @@ export function ShoppingListSection({
               variant={getPriorityBadgeVariant()}
               className={getPriorityBadgeClassName(priority)}
             >
-              {SHOPPING_PRIORITY_LABELS[priority]}
+              {getPriorityLabel(SHOPPING_PRIORITY_LABELS[priority])}
             </Badge>
           </button>
         </TooltipTrigger>
-        <TooltipContent>Click to edit</TooltipContent>
+        <TooltipContent>{t("shoppingList", "clickToEdit")}</TooltipContent>
       </Tooltip>
     );
   };
@@ -1161,7 +1179,7 @@ export function ShoppingListSection({
           onDateChange={(date) =>
             void saveInlineEdit(item, "buyBefore", formatDateInput(date))
           }
-          placeholder="Pick a date"
+          placeholder={t("shoppingList", "pickDate")}
           className="h-8 w-40 rounded-lg px-2.5 text-sm"
         />
       );
@@ -1171,7 +1189,13 @@ export function ShoppingListSection({
       item,
       "buyBefore",
       <span className="text-muted-foreground">
-        {item.buyBefore ? format(new Date(item.buyBefore), "MMM dd, yyyy") : "Set date"}
+        {item.buyBefore
+          ? new Intl.DateTimeFormat(locale === "pl" ? "pl-PL" : "en-US", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            }).format(new Date(item.buyBefore))
+          : t("shoppingList", "setDate")}
       </span>,
       { className: "text-muted-foreground" },
     );
@@ -1185,10 +1209,10 @@ export function ShoppingListSection({
     const customerDecisionTone = getCustomerDecisionTone(item.customerDecision);
     const customerDecisionLabel = getCustomerDecisionLabel(item.customerDecision);
     const headerDetails = [
-      item.category ? { label: "Category", value: item.category } : null,
-      item.dimensions ? { label: "Dimensions", value: item.dimensions } : null,
-      item.catalogNumber ? { label: "Catalog #", value: item.catalogNumber } : null,
-    ].filter(Boolean) as Array<{ label: string; value: string }>;
+      item.category ? { label: t("shoppingList", "category"), value: item.category, field: "category" as const } : null,
+      item.dimensions ? { label: t("shoppingList", "dimensions"), value: item.dimensions, field: "dimensions" as const } : null,
+      item.catalogNumber ? { label: t("shoppingList", "catalogShort"), value: item.catalogNumber, field: "catalogNumber" as const } : null,
+    ].filter(Boolean) as Array<{ label: string; value: string; field: InlineEditField }>;
     const hasHeaderDetails = headerDetails.length > 0 || Boolean(item.productLink);
     const hasExpandedDetails = Boolean(item.notes || item.customerDecisionComment);
 
@@ -1201,9 +1225,9 @@ export function ShoppingListSection({
       setUpdatingStatusItemId(itemId);
       try {
         await onUpdateItem(item._id, { realizationStatus: nextStatus });
-        toast.success(`Status changed to ${getStatusLabel(nextStatus)}`);
+        toast.success(`${t("shoppingList", "statusChangedTo")} ${getStatusLabel(nextStatus)}`);
       } catch (error) {
-        toast.error("Could not update status", {
+        toast.error(t("shoppingList", "couldNotUpdateStatus"), {
           description: toUserFacingErrorMessage(error),
         });
       } finally {
@@ -1215,7 +1239,7 @@ export function ShoppingListSection({
       <div
         key={item._id}
         className={cn(
-          "rounded-2xl border border-border/80 bg-card px-4 py-4 shadow-[0_16px_44px_-34px_rgba(24,20,16,0.34)] sm:px-5",
+          "rounded-2xl border border-border/80 bg-card px-4 py-4 sm:px-5",
           customerDecisionTone &&
             (item.customerDecision === "accepted"
               ? "border-[#78a65a]/30 bg-[#edf6e8]/25"
@@ -1240,7 +1264,7 @@ export function ShoppingListSection({
                       {renderEditableValue(item, "name", item.name, {
                         className: "block max-w-full truncate font-semibold text-foreground",
                         inputClassName: "w-64 max-w-full font-semibold",
-                        placeholder: "Product name",
+                        placeholder: t("shoppingList", "productName"),
                       })}
                     </h4>
                     {customerDecisionLabel ? (
@@ -1250,18 +1274,18 @@ export function ShoppingListSection({
                     ) : null}
                     {set ? (
                       <Badge variant="outline" className="text-xs">
-                        Alternative
+                        {t("shoppingList", "alternative")}
                       </Badge>
                     ) : null}
                     {!isCounted ? (
                       <Badge variant="secondary" className="text-xs">
-                        Not counted in total
+                        {t("shoppingList", "notCountedInTotal")}
                       </Badge>
                     ) : null}
                   </div>
                   <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
                     <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-secondary/55 px-2.5 py-1 font-medium text-foreground/75">
-                      <span className="text-xs text-muted-foreground">Qty</span>
+                      <span className="text-xs text-muted-foreground">{t("shoppingList", "qty")}</span>
                       {renderEditableValue(item, "quantity", item.quantity, {
                         className: "font-medium text-foreground/75",
                         inputClassName: "w-16",
@@ -1270,7 +1294,7 @@ export function ShoppingListSection({
                     </span>
                     {item.unitPrice !== undefined ? (
                       <span className="inline-flex flex-wrap items-baseline gap-x-1.5 whitespace-nowrap rounded-full bg-secondary/45 px-2.5 py-1">
-                        <span className="text-xs text-muted-foreground">Unit</span>
+                        <span className="text-xs text-muted-foreground">{t("shoppingList", "unit")}</span>
                         {renderEditableValue(
                           item,
                           "unitPrice",
@@ -1311,7 +1335,7 @@ export function ShoppingListSection({
                       renderEditableValue(item, "supplier", item.supplier, {
                         className: "block max-w-full truncate rounded-full bg-secondary/35 px-2.5 py-1 text-muted-foreground sm:max-w-40",
                         inputClassName: "w-44",
-                        placeholder: "Supplier",
+                        placeholder: t("shoppingList", "supplier"),
                       })
                     ) : null}
                   </div>
@@ -1319,13 +1343,13 @@ export function ShoppingListSection({
                     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-foreground">
                       {item.priority ? (
                         <div className="flex items-center gap-2 rounded-full bg-secondary/35 px-2.5 py-1">
-                          <span className="text-xs font-medium text-muted-foreground">Priority</span>
+                          <span className="text-xs font-medium text-muted-foreground">{t("shoppingList", "priority")}</span>
                           {renderEditablePriority(item)}
                         </div>
                       ) : null}
                       {item.buyBefore ? (
                         <div className="flex items-center gap-2 rounded-full bg-secondary/35 px-2.5 py-1">
-                          <span className="text-xs font-medium text-muted-foreground">Buy before</span>
+                          <span className="text-xs font-medium text-muted-foreground">{t("shoppingList", "buyBefore")}</span>
                           {renderEditableBuyBefore(item)}
                         </div>
                       ) : null}
@@ -1364,7 +1388,7 @@ export function ShoppingListSection({
                     <SelectContent>
                       {SHOPPING_STATUS_OPTIONS.map((status) => (
                         <SelectItem key={status.value} value={status.value}>
-                          {status.label}
+                          {t("shoppingList", status.labelKey)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1381,7 +1405,7 @@ export function ShoppingListSection({
                           <ExternalLinkIcon className="h-4 w-4" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Open link</TooltipContent>
+                      <TooltipContent>{t("shoppingList", "openLink")}</TooltipContent>
                     </Tooltip>
                   ) : null}
                   {hasExpandedDetails ? (
@@ -1420,11 +1444,7 @@ export function ShoppingListSection({
                       <span className="shrink-0 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">{detail.label}</span>
                       {renderEditableValue(
                         item,
-                        detail.label === "Category"
-                          ? "category"
-                          : detail.label === "Dimensions"
-                            ? "dimensions"
-                            : "catalogNumber",
+                        detail.field,
                         <span className="block max-w-full truncate">{detail.value}</span>,
                         {
                           className: "min-w-0 max-w-full text-muted-foreground",
@@ -1435,7 +1455,7 @@ export function ShoppingListSection({
                   ))}
                   {item.productLink ? (
                     <div className="flex min-w-0 items-center gap-2 rounded-xl bg-secondary/35 px-3 py-2">
-                      <span className="shrink-0 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">Link</span>
+                      <span className="shrink-0 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">{t("shoppingList", "link")}</span>
                       {renderEditableValue(
                         item,
                         "productLink",
@@ -1536,14 +1556,16 @@ export function ShoppingListSection({
               <h3 className="text-base font-medium text-foreground">{leadItem?.name || set.title}</h3>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className="text-xs">Alternative group</Badge>
-              <Badge variant="secondary" className="text-xs">{setItems.length} options</Badge>
+              <Badge variant="outline" className="text-xs">{t("shoppingList", "alternativeGroup")}</Badge>
+              <Badge variant="secondary" className="text-xs">
+                {setItems.length} {t("shoppingList", "options")}
+              </Badge>
               {hasResolvedSelection ? (
                 <Badge
                   variant="outline"
                   className={cn("text-xs", getSelectionSourceTone(set.resolvedBySource))}
                 >
-                  Chosen option
+                  {t("shoppingList", "chosenOption")}
                 </Badge>
               ) : null}
             </div>
@@ -1560,7 +1582,7 @@ export function ShoppingListSection({
               }
             >
               <PlusIcon className="mr-2 h-4 w-4" />
-              Add alternative
+              {t("shoppingList", "addAlternative")}
             </Button>
             <Button
               variant="ghost"
@@ -1569,7 +1591,7 @@ export function ShoppingListSection({
               onClick={() => onDeleteSet(set._id)}
             >
               <TrashIcon className="mr-2 h-4 w-4" />
-              Remove group
+              {t("shoppingList", "removeGroup")}
             </Button>
           </div>
         </div>
@@ -1597,7 +1619,7 @@ export function ShoppingListSection({
               defaultSetId={set._id}
               hideSectionField
               hideAlternativeControls
-              submitLabel="Add alternative"
+              submitLabel={t("shoppingList", "addAlternative")}
             />
           </div>
         ) : null}
@@ -1641,11 +1663,11 @@ export function ShoppingListSection({
                               set.selectionMode,
                             )
                           : hasResolvedSelection
-                            ? "Choose instead"
-                            : "Choose this option"
+                            ? t("shoppingList", "chooseInstead")
+                            : t("shoppingList", "chooseThisOption")
                         : isSelected
-                          ? "Included"
-                          : "Include"}
+                          ? t("shoppingList", "included")
+                          : t("shoppingList", "include")}
                     </Button>
                   </div>
                 ) : null}
@@ -1665,7 +1687,7 @@ export function ShoppingListSection({
                       ) : null}
                       {isPreferred && !isSelected ? (
                         <Badge variant="secondary" className="text-xs">
-                          Suggested option
+                          {t("shoppingList", "suggestedOption")}
                         </Badge>
                       ) : null}
                     </div>
@@ -1689,7 +1711,7 @@ export function ShoppingListSection({
             {formatItemCountLabel(items.length)}
           </span>
           <span className="inline-flex items-center justify-center rounded-full border border-border/60 bg-secondary/70 px-3 py-1 text-xs font-medium text-foreground">
-            Total: {sectionTotal.toFixed(2)} {currencySymbol}
+            {t("shoppingList", "totalLabel")} {sectionTotal.toFixed(2)} {currencySymbol}
           </span>
         </div>
         <Button variant="ghost" size="icon-sm" className="self-end rounded-full border border-border/60 bg-secondary/70 sm:self-auto" onClick={() => setShowAddForm((current) => !current)}>

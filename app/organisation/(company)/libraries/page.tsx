@@ -1,37 +1,42 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, ClipboardList, Contact, Package } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 const libraryItems = [
   {
-    title: "Team Contacts",
-    description: "Shared client, supplier, and collaborator details for the organization.",
+    titleKey: "teamContacts",
+    descriptionKey: "teamContactsDescription",
     href: "/organisation/contacts",
     icon: Contact,
   },
   {
-    title: "Product Library",
-    description: "Approved products, finishes, pricing, and supplier references.",
+    titleKey: "productLibrary",
+    descriptionKey: "productLibraryDescription",
     href: "/organisation/product-library",
     icon: Package,
   },
   {
-    title: "Survey Library",
-    description: "Reusable survey templates and question sets for project feedback.",
+    titleKey: "surveyLibrary",
+    descriptionKey: "surveyLibraryDescription",
     href: "/organisation/survey-library",
     icon: ClipboardList,
   },
 ];
 
 export default function LibrariesPage() {
+  const { t } = useI18n();
+
   return (
     <div className="flex h-full flex-1 flex-col bg-background">
       <div className="border-b border-border/70 bg-background/95 px-5 py-4 backdrop-blur md:px-7">
         <div className="flex flex-col gap-2">
           <h1 className="font-serif text-[2rem] leading-none tracking-[-0.04em] text-foreground">
-            Libraries
+            {t("librariesPage", "title")}
           </h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            Open the shared organization resources your team reuses across projects.
+            {t("librariesPage", "description")}
           </p>
         </div>
       </div>
@@ -49,15 +54,15 @@ export default function LibrariesPage() {
                   <item.icon className="h-5 w-5" />
                 </div>
                 <h2 className="text-xl font-medium tracking-[-0.03em] text-foreground">
-                  {item.title}
+                  {t("librariesPage", item.titleKey)}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {item.description}
+                  {t("librariesPage", item.descriptionKey)}
                 </p>
               </div>
 
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <span>Open library</span>
+                <span>{t("librariesPage", "openLibrary")}</span>
                 <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
               </div>
             </div>

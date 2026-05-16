@@ -32,6 +32,9 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -56,7 +59,9 @@ import {
   BellRing,
   ClipboardList,
   Mail,
+  Languages,
 } from "lucide-react";
+import { useI18n, type Locale } from "@/lib/i18n";
 
 function OrganizationAvatar({
   imageUrl,
@@ -91,6 +96,7 @@ function OrganizationAvatar({
 }
 
 function CompanySidebarContent() {
+  const { locale, setLocale, t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const { setOpenMobile } = useSidebar();
@@ -125,30 +131,30 @@ function CompanySidebarContent() {
 
   // Define navigation items based on user role
   const allNavItems = [
-    { href: "/organisation", label: "Projects", icon: FolderOpen, allowedRoles: ["admin", "member"] },
+    { href: "/organisation", label: t("navigation", "projects"), icon: FolderOpen, allowedRoles: ["admin", "member"] },
     {
       href: notificationsHref,
-      label: "Notifications",
+      label: t("navigation", "notifications"),
       icon: BellRing,
       allowedRoles: ["admin", "member"],
       notificationCount: pathname.startsWith(notificationsHref) ? 0 : unreadOrganizationNotificationCount,
     },
-    { href: "/organisation/calendar", label: "Calendar", icon: Calendar, allowedRoles: ["admin", "member"] },
-    { href: "/organisation/visualizations", label: "Visualizations", icon: Sparkles, allowedRoles: ["admin", "member"] },
-    { href: "/organisation/libraries", label: "Libraries", icon: Library, allowedRoles: ["admin", "member"], isLibraryGroup: true },
-    { href: "/organisation/team", label: "Team", icon: Users, allowedRoles: ["admin", "member"] },
-    { href: "/organisation/tax", label: "Tax", icon: Percent, allowedRoles: ["admin", "member"] },
-    { href: "/organisation/reports", label: "Reports", icon: BarChart3, allowedRoles: ["admin", "member"] },
+    { href: "/organisation/calendar", label: t("navigation", "calendar"), icon: Calendar, allowedRoles: ["admin", "member"] },
+    { href: "/organisation/visualizations", label: t("navigation", "visualizations"), icon: Sparkles, allowedRoles: ["admin", "member"] },
+    { href: "/organisation/libraries", label: t("navigation", "libraries"), icon: Library, allowedRoles: ["admin", "member"], isLibraryGroup: true },
+    { href: "/organisation/team", label: t("navigation", "team"), icon: Users, allowedRoles: ["admin", "member"] },
+    { href: "/organisation/tax", label: t("navigation", "tax"), icon: Percent, allowedRoles: ["admin", "member"] },
+    { href: "/organisation/reports", label: t("navigation", "reports"), icon: BarChart3, allowedRoles: ["admin", "member"] },
   ];
   const libraryItems = [
-    { href: "/organisation/contacts", label: "Team Contacts", icon: Contact },
-    { href: "/organisation/product-library", label: "Product Library", icon: Package },
-    { href: "/organisation/survey-library", label: "Survey Library", icon: ClipboardList },
+    { href: "/organisation/contacts", label: t("navigation", "teamContacts"), icon: Contact },
+    { href: "/organisation/product-library", label: t("navigation", "productLibrary"), icon: Package },
+    { href: "/organisation/survey-library", label: t("navigation", "surveyLibrary"), icon: ClipboardList },
   ];
   const footerItems = [
-    { href: "/organisation/settings", label: "Settings", icon: Settings, isActive: pathname === "/organisation/settings" },
-    { href: "/organisation/subscription", label: "Subscription", icon: CreditCard, isActive: pathname === "/organisation/subscription" },
-    { href: "/contact", label: "Contact", icon: Mail, isActive: pathname.startsWith("/contact") },
+    { href: "/organisation/settings", label: t("navigation", "settings"), icon: Settings, isActive: pathname === "/organisation/settings" },
+    { href: "/organisation/subscription", label: t("navigation", "subscription"), icon: CreditCard, isActive: pathname === "/organisation/subscription" },
+    { href: "/contact", label: t("common", "contact"), icon: Mail, isActive: pathname.startsWith("/contact") },
   ];
 
   const userInitial =
@@ -156,7 +162,7 @@ function CompanySidebarContent() {
     user?.firstName?.charAt(0) ||
     user?.primaryEmailAddress?.emailAddress?.charAt(0) ||
     "U";
-  const organizationName = organization?.name || team?.name || "Workspace";
+  const organizationName = organization?.name || team?.name || t("common", "workspace");
   const organizationHasImage = organization?.hasImage ?? false;
   const organizationImageUrl = team?.imageUrl || organization?.imageUrl;
 
@@ -180,7 +186,7 @@ function CompanySidebarContent() {
             <OrganizationAvatar
               imageUrl={organizationImageUrl}
               hasImage={organizationHasImage}
-              alt={organization?.name || team?.name || "Organization"}
+              alt={organization?.name || team?.name || t("common", "workspace")}
             />
           </div>
           <div className="min-w-0 flex-1">
@@ -191,7 +197,7 @@ function CompanySidebarContent() {
               {organizationName}
             </h2>
             <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-sidebar-foreground/72 leading-none">
-              Company Space
+              {t("navigation", "companySpace")}
             </p>
           </div>
         </div>
@@ -360,7 +366,7 @@ function CompanySidebarContent() {
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-semibold text-sidebar-foreground">
-                      {user?.fullName || user?.firstName || "Account"}
+                      {user?.fullName || user?.firstName || t("common", "account")}
                     </p>
                     <p className="truncate text-[11px] text-sidebar-foreground/60">
                       {user?.primaryEmailAddress?.emailAddress || ""}
@@ -372,21 +378,37 @@ function CompanySidebarContent() {
               <DropdownMenuContent align="end" className="w-64 rounded-xl border-border/70">
                 <div className="px-3 py-2">
                   <p className="text-sm font-semibold text-foreground">
-                    {user?.fullName || user?.firstName || "Account"}
+                    {user?.fullName || user?.firstName || t("common", "account")}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {user?.primaryEmailAddress?.emailAddress || ""}
                   </p>
                 </div>
                 <DropdownMenuSeparator />
+                <DropdownMenuLabel className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                  <Languages className="h-3.5 w-3.5" />
+                  {t("common", "language")}
+                </DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={locale}
+                  onValueChange={(value) => setLocale(value as Locale)}
+                >
+                  <DropdownMenuRadioItem value="en">
+                    {t("language", "english")}
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="pl">
+                    {t("language", "polish")}
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   <DropdownMenuItem onClick={() => openUserProfile?.()}>
                     <Settings2 className="mr-2 h-4 w-4" />
-                    Manage account
+                    {t("common", "manageAccount")}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => signOut()}>
                     <LogOut className="mr-2 h-4 w-4" />
-                    Sign out
+                    {t("common", "signOut")}
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
               </DropdownMenuContent>

@@ -1,16 +1,15 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { ArrowUp, Check, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-const INITIAL_PROMPT =
-  "Create the concept pack with blueprint, room visuals, materials, and review notes.";
-const FOLLOW_UP_PROMPT =
-  "Keep the oak palette, open shelving, and a softer sofa option for the client review.";
+import { useI18n } from "@/lib/i18n";
+const INITIAL_PROMPT_KEY = "initialPrompt";
+const FOLLOW_UP_PROMPT_KEY = "followUpPrompt";
 const DEMO_PACE_MULTIPLIER = 1.35;
 const STAGE_DURATIONS = [1800, 1000, 1300, 1700, 1100, 1400, 1600, 3200].map(
   (duration) => Math.round(duration * DEMO_PACE_MULTIPLIER),
@@ -18,15 +17,15 @@ const STAGE_DURATIONS = [1800, 1000, 1300, 1700, 1100, 1400, 1600, 3200].map(
 
 const generatedOutputs = [
   {
-    title: "Blueprint view",
+    titleKey: "blueprintView",
     src: "/samplevisuals/sample1-hero.jpg",
   },
   {
-    title: "Room direction",
+    titleKey: "roomDirection",
     src: "/landing/generated/barcelona-chair-room.jpg",
   },
   {
-    title: "Material palette",
+    titleKey: "materialPalette",
     src: "/landing/generated/barcelona-chair-materials.jpg",
   },
 ];
@@ -37,25 +36,18 @@ type ActionState = "done" | "active" | "idle";
 function getDemoThreads(stage: number) {
   return [
     {
-      title: "Lounge refresh",
-      meta:
-        stage >= 7
-          ? "Pack delivered"
-          : stage >= 5
-            ? "Exporting now"
-            : stage >= 1
-              ? "Live planning"
-              : "Queued",
+      titleKey: "threadLoungeRefresh",
+      metaKey: stage >= 7 ? "packDelivered" : stage >= 5 ? "exportingNow" : stage >= 1 ? "livePlanning" : "queued",
       status: (stage >= 7 ? "done" : "active") as ThreadStatus,
     },
     {
-      title: "Kitchen revision",
-      meta: "Draft ready",
+      titleKey: "threadKitchenRevision",
+      metaKey: "draftReady",
       status: "done" as ThreadStatus,
     },
     {
-      title: "Material shortlist",
-      meta: "3 mins ago",
+      titleKey: "threadMaterialShortlist",
+      metaKey: "threeMinsAgo",
       status: "idle" as ThreadStatus,
     },
   ];
@@ -64,20 +56,20 @@ function getDemoThreads(stage: number) {
 function getDemoActions(stage: number) {
   return [
     {
-      title: "Reading design brief",
-      detail: "scope + priorities",
+      titleKey: "readingDesignBrief",
+      detailKey: "scopePriorities",
       state: (stage >= 2 ? "done" : "active") as ActionState,
       progress: stage >= 2 ? 100 : stage >= 1 ? 74 : 38,
     },
     {
-      title: "Generating visual options",
-      detail: "layout + elevations",
+      titleKey: "generatingVisualOptions",
+      detailKey: "layoutElevations",
       state: (stage >= 5 ? "done" : stage >= 2 ? "active" : "idle") as ActionState,
       progress: stage >= 5 ? 100 : stage === 4 ? 84 : stage === 3 ? 61 : stage === 2 ? 28 : 0,
     },
     {
-      title: "Building client pack",
-      detail: "blueprint + materials",
+      titleKey: "buildingClientPack",
+      detailKey: "blueprintMaterials",
       state: (stage >= 7 ? "done" : stage >= 5 ? "active" : "idle") as ActionState,
       progress: stage >= 7 ? 100 : stage === 6 ? 82 : stage === 5 ? 44 : 0,
     },
@@ -85,6 +77,8 @@ function getDemoActions(stage: number) {
 }
 
 export function HeroSection() {
+  const { t } = useI18n();
+  const ht = useCallback((key: string) => t("landingHero", key), [t]);
   const { isSignedIn } = useUser();
   const [stage, setStage] = useState(0);
   const [cycle, setCycle] = useState(0);
@@ -118,10 +112,10 @@ export function HeroSection() {
     let duration = 0;
 
     if (stage === 0) {
-      nextPrompt = INITIAL_PROMPT;
+      nextPrompt = ht(INITIAL_PROMPT_KEY);
       duration = STAGE_DURATIONS[0] - 280;
     } else if (stage === 3) {
-      nextPrompt = FOLLOW_UP_PROMPT;
+      nextPrompt = ht(FOLLOW_UP_PROMPT_KEY);
       duration = STAGE_DURATIONS[3] - 320;
     }
 
@@ -143,7 +137,7 @@ export function HeroSection() {
     }, Math.max(16, Math.floor(duration / nextPrompt.length)));
 
     return () => window.clearInterval(interval);
-  }, [cycle, stage]);
+  }, [cycle, ht, stage]);
 
   useEffect(() => {
     const viewport = threadViewportRef.current;
@@ -172,11 +166,10 @@ export function HeroSection() {
       <div className="mx-auto w-full max-w-[1520px]">
         <div className="max-w-[720px] pt-8 sm:max-w-[820px] sm:pt-10 md:max-w-[900px] lg:max-w-[760px] xl:max-w-[860px] 2xl:max-w-[620px]">
           <h1 className="text-balance text-[2.25rem] font-medium leading-[0.98] tracking-[-0.04em] text-foreground sm:text-[2.85rem] md:text-[3.35rem] lg:text-[2.6rem] xl:text-[3rem] 2xl:text-[2.35rem] 2xl:leading-[1.05]">
-            Built for architecture and interior design studios.
+            {ht("headline")}
           </h1>
           <p className="mt-4 max-w-[620px] text-balance text-lg leading-[1.35] text-foreground/72 sm:text-xl lg:max-w-[560px] lg:text-lg xl:max-w-[620px] xl:text-xl 2xl:max-w-[520px] 2xl:text-lg">
-            Run projects, clients, briefs, concepts, and delivery from one
-            organized workspace.
+            {ht("subheadline")}
           </p>
         </div>
 
@@ -188,7 +181,7 @@ export function HeroSection() {
             >
               <Link href="/sign-up">
                 <Sparkles className="mr-2 h-4 w-4" />
-                Start free
+                {t("landingNav", "startFree")}
               </Link>
             </Button>
           ) : (
@@ -198,7 +191,7 @@ export function HeroSection() {
             >
               <Link href="/organisation">
                 <Sparkles className="mr-2 h-4 w-4" />
-                Dashboard
+                {t("landingNav", "dashboard")}
               </Link>
             </Button>
           )}
@@ -208,7 +201,7 @@ export function HeroSection() {
           <div className="relative min-h-[560px] overflow-hidden lg:h-[820px]">
             <img
               src="/visualization-1773318760233.jpg"
-              alt="Myvibe sign up visual"
+              alt={ht("heroImageAlt")}
               className="absolute inset-0 h-full w-full object-cover object-center"
             />
 
@@ -229,24 +222,24 @@ export function HeroSection() {
                     </div>
                     <div className="flex items-center gap-2 text-[13px] font-medium text-foreground/80">
                       <Sparkles className="h-3.5 w-3.5 text-foreground/70" />
-                      Vibe assistant
+                      {ht("vibeAssistant")}
                     </div>
                   </div>
 
                   <div className="hidden rounded-full border border-black/8 bg-white/70 px-3 py-1 text-[11px] font-medium text-foreground/72 sm:block">
-                    Live planning
+                    {ht("livePlanning")}
                   </div>
                 </div>
 
                 <div className="grid h-[calc(100%-3rem)] min-h-0 md:grid-cols-[188px_minmax(0,1fr)] xl:grid-cols-[188px_minmax(0,1fr)_240px]">
                   <aside className="hidden border-r border-black/8 bg-white/30 md:flex md:flex-col">
                     <div className="px-4 pb-3 pt-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-foreground/45">
-                      Recent threads
+                      {ht("recentThreads")}
                     </div>
                     <div className="space-y-2 px-3">
                       {demoThreads.map((thread) => (
                         <div
-                          key={thread.title}
+                          key={thread.titleKey}
                           className={`rounded-2xl border px-3 py-3 shadow-[0_10px_24px_rgba(28,24,19,0.06)] transition-all duration-700 ${
                             thread.status === "active"
                               ? "border-black/10 bg-white/82"
@@ -265,10 +258,10 @@ export function HeroSection() {
                             />
                             <div className="min-w-0">
                               <p className="truncate text-[12px] font-medium text-foreground">
-                                {thread.title}
+                                {ht(thread.titleKey)}
                               </p>
                               <p className="mt-1 text-[11px] text-foreground/52">
-                                {thread.meta}
+                                {ht(thread.metaKey)}
                               </p>
                             </div>
                           </div>
@@ -288,8 +281,7 @@ export function HeroSection() {
                             key={`${cycle}-message-request`}
                             className="hero-chatkit-enter ml-auto max-w-[92%] rounded-[24px] border border-white/55 bg-white/88 px-4 py-3 text-[13px] leading-relaxed text-foreground shadow-[0_18px_40px_rgba(28,24,19,0.08)] backdrop-blur-sm sm:max-w-[70%]"
                           >
-                            Build a concept package for the lounge refresh: room direction,
-                            blueprint, materials, and selected furniture options.
+                            {ht("requestMessage")}
                           </div>
                         ) : null}
 
@@ -302,7 +294,7 @@ export function HeroSection() {
                               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary">
                                 <Sparkles className="h-3.5 w-3.5" />
                               </span>
-                              Reading the brief and mapping the first direction.
+                              {ht("readingBriefMessage")}
                             </div>
                             <div className="mt-3 flex items-center gap-2 text-[12px] text-foreground/52">
                               {stage >= 5 ? (
@@ -311,8 +303,8 @@ export function HeroSection() {
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                               )}
                               {stage >= 5
-                                ? "Layout direction locked. Preparing the client-facing export."
-                                : "Collecting references, blueprint framing, and material notes."}
+                                ? ht("layoutLocked")
+                                : ht("collectingReferences")}
                             </div>
                           </div>
                         ) : null}
@@ -322,8 +314,7 @@ export function HeroSection() {
                             key={`${cycle}-message-response-one`}
                             className="hero-chatkit-enter max-w-[90%] rounded-[24px] border border-black/8 bg-white/76 px-4 py-3 text-[13px] leading-relaxed text-foreground shadow-[0_16px_32px_rgba(28,24,19,0.06)] sm:max-w-[72%]"
                           >
-                            I&apos;m combining the room direction, blueprint framing, and a
-                            warm timber palette into one clean concept pack for review.
+                            {ht("assistantCombining")}
                           </div>
                         ) : null}
 
@@ -335,12 +326,12 @@ export function HeroSection() {
                             <div className="relative aspect-[2.1/1]">
                               <img
                                 src={generatedOutputs[0].src}
-                                alt={generatedOutputs[0].title}
+                                alt={ht(generatedOutputs[0].titleKey)}
                                 className="absolute inset-0 h-full w-full object-cover"
                               />
                             </div>
                             <div className="border-t border-black/8 px-3 py-2 text-[11px] font-medium text-foreground/70">
-                              {generatedOutputs[0].title}
+                              {ht(generatedOutputs[0].titleKey)}
                             </div>
                           </div>
                         ) : null}
@@ -350,8 +341,7 @@ export function HeroSection() {
                             key={`${cycle}-message-revision`}
                             className="hero-chatkit-enter ml-auto max-w-[92%] rounded-[24px] border border-white/55 bg-white/88 px-4 py-3 text-[13px] leading-relaxed text-foreground shadow-[0_18px_40px_rgba(28,24,19,0.08)] backdrop-blur-sm sm:max-w-[72%]"
                           >
-                            Keep the oak palette, open shelving, and add a softer sofa option
-                            before you package it for the client.
+                            {ht("revisionMessage")}
                           </div>
                         ) : null}
 
@@ -360,8 +350,7 @@ export function HeroSection() {
                             key={`${cycle}-message-response-two`}
                             className="hero-chatkit-enter max-w-[90%] rounded-[24px] border border-black/8 bg-white/76 px-4 py-3 text-[13px] leading-relaxed text-foreground shadow-[0_16px_32px_rgba(28,24,19,0.06)] sm:max-w-[72%]"
                           >
-                            Noted. I&apos;m keeping the oak scheme, preserving the shelving, and
-                            swapping in a softer seating direction before export.
+                            {ht("assistantNoted")}
                           </div>
                         ) : null}
 
@@ -372,18 +361,18 @@ export function HeroSection() {
                           >
                             {generatedOutputs.slice(1).map((output) => (
                               <div
-                                key={output.title}
+                                key={output.titleKey}
                                 className="overflow-hidden rounded-2xl border border-black/8 bg-white/78 shadow-[0_14px_30px_rgba(28,24,19,0.06)]"
                               >
                                 <div className="relative aspect-[1.12/1]">
                                   <img
                                     src={output.src}
-                                    alt={output.title}
+                                    alt={ht(output.titleKey)}
                                     className="absolute inset-0 h-full w-full object-cover"
                                   />
                                 </div>
                                 <div className="border-t border-black/8 px-3 py-2 text-[11px] font-medium text-foreground/70">
-                                  {output.title}
+                                  {ht(output.titleKey)}
                                 </div>
                               </div>
                             ))}
@@ -397,13 +386,12 @@ export function HeroSection() {
                           >
                             <div className="flex items-center justify-between gap-3">
                               <div className="text-[13px] font-medium text-foreground">
-                                Concept pack ready for client review.
+                                {ht("conceptPackReady")}
                               </div>
                               <Check className="h-4 w-4 text-emerald-600" />
                             </div>
                             <div className="mt-2 text-[12px] leading-relaxed text-foreground/58">
-                              Included the blueprint view, room direction, material palette,
-                              and softer seating option for feedback.
+                              {ht("includedPack")}
                             </div>
                           </div>
                         ) : null}
@@ -420,7 +408,7 @@ export function HeroSection() {
                             </>
                           ) : showReplyPlaceholder ? (
                             <span className="text-foreground/34">
-                              Reply with changes or approvals...
+                              {ht("replyPlaceholder")}
                             </span>
                           ) : (
                             <span className="text-transparent">.</span>
@@ -432,7 +420,7 @@ export function HeroSection() {
                             design-brief.pdf
                           </div>
                           <div className="hidden rounded-full border border-black/8 bg-white px-3 py-1 text-[11px] font-medium text-foreground/62 sm:block">
-                            Can make changes
+                            {ht("canMakeChanges")}
                           </div>
                           <div className="ml-auto flex h-9 w-9 items-center justify-center rounded-full bg-foreground text-background shadow-[0_10px_24px_rgba(28,24,19,0.16)]">
                             <ArrowUp className="h-4 w-4" />
@@ -445,12 +433,12 @@ export function HeroSection() {
                   <aside className="hidden bg-white/36 xl:flex xl:flex-col">
                     <div className="space-y-3 p-4">
                       <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-foreground/45">
-                        Running now
+                        {ht("runningNow")}
                       </div>
 
                       {demoActions.map((action) => (
                         <div
-                          key={action.title}
+                          key={action.titleKey}
                           className={`rounded-2xl border px-4 py-3 shadow-[0_14px_30px_rgba(28,24,19,0.06)] transition-all duration-700 ${
                             action.state === "active"
                               ? "border-black/10 bg-white/82"
@@ -460,10 +448,10 @@ export function HeroSection() {
                           <div className="flex items-center justify-between gap-3">
                             <div>
                               <p className="text-[12px] font-medium text-foreground">
-                                {action.title}
+                                {ht(action.titleKey)}
                               </p>
                               <p className="mt-1 text-[11px] text-foreground/52">
-                                {action.detail}
+                                {ht(action.detailKey)}
                               </p>
                             </div>
                             {action.state === "done" ? (

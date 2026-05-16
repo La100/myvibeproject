@@ -3,6 +3,7 @@
 import type { ChatStatus, FileUIPart } from "ai";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useI18n } from "@/lib/i18n";
 
 import {
   PromptInput,
@@ -52,6 +53,10 @@ function Composer({
   disabled = false,
   className,
 }: ComposerProps) {
+  const { t } = useI18n();
+  const resolvedPlaceholder =
+    placeholder === "Send a message..." ? t("assistantUi", "sendMessage") : placeholder;
+
   return (
     <div className={cn("mx-auto w-full max-w-[44rem]", className)}>
       <PromptInput
@@ -61,7 +66,7 @@ function Composer({
         maxFiles={maxFiles}
         maxFileSize={maxFileSize}
         onError={(err) =>
-          toast.error("Could not attach file", {
+          toast.error(t("assistantUi", "couldNotAttachFile"), {
             description: toUserFacingErrorMessage(err),
           })
         }
@@ -73,7 +78,7 @@ function Composer({
           </PromptInputAttachments>
           <PromptInputTextarea
             className="mb-1 max-h-32 min-h-14 px-4 pt-2 pb-3 text-sm"
-            placeholder={isUploading ? "Uploading..." : placeholder}
+            placeholder={isUploading ? t("assistantUi", "uploading") : resolvedPlaceholder}
           />
         </PromptInputBody>
         <PromptInputFooter className="mx-2 mb-2 justify-between">

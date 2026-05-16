@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
+import { useI18n } from "@/lib/i18n";
 import {
   Building2,
   CalendarRange,
@@ -75,29 +76,35 @@ const DEFAULT_PROJECT_BOOK_OPTIONS: ProjectBookExportOptions = {
   showSupplier: true,
 };
 
-const SHOPPING_STATUS_LABELS = {
-  PLANNED: "Planned",
-  ORDERED: "Ordered",
-  IN_TRANSIT: "In Transit",
-  DELIVERED: "Delivered",
-  COMPLETED: "Completed",
-  CANCELLED: "Cancelled",
+const SHOPPING_STATUS_LABEL_KEYS = {
+  PLANNED: "planned",
+  ORDERED: "ordered",
+  IN_TRANSIT: "inTransit",
+  DELIVERED: "delivered",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled",
 } as const;
 
-const PROJECT_STATUS_LABELS = {
-  planning: "Planning",
-  active: "Active",
-  on_hold: "On hold",
-  completed: "Completed",
-  done: "Completed",
-  cancelled: "Cancelled",
+const PROJECT_STATUS_LABEL_KEYS = {
+  planning: "planned",
+  active: "active",
+  on_hold: "onHold",
+  completed: "completed",
+  done: "completed",
+  cancelled: "cancelled",
 } as const;
 
 const getShoppingStatusLabel = (
-  status?: keyof typeof SHOPPING_STATUS_LABELS | string,
+  status: keyof typeof SHOPPING_STATUS_LABEL_KEYS | string | undefined,
+  t: ReturnType<typeof useI18n>["t"],
 ) =>
-  status && status in SHOPPING_STATUS_LABELS
-    ? SHOPPING_STATUS_LABELS[status as keyof typeof SHOPPING_STATUS_LABELS]
+  status && status in SHOPPING_STATUS_LABEL_KEYS
+    ? t(
+        "shoppingList",
+        SHOPPING_STATUS_LABEL_KEYS[
+          status as keyof typeof SHOPPING_STATUS_LABEL_KEYS
+        ],
+      )
     : status || "-";
 
 const formatProjectDate = (
@@ -113,7 +120,11 @@ const formatProjectDate = (
       }).format(new Date(value))
     : null;
 
-const formatDateRange = (startDate?: number, endDate?: number) => {
+const formatDateRange = (
+  startDate: number | undefined,
+  endDate: number | undefined,
+  fallback: string,
+) => {
   const startLabel = formatProjectDate(startDate);
   const endLabel = formatProjectDate(endDate);
   const startCompactLabel = formatProjectDate(startDate, {
@@ -141,10 +152,13 @@ const formatDateRange = (startDate?: number, endDate?: number) => {
     return `${startLabel} - ${endLabel}`;
   }
 
-  return startLabel || endLabel || "Timeline not set";
+  return startLabel || endLabel || fallback;
 };
 
-const formatRelativeProjectEdit = (value?: number) => {
+const formatRelativeProjectEdit = (
+  value: number | undefined,
+  t: ReturnType<typeof useI18n>["t"],
+) => {
   if (!value) {
     return null;
   }
@@ -153,28 +167,30 @@ const formatRelativeProjectEdit = (value?: number) => {
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
   if (diffDays <= 0) {
-    return "Edited today";
+    return t("projectWorkspace", "editedToday");
   }
 
   if (diffDays === 1) {
-    return "Edited yesterday";
+    return t("projectWorkspace", "editedYesterday");
   }
 
   if (diffDays < 30) {
-    return `Edited ${diffDays} days ago`;
+    return t("projectWorkspace", "editedDaysAgo", { count: diffDays });
   }
 
   const diffMonths = Math.floor(diffDays / 30);
   if (diffMonths === 1) {
-    return "Edited 1 month ago";
+    return t("projectWorkspace", "editedOneMonthAgo");
   }
 
   if (diffMonths < 12) {
-    return `Edited ${diffMonths} months ago`;
+    return t("projectWorkspace", "editedMonthsAgo", { count: diffMonths });
   }
 
   const diffYears = Math.floor(diffMonths / 12);
-  return `Edited ${diffYears} year${diffYears === 1 ? "" : "s"} ago`;
+  return diffYears === 1
+    ? t("projectWorkspace", "editedOneYearAgo")
+    : t("projectWorkspace", "editedYearsAgo", { count: diffYears });
 };
 
 const getInitials = (value?: string | null) =>
@@ -188,6 +204,7 @@ const getInitials = (value?: string | null) =>
 function ProjectOverviewContent() {
   const { project } = useProject();
   const router = useRouter();
+  const { t } = useI18n();
   const [isProjectBookExportOpen, setIsProjectBookExportOpen] = useState(false);
   const [isExportingProjectBook, setIsExportingProjectBook] = useState(false);
   const [projectBookExportOptions, setProjectBookExportOptions] =
@@ -310,8 +327,8 @@ function ProjectOverviewContent() {
     .filter((item) => isItemCountedInShoppingTotal(item, shoppingExportContext))
     .map((item) => ({
       section: item.sectionId
-        ? shoppingSectionMap.get(String(item.sectionId)) || "No Section"
-        : "No Section",
+        ? shoppingSectionMap.get(String(item.sectionId)) || t("shoppingList", "noSection")
+        : t("shoppingList", "noSection"),
       product: formatShoppingExportProductLabel(
         item.name,
         item.setId ? shoppingSetTitleById.get(String(item.setId)) : undefined,
@@ -319,7 +336,7 @@ function ProjectOverviewContent() {
       qty: String(item.quantity),
       unitPrice: formatCurrency(item.unitPrice || 0, project.currency),
       total: formatCurrency(item.totalPrice || 0, project.currency),
-      status: getShoppingStatusLabel(item.realizationStatus),
+      status: getShoppingStatusLabel(item.realizationStatus, t),
       supplier: item.supplier || "-",
       notes: item.notes || "-",
     }));
@@ -328,8 +345,8 @@ function ProjectOverviewContent() {
   );
   const laborBookRows = laborItems.map((item) => ({
     section: item.sectionId
-      ? laborSectionMap.get(String(item.sectionId)) || "No Category"
-      : "No Category",
+      ? laborSectionMap.get(String(item.sectionId)) || t("shoppingList", "noCategory")
+      : t("shoppingList", "noCategory"),
     work: item.name,
     qty: String(item.quantity),
     unit: item.unit || "-",
@@ -369,46 +386,46 @@ function ProjectOverviewContent() {
     }));
   const budgetBookRows = [
     {
-      metric: "Budget",
+      metric: t("projectWorkspace", "budget"),
       value: formatCurrency(budgetSummary.budget, budgetSummary.currency),
-      note: "Project budget baseline",
+      note: t("projectWorkspace", "projectBudgetBaseline"),
     },
     {
-      metric: "Planned cost",
+      metric: t("projectWorkspace", "plannedCost"),
       value: formatCurrency(budgetSummary.plannedCost, budgetSummary.currency),
-      note: "Current planned scope",
+      note: t("projectWorkspace", "currentPlannedScope"),
     },
     {
-      metric: "Committed cost",
+      metric: t("projectWorkspace", "committedCost"),
       value: formatCurrency(
         budgetSummary.committedCost,
         budgetSummary.currency,
       ),
-      note: "Booked cost not yet fully realized",
+      note: t("projectWorkspace", "bookedCostNotYetRealized"),
     },
     {
-      metric: "Actual cost",
+      metric: t("projectWorkspace", "actualCost"),
       value: formatCurrency(budgetSummary.actualCost, budgetSummary.currency),
-      note: "Realized project spend",
+      note: t("projectWorkspace", "realizedProjectSpend"),
     },
     {
-      metric: "Projected variance",
+      metric: t("projectWorkspace", "projectedVariance"),
       value: formatCurrency(
         Math.abs(budgetSummary.projectedVariance),
         budgetSummary.currency,
       ),
       note:
         budgetSummary.projectedVariance >= 0
-          ? "Projected buffer"
-          : "Projected overrun",
+          ? t("projectWorkspace", "projectedBuffer")
+          : t("projectWorkspace", "projectedOverrun"),
     },
     {
-      metric: "Collected payments",
+      metric: t("projectWorkspace", "collectedPayments"),
       value: formatCurrency(
         budgetSummary.clientFunding.collectedPayments,
         budgetSummary.currency,
       ),
-      note: "Payments collected so far",
+      note: t("projectWorkspace", "paymentsCollectedSoFar"),
     },
   ];
 
@@ -454,22 +471,22 @@ function ProjectOverviewContent() {
 
       if (projectBookExportOptions.sections.shoppingList) {
         chapters.push({
-          title: "Shopping List",
+          title: t("projectWorkspace", "shoppingList"),
           description:
-            "Materials and products currently counted in the project shopping scope.",
+            t("projectWorkspace", "shoppingScopeDescription"),
           columns: [
-            { key: "section", label: "Section" },
-            { key: "product", label: "Product" },
-            { key: "qty", label: "Qty" },
+            { key: "section", label: t("projectWorkspace", "section") },
+            { key: "product", label: t("projectWorkspace", "product") },
+            { key: "qty", label: t("projectWorkspace", "qty") },
             ...(projectBookExportOptions.showPrice
-              ? [{ key: "total", label: "Total" }]
+              ? [{ key: "total", label: t("projectWorkspace", "total") }]
               : []),
-            { key: "status", label: "Status" },
+            { key: "status", label: t("projectWorkspace", "status") },
             ...(projectBookExportOptions.showSupplier
-              ? [{ key: "supplier", label: "Supplier" }]
+              ? [{ key: "supplier", label: t("projectWorkspace", "supplier") }]
               : []),
             ...(projectBookExportOptions.showNotes
-              ? [{ key: "notes", label: "Notes" }]
+              ? [{ key: "notes", label: t("projectWorkspace", "notes") }]
               : []),
           ],
           rows: shoppingBookRows.map((row) => ({
@@ -483,25 +500,25 @@ function ProjectOverviewContent() {
               : {}),
             ...(projectBookExportOptions.showNotes ? { notes: row.notes } : {}),
           })),
-          emptyMessage: "No shopping list items available.",
+          emptyMessage: t("projectWorkspace", "noShoppingListItemsAvailable"),
         });
       }
 
       if (projectBookExportOptions.sections.labor) {
         chapters.push({
-          title: "Labor",
+          title: t("projectWorkspace", "labor"),
           description:
-            "Labor scope and service entries tracked for the project.",
+            t("projectWorkspace", "laborScopeAndServiceEntries"),
           columns: [
-            { key: "section", label: "Section" },
-            { key: "work", label: "Work" },
-            { key: "qty", label: "Qty" },
-            { key: "unit", label: "Unit" },
+            { key: "section", label: t("projectWorkspace", "section") },
+            { key: "work", label: t("projectWorkspace", "work") },
+            { key: "qty", label: t("projectWorkspace", "qty") },
+            { key: "unit", label: t("shoppingList", "unit") },
             ...(projectBookExportOptions.showPrice
-              ? [{ key: "total", label: "Total" }]
+              ? [{ key: "total", label: t("projectWorkspace", "total") }]
               : []),
             ...(projectBookExportOptions.showNotes
-              ? [{ key: "notes", label: "Notes" }]
+              ? [{ key: "notes", label: t("projectWorkspace", "notes") }]
               : []),
           ],
           rows: laborBookRows.map((row) => ({
@@ -512,36 +529,36 @@ function ProjectOverviewContent() {
             ...(projectBookExportOptions.showPrice ? { total: row.total } : {}),
             ...(projectBookExportOptions.showNotes ? { notes: row.notes } : {}),
           })),
-          emptyMessage: "No labor entries available.",
+          emptyMessage: t("projectWorkspace", "noLaborEntriesAvailable"),
         });
       }
 
       if (projectBookExportOptions.sections.tasks) {
         chapters.push({
-          title: "Tasks",
-          description: "Execution status of tracked project tasks.",
+          title: t("projectWorkspace", "tasks"),
+          description: t("projectWorkspace", "executionStatusOfTrackedProjectTasks"),
           columns: [
-            { key: "title", label: "Task" },
-            { key: "status", label: "Status" },
-            { key: "priority", label: "Priority" },
-            { key: "assignee", label: "Assigned" },
-            { key: "timeline", label: "Timeline" },
-            { key: "summary", label: "Summary" },
+            { key: "title", label: t("projectWorkspace", "task") },
+            { key: "status", label: t("projectWorkspace", "status") },
+            { key: "priority", label: t("shoppingList", "priority") },
+            { key: "assignee", label: t("projectWorkspace", "assigned") },
+            { key: "timeline", label: t("projectWorkspace", "timeline") },
+            { key: "summary", label: t("projectWorkspace", "summary") },
           ],
           rows: taskBookRows,
-          emptyMessage: "No tasks available.",
+          emptyMessage: t("projectWorkspace", "noTasksAvailable"),
         });
       }
 
       if (projectBookExportOptions.sections.budget) {
         chapters.push({
-          title: "Budget",
+          title: t("projectWorkspace", "budget"),
           description:
-            "Current budget position including planned, committed, and actual spend.",
+            t("projectWorkspace", "currentBudgetPosition"),
           columns: [
-            { key: "metric", label: "Metric" },
-            { key: "value", label: "Value" },
-            { key: "note", label: "Note" },
+            { key: "metric", label: t("projectWorkspace", "metric") },
+            { key: "value", label: t("projectWorkspace", "value") },
+            { key: "note", label: t("projectWorkspace", "note") },
           ],
           rows: budgetBookRows,
         });
@@ -549,33 +566,33 @@ function ProjectOverviewContent() {
 
       if (projectBookExportOptions.sections.payments) {
         chapters.push({
-          title: "Payments",
-          description: "Scheduled and collected project payments.",
+          title: t("projectWorkspace", "payments"),
+          description: t("projectWorkspace", "scheduledAndCollectedProjectPayments"),
           columns: [
-            { key: "title", label: "Installment" },
-            { key: "status", label: "Status" },
-            { key: "dueDate", label: "Due date" },
-            { key: "amount", label: "Amount" },
-            { key: "reference", label: "Reference" },
+            { key: "title", label: t("projectWorkspace", "installment") },
+            { key: "status", label: t("projectWorkspace", "status") },
+            { key: "dueDate", label: t("projectWorkspace", "paymentDueDate") },
+            { key: "amount", label: t("projectWorkspace", "amount") },
+            { key: "reference", label: t("projectWorkspace", "reference") },
           ],
           rows: paymentBookRows,
-          emptyMessage: "No payments available.",
+          emptyMessage: t("projectWorkspace", "noPaymentsAvailable"),
         });
       }
 
       if (projectBookExportOptions.sections.moodboard) {
         chapters.push({
           type: "gallery",
-          title: "Moodboard",
-          description: "Visual references collected in the project moodboard.",
+          title: t("projectWorkspace", "moodboard"),
+          description: t("projectWorkspace", "moodboardDescription"),
           sections: moodboardExportSections,
-          emptyMessage: "No moodboard images available.",
+          emptyMessage: t("projectWorkspace", "noMoodboardImagesAvailable"),
         });
       }
 
       await exportProjectBookPdf({
         brand: {
-          teamName: team.name || "Organization",
+          teamName: team.name || t("projectWorkspace", "organization"),
           teamImageUrl:
             team.customOrganizationImageSetAt && team.imageUrl?.trim()
               ? team.imageUrl
@@ -584,14 +601,14 @@ function ProjectOverviewContent() {
         chapters,
         fileName: `project-book-${sanitizeFileName(project.name)}-${new Date().toISOString().slice(0, 10)}.pdf`,
         generatedOn: new Date().toLocaleString(),
-        subtitle: `${selectedSections.length} sections selected`,
-        title: `Project Book - ${project.name}`,
+        subtitle: `${selectedSections.length} ${t("projectWorkspace", "generatedSectionsSelected")}`,
+        title: `${t("projectWorkspace", "projectBook")} - ${project.name}`,
       });
 
       setIsProjectBookExportOpen(false);
     } catch (error) {
       console.error("Project book export failed:", error);
-      toast.error("Failed to export project book", {
+      toast.error(t("projectWorkspace", "failedToExportProjectBook"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -614,17 +631,27 @@ function ProjectOverviewContent() {
     projectRecentActivityAt ||
     (project as { updatedAt?: number }).updatedAt ||
     project._creationTime;
-  const projectEditedLabel = formatRelativeProjectEdit(projectLastUpdatedAt);
+  const projectEditedLabel = formatRelativeProjectEdit(projectLastUpdatedAt, t);
   const projectEditedDateLabel = formatProjectDate(projectLastUpdatedAt, {
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
-  const projectEditedAgoLabel = projectEditedLabel?.replace(/^Edited\s+/, "");
+  const projectEditedAgoLabel = projectEditedLabel
+    ? projectEditedLabel.replace(
+        new RegExp(`^${t("projectWorkspace", "edited")}\\s+`),
+        "",
+      )
+    : "";
   const projectStatusLabel =
-    PROJECT_STATUS_LABELS[
-      project.status as keyof typeof PROJECT_STATUS_LABELS
-    ] || project.status.replace(/_/g, " ");
+    project.status in PROJECT_STATUS_LABEL_KEYS
+      ? t(
+          "projectWorkspace",
+          PROJECT_STATUS_LABEL_KEYS[
+            project.status as keyof typeof PROJECT_STATUS_LABEL_KEYS
+          ],
+        )
+      : project.status.replace(/_/g, " ");
   const activeTasksCount = tasks.filter(
     (task) => task.status !== "done",
   ).length;
@@ -657,7 +684,7 @@ function ProjectOverviewContent() {
           minimumFractionDigits: 0,
           maximumFractionDigits: 0,
         }),
-        statusLabel: budgetRemaining >= 0 ? "Remaining" : "Over budget",
+        statusLabel: budgetRemaining >= 0 ? t("projectWorkspace", "remaining") : t("projectWorkspace", "overBudget"),
         statusValue: formatCurrency(
           Math.abs(budgetRemaining),
           budgetSummary.currency,
@@ -673,7 +700,7 @@ function ProjectOverviewContent() {
     ...(shoppingListCost > 0
       ? [
           {
-            label: "Shopping",
+            label: t("projectWorkspace", "shopping"),
             value: formatCurrency(shoppingListCost, project.currency, {
               minimumFractionDigits: 0,
               maximumFractionDigits: 0,
@@ -684,7 +711,7 @@ function ProjectOverviewContent() {
     ...(laborCost > 0
       ? [
           {
-            label: "Labor",
+            label: t("projectWorkspace", "labor"),
             value: formatCurrency(laborCost, project.currency, {
               minimumFractionDigits: 0,
               maximumFractionDigits: 0,
@@ -697,11 +724,11 @@ function ProjectOverviewContent() {
   const overviewMetrics = [
     {
       value: String(activeTasksCount),
-      label: "Active tasks",
+      label: t("projectWorkspace", "activeTasks"),
       meta:
         overdueTasksCount > 0
-          ? `${overdueTasksCount} overdue`
-          : `${Math.max(tasks.length - activeTasksCount, 0)} completed`,
+          ? `${overdueTasksCount} ${t("projectWorkspace", "overdue")}`
+          : `${Math.max(tasks.length - activeTasksCount, 0)} ${t("projectWorkspace", "completed").toLowerCase()}`,
       spanClass: "xl:col-span-2",
     },
     {
@@ -709,11 +736,11 @@ function ProjectOverviewContent() {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
       }),
-      label: "Total cost",
+      label: t("projectWorkspace", "totalCost"),
       meta:
         totalCostBreakdown.length > 0
-          ? "Shopping and labor scope"
-          : "No scoped costs yet",
+          ? t("projectWorkspace", "shoppingAndLaborScope")
+          : t("projectWorkspace", "noScopedCostsYet"),
       breakdown: totalCostBreakdown,
       spanClass: "xl:col-span-2",
     },
@@ -723,13 +750,13 @@ function ProjectOverviewContent() {
             minimumFractionDigits: 0,
             maximumFractionDigits: 0,
           })
-        : "Not set",
-      label: "Budget",
+        : t("projectWorkspace", "notSet"),
+      label: t("projectWorkspace", "budget"),
       meta: hasProjectBudget
         ? `${formatCurrency(totalCost, budgetSummary.currency)} used${
             budgetUsedPercent !== null ? ` (${budgetUsedPercent}%)` : ""
           }`
-        : "Add a project budget in settings",
+        : t("projectWorkspace", "addProjectBudgetInSettings"),
       budgetUsageChart,
       spanClass: "xl:col-span-2",
     },
@@ -738,7 +765,7 @@ function ProjectOverviewContent() {
         paidAmount + outstandingAmount,
         paymentsData?.currency || project.currency,
       ),
-      label: "Total invoices",
+      label: t("projectWorkspace", "totalInvoices"),
       meta: `${formatCurrency(
         paidAmount,
         paymentsData?.currency || project.currency,
@@ -771,17 +798,17 @@ function ProjectOverviewContent() {
         subtitle: section.title,
         href: `${projectBasePath}/moodboard`,
         imageUrl: file.url,
-        status: "Pinboard",
+        status: t("projectWorkspace", "pinboard"),
         timestamp: file._creationTime || 0,
       }));
     }),
     ...notes.map((note) => ({
       id: String(note._id),
-      title: note.title || "Project note",
-      subtitle: note.content?.slice(0, 48) || "Notes",
+      title: note.title || t("projectWorkspace", "projectNote"),
+      subtitle: note.content?.slice(0, 48) || t("projectWorkspace", "notes"),
       href: `${projectBasePath}/notes`,
       imageUrl: "",
-      status: "Notes",
+      status: t("projectWorkspace", "notes"),
       timestamp: note.updatedAt || note.createdAt || note._creationTime || 0,
     })),
   ]
@@ -809,10 +836,10 @@ function ProjectOverviewContent() {
             <div className="flex items-start justify-between gap-3">
               <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-secondary/70 px-3 py-1.5 text-[11px] font-medium tracking-[0.08em] text-muted-foreground backdrop-blur-md">
                 <Building2 className="h-3.5 w-3.5" />
-                <span>Projects</span>
+                <span>{t("projectWorkspace", "projects")}</span>
                 <span className="text-muted-foreground/60">/</span>
                 <ClipboardList className="h-3.5 w-3.5" />
-                <span>Overview</span>
+                <span>{t("projectWorkspace", "overview")}</span>
               </div>
 
               <DropdownMenu>
@@ -823,7 +850,7 @@ function ProjectOverviewContent() {
                     className="h-12 w-12 rounded-2xl border border-border/70 bg-secondary/70 text-foreground/75 backdrop-blur-md transition-colors hover:bg-secondary hover:text-foreground"
                   >
                     <MoreHorizontal className="h-5 w-5" />
-                    <span className="sr-only">Project actions</span>
+                    <span className="sr-only">{t("projectWorkspace", "projectActions")}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
@@ -834,30 +861,30 @@ function ProjectOverviewContent() {
                     onSelect={() => router.push(`${projectBasePath}/settings`)}
                   >
                     <Settings2 className="mr-2 h-4 w-4" />
-                    Project settings
+                    {t("projectWorkspace", "projectSettings")}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => router.push(`${projectBasePath}/tasks`)}
                   >
                     <ClipboardList className="mr-2 h-4 w-4" />
-                    Open tasks board
+                    {t("projectWorkspace", "openTasksBoard")}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => router.push(`${projectBasePath}/payments`)}
                   >
                     <CreditCard className="mr-2 h-4 w-4" />
-                    Open payments
+                    {t("projectWorkspace", "openPayments")}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onSelect={() => router.push(`${projectBasePath}/files`)}
                   >
                     <Files className="mr-2 h-4 w-4" />
-                    Open files
+                    {t("projectWorkspace", "openFiles")}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onSelect={openProjectBookExport}>
                     <Download className="mr-2 h-4 w-4" />
-                    Export project book
+                    {t("projectWorkspace", "exportProjectBook")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -898,7 +925,7 @@ function ProjectOverviewContent() {
                     <Badge className="gap-2 border-border/80 bg-card px-3 text-foreground/88 shadow-none backdrop-blur-md">
                       <CalendarRange className="h-3.5 w-3.5 text-muted-foreground" />
                       <span>
-                        {formatDateRange(project.startDate, project.endDate)}
+                        {formatDateRange(project.startDate, project.endDate, t("projectWorkspace", "timelineNotSet"))}
                       </span>
                     </Badge>
                   </div>
@@ -960,8 +987,10 @@ function ProjectOverviewContent() {
                     <div className="inline-flex items-center gap-2 text-[13px] font-medium text-foreground/82 sm:text-[15px]">
                       <Users className="h-4 w-4 text-muted-foreground" />
                       <span>
-                        {teamMembers.length} collaborator
-                        {teamMembers.length === 1 ? "" : "s"}
+                        {teamMembers.length}{" "}
+                        {teamMembers.length === 1
+                          ? t("projectWorkspace", "collaborator")
+                          : t("projectWorkspace", "collaborators")}
                       </span>
                     </div>
                   </div>
@@ -970,7 +999,7 @@ function ProjectOverviewContent() {
                     <div className="inline-flex flex-wrap items-center gap-2 text-[13px] sm:text-[15px]">
                       <Clock3 className="h-4 w-4 text-muted-foreground" />
                       <span className="font-medium text-foreground/82">
-                        Edited
+                        {t("projectWorkspace", "edited")}
                       </span>
                       <time
                         dateTime={new Date(projectLastUpdatedAt).toISOString()}
@@ -996,7 +1025,7 @@ function ProjectOverviewContent() {
                       className="inline-flex items-center gap-2 text-[13px] font-medium text-foreground/82 underline-offset-4 transition-colors hover:text-foreground hover:underline sm:text-[15px]"
                     >
                       <Globe className="h-4 w-4 text-muted-foreground" />
-                      Visit website
+                      {t("projectWorkspace", "visitWebsite")}
                       <ExternalLink className="h-3.5 w-3.5" />
                     </Link>
                   ) : null}
@@ -1028,7 +1057,7 @@ function ProjectOverviewContent() {
                       <div className="mt-3 border-t border-border/70 pt-3">
                         <div className="flex items-center justify-between gap-3">
                           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                            Budget use
+                            {t("projectWorkspace", "budgetUse")}
                           </p>
                           <p
                             className={cn(

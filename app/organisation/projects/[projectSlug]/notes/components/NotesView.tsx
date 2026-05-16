@@ -22,8 +22,8 @@ import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { Plus, MoreHorizontal, Edit, Trash2, StickyNote, Eye } from "lucide-react";
-import { format } from "date-fns";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useI18n } from "@/lib/i18n";
 
 type Note = {
   _id: Id<"notes">;
@@ -50,6 +50,7 @@ interface NoteFormProps {
 }
 
 function NoteForm({ isOpen, onClose, onSubmit, note, isSubmitting }: NoteFormProps) {
+  const { t } = useI18n();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
 
@@ -66,7 +67,7 @@ function NoteForm({ isOpen, onClose, onSubmit, note, isSubmitting }: NoteFormPro
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !content.trim()) {
-      toast.error("Please fill in all fields");
+      toast.error(t("notes", "pleaseFillAllFields"));
       return;
     }
     onSubmit({ title: title.trim(), content: content.trim() });
@@ -82,26 +83,26 @@ function NoteForm({ isOpen, onClose, onSubmit, note, isSubmitting }: NoteFormPro
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>{note ? "Edit Note" : "Add New Note"}</DialogTitle>
+          <DialogTitle>{note ? t("notes", "editNote") : t("notes", "addNewNote")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="title">Title</Label>
+            <Label htmlFor="title">{t("notes", "title")}</Label>
             <Input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter note title"
+              placeholder={t("notes", "enterNoteTitle")}
               disabled={isSubmitting}
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="content">Content</Label>
+            <Label htmlFor="content">{t("notes", "content")}</Label>
             <Textarea
               id="content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="Enter note content"
+              placeholder={t("notes", "enterNoteContent")}
               rows={6}
               disabled={isSubmitting}
             />
@@ -113,10 +114,10 @@ function NoteForm({ isOpen, onClose, onSubmit, note, isSubmitting }: NoteFormPro
               onClick={handleClose}
               disabled={isSubmitting}
             >
-              Cancel
+              {t("notes", "cancel")}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : note ? "Update" : "Create"}
+              {isSubmitting ? t("notes", "saving") : note ? t("notes", "update") : t("notes", "create")}
             </Button>
           </div>
         </form>
@@ -131,6 +132,12 @@ function NoteCard({ note, onEdit, onDelete, onView }: {
   onDelete: (noteId: Id<"notes">) => void; 
   onView: (note: Note) => void;
 }) {
+  const { t, locale } = useI18n();
+  const updatedDateLabel = new Intl.DateTimeFormat(locale === "pl" ? "pl-PL" : "en-US", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(note.updatedAt));
   return (
     <Card className="h-fit cursor-pointer hover:shadow-md transition-shadow" onClick={() => onView(note)}>
       <CardHeader className="pb-3">
@@ -150,18 +157,18 @@ function NoteCard({ note, onEdit, onDelete, onView }: {
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onView(note)}>
                 <Eye className="mr-2 h-4 w-4" />
-                View
+                {t("notes", "view")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onEdit(note)}>
                 <Edit className="mr-2 h-4 w-4" />
-                Edit
+                {t("notes", "edit")}
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => onDelete(note._id)}
                 className="text-destructive"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete
+                {t("notes", "delete")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -182,8 +189,8 @@ function NoteCard({ note, onEdit, onDelete, onView }: {
             <span>{note.createdByUser.name}</span>
           </div>
           <div>
-            {note.updatedAt !== note.createdAt && "Updated "}
-            {format(new Date(note.updatedAt), "MMM d, yyyy")}
+            {note.updatedAt !== note.createdAt && `${t("notes", "updated")} `}
+            {updatedDateLabel}
           </div>
         </div>
       </CardContent>
@@ -193,6 +200,15 @@ function NoteCard({ note, onEdit, onDelete, onView }: {
 
 export default function NotesView() {
   const { project } = useProject();
+  const { t, locale } = useI18n();
+  const formatNoteDateTime = (value: number) =>
+    new Intl.DateTimeFormat(locale === "pl" ? "pl-PL" : "en-US", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(value));
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [viewingNote, setViewingNote] = useState<Note | null>(null);
@@ -215,10 +231,10 @@ export default function NotesView() {
         content: data.content,
         projectId: project._id,
       });
-      toast.success("Note created successfully");
+      toast.success(t("notes", "noteCreated"));
       setIsFormOpen(false);
     } catch (error) {
-      toast.error("Failed to create note", {
+      toast.error(t("notes", "failedToCreateNote"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -237,10 +253,10 @@ export default function NotesView() {
         title: data.title,
         content: data.content,
       });
-      toast.success("Note updated successfully");
+      toast.success(t("notes", "noteUpdated"));
       setEditingNote(null);
     } catch (error) {
-      toast.error("Failed to update note", {
+      toast.error(t("notes", "failedToUpdateNote"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -252,9 +268,9 @@ export default function NotesView() {
   const handleDeleteNote = async (noteId: Id<"notes">) => {
     try {
       await deleteNote({ noteId });
-      toast.success("Note deleted successfully");
+      toast.success(t("notes", "noteDeleted"));
     } catch (error) {
-      toast.error("Failed to delete note", {
+      toast.error(t("notes", "failedToDeleteNote"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -285,12 +301,12 @@ export default function NotesView() {
   return (
     <div className="flex flex-col gap-6">
       <ProjectPageHeader
-        title="Notes"
+        title={t("notes", "notes")}
         icon={<StickyNote className="h-8 w-8 text-primary" />}
         actions={
           <Button onClick={() => setIsFormOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Add Note
+            {t("notes", "addNote")}
           </Button>
         }
       />
@@ -298,13 +314,13 @@ export default function NotesView() {
       {notes.length === 0 ? (
         <Card className="p-12 text-center">
           <StickyNote className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No notes yet</h3>
+          <h3 className="text-lg font-semibold mb-2">{t("notes", "noNotesYet")}</h3>
           <p className="text-muted-foreground mb-4">
-            Create your first note to get started
+            {t("notes", "createFirstNote")}
           </p>
           <Button onClick={() => setIsFormOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Add Note
+            {t("notes", "addNote")}
           </Button>
         </Card>
       ) : (
@@ -350,15 +366,15 @@ export default function NotesView() {
                 <span>{viewingNote?.createdByUser.name}</span>
               </div>
               <div className="flex gap-4">
-                <span>Created: {viewingNote && format(new Date(viewingNote.createdAt), "MMM d, yyyy 'at' HH:mm")}</span>
+                <span>{viewingNote && t("notes", "created", { date: formatNoteDateTime(viewingNote.createdAt) })}</span>
                 {viewingNote && viewingNote.updatedAt !== viewingNote.createdAt && (
-                  <span>Updated: {format(new Date(viewingNote.updatedAt), "MMM d, yyyy 'at' HH:mm")}</span>
+                  <span>{t("notes", "updatedWithDate", { date: formatNoteDateTime(viewingNote.updatedAt) })}</span>
                 )}
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={closeView}>
-                Close
+                {t("notes", "close")}
               </Button>
               <Button 
                 onClick={() => {
@@ -367,7 +383,7 @@ export default function NotesView() {
                 }}
               >
                 <Edit className="mr-2 h-4 w-4" />
-                Edit
+                {t("notes", "edit")}
               </Button>
             </div>
           </div>

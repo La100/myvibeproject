@@ -23,6 +23,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Id } from "@/convex/_generated/dataModel";
 import { apiAny } from "@/lib/convexApiAny";
+import { useI18n } from "@/lib/i18n";
 import { parseDecimalInput } from "@/lib/numberInput";
 import { calculateTaxBreakdown, resolveOrganizationTaxSettings } from "@/lib/organizationTax";
 import { formatCurrency } from "@/lib/utils";
@@ -256,8 +257,9 @@ const cloneTaxSettings = (
 
 const createEmptyInvoiceLineItem = (
   defaults?: Partial<InvoiceLineItemFormState>,
+  fallbackTitle = "Interior design project",
 ): InvoiceLineItemFormState => ({
-  title: defaults?.title || "Interior design project",
+  title: defaults?.title || fallbackTitle,
   description: defaults?.description || "",
   quantity: defaults?.quantity || "1",
   unitPrice: defaults?.unitPrice || "",
@@ -270,6 +272,7 @@ const cloneInvoiceLineItems = (
     description?: string;
     amount?: number;
   },
+  fallbackTitle = "Interior design project",
 ): InvoiceLineItemFormState[] => {
   if (source && source.length > 0) {
     return source.map((item) =>
@@ -284,14 +287,14 @@ const cloneInvoiceLineItems = (
 
   return [
     createEmptyInvoiceLineItem({
-      title: legacy?.title || "Interior design project",
+      title: legacy?.title || fallbackTitle,
       description: legacy?.description || "",
       quantity: "1",
       unitPrice:
         typeof legacy?.amount === "number" && Number.isFinite(legacy.amount)
           ? legacy.amount.toFixed(2)
           : "",
-    }),
+    }, fallbackTitle),
   ];
 };
 
@@ -383,6 +386,70 @@ const CUSTOMER_REQUIRED_FIELD_OPTIONS: Array<{
   { key: "country", label: "Country" },
 ];
 
+const getSellerFieldTranslationKey = (key: keyof InvoiceFieldRequirements["seller"]) => {
+  switch (key) {
+    case "sellerName":
+      return "sellerName";
+    case "sellerEmail":
+      return "billingEmail";
+    case "sellerPhone":
+      return "phone";
+    case "sellerTaxId":
+      return "taxIdVatId";
+    case "sellerAddressLine1":
+      return "addressLine1";
+    case "sellerAddressLine2":
+      return "addressLine2";
+    case "sellerPostalCode":
+      return "postalCode";
+    case "sellerCity":
+      return "city";
+    case "sellerCountry":
+      return "country";
+    case "bankAccountHolder":
+      return "accountHolder";
+    case "bankName":
+      return "bankName";
+    case "bankAccountNumber":
+      return "bankAccountNumberIban";
+    case "bankSwift":
+      return "swift";
+    case "defaultPaymentTermDays":
+      return "defaultDueDays";
+    case "paymentInstructions":
+      return "paymentInstructions";
+    case "invoicePrefix":
+      return "invoicePrefix";
+  }
+};
+
+const getCustomerFieldTranslationKey = (key: keyof InvoiceFieldRequirements["customer"]) => {
+  switch (key) {
+    case "companyName":
+      return "companyName";
+    case "name":
+      return "contactBuyerName";
+    case "email":
+      return "billingEmail";
+    case "phone":
+      return "phone";
+    case "taxId":
+      return "taxIdVatId";
+    case "addressLine1":
+      return "addressLine1";
+    case "addressLine2":
+      return "addressLine2";
+    case "postalCode":
+      return "postalCode";
+    case "city":
+      return "city";
+    case "country":
+      return "country";
+    case "nameOrCompany":
+      return "nameOrCompany";
+  }
+};
+
 const formatDateInput = (timestamp?: number) => {
   if (!timestamp) return "";
   const date = new Date(timestamp);
@@ -427,6 +494,8 @@ const buildCustomerFromProject = (project?: {
 
 export default function ProjectPaymentsView() {
   const { project, isLoading } = useProject();
+  const { t } = useI18n();
+  const defaultLineItemTitle = t("projectPayments", "lineItemTitlePlaceholder");
   const paymentsData = useQuery(
     apiAny.projectPayments.getProjectPaymentsOverview,
     isLoading ? "skip" : { projectId: project._id },
@@ -463,7 +532,7 @@ export default function ProjectPaymentsView() {
   const [editorBillingProfile, setEditorBillingProfile] = useState<BillingProfile>(EMPTY_BILLING_PROFILE);
   const [editorCustomer, setEditorCustomer] = useState<CustomerDetails>(EMPTY_CUSTOMER);
   const [editorLineItems, setEditorLineItems] = useState<InvoiceLineItemFormState[]>(
-    cloneInvoiceLineItems(),
+    cloneInvoiceLineItems(undefined, undefined, defaultLineItemTitle),
   );
   const [editorTaxSettings, setEditorTaxSettings] = useState<OrganizationTaxSettings>(EMPTY_TAX_SETTINGS);
   const [invoicePreviewOpen, setInvoicePreviewOpen] = useState(false);
@@ -564,11 +633,32 @@ export default function ProjectPaymentsView() {
       : "missing";
   const hiddenSellerFieldOptions = SELLER_REQUIRED_FIELD_OPTIONS.filter(
     (option) => !invoiceFieldRequirements.seller[option.key],
-  );
+  ).map((option) => ({
+    ...option,
+    label: t("projectPayments", getSellerFieldTranslationKey(option.key)),
+  }));
   const hiddenCustomerFieldOptions = CUSTOMER_REQUIRED_FIELD_OPTIONS.filter(
     (option) => !invoiceFieldRequirements.customer[option.key],
-  );
+  ).map((option) => ({
+    ...option,
+    label: t("projectPayments", getCustomerFieldTranslationKey(option.key)),
+  }));
   const activeCurrency = paymentsData?.currency || project.currency || "PLN";
+  const translateMissingField = (field: string) => {
+    const normalized = field.toLowerCase();
+    if (normalized === paymentRouteMissingLabel) {
+      return t("projectPayments", "bankAccountOrStripePayments");
+    }
+    const sellerOption = SELLER_REQUIRED_FIELD_OPTIONS.find((option) => option.label.toLowerCase() === normalized);
+    if (sellerOption) {
+      return t("projectPayments", getSellerFieldTranslationKey(sellerOption.key));
+    }
+    const customerOption = CUSTOMER_REQUIRED_FIELD_OPTIONS.find((option) => option.label.toLowerCase() === normalized);
+    if (customerOption) {
+      return t("projectPayments", getCustomerFieldTranslationKey(customerOption.key));
+    }
+    return field;
+  };
   const organizationTaxSettings = useMemo(
     () => cloneTaxSettings(paymentsData?.organizationTaxSettings),
     [paymentsData?.organizationTaxSettings],
@@ -593,10 +683,10 @@ export default function ProjectPaymentsView() {
   const isIssuedInvoiceEdit = Boolean(editingInstallment && editingInstallment.status !== "draft");
   const paymentRouteLabel =
     paymentRouteStatus === "stripe"
-      ? "Stripe payments"
+      ? t("projectPayments", "stripePayments")
       : paymentRouteStatus === "bank"
-        ? "Bank transfer"
-        : "Missing payment route";
+        ? t("projectPayments", "bankTransfer")
+        : t("projectPayments", "missingPaymentRoute");
   const normalizedEditorLineItems = useMemo(
     () =>
       editorLineItems
@@ -644,7 +734,7 @@ export default function ProjectPaymentsView() {
     });
     setEditorBillingProfile(cloneBillingProfile(billingProfile));
     setEditorCustomer(cloneCustomerDetails(customer));
-    setEditorLineItems(cloneInvoiceLineItems());
+    setEditorLineItems(cloneInvoiceLineItems(undefined, undefined, defaultLineItemTitle));
     setEditorTaxSettings(cloneTaxSettings(organizationTaxSettings));
     setDialogMode("create");
     setDialogOpen(true);
@@ -663,7 +753,7 @@ export default function ProjectPaymentsView() {
         title: installment.title,
         description: installment.description,
         amount: installment.amount,
-      }),
+      }, defaultLineItemTitle),
     );
     setEditorTaxSettings(
       cloneTaxSettings(installment.invoiceTaxSettingsSnapshot || organizationTaxSettings),
@@ -678,7 +768,7 @@ export default function ProjectPaymentsView() {
     setEditingInstallment(null);
     setEditorBillingProfile(EMPTY_BILLING_PROFILE);
     setEditorCustomer(EMPTY_CUSTOMER);
-    setEditorLineItems(cloneInvoiceLineItems());
+    setEditorLineItems(cloneInvoiceLineItems(undefined, undefined, defaultLineItemTitle));
     setEditorTaxSettings(EMPTY_TAX_SETTINGS);
     setForm(EMPTY_FORM);
   };
@@ -708,7 +798,7 @@ export default function ProjectPaymentsView() {
       );
       setInvoicePreviewOpen(true);
     } catch (error) {
-      toast.error("Could not open invoice preview", {
+      toast.error(t("projectPayments", "toastPreviewFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -718,8 +808,8 @@ export default function ProjectPaymentsView() {
 
   const openStripeConnectOnboarding = async () => {
     if (!canManageStripeConnect) {
-      toast.error("Only organization admins can connect Stripe", {
-        description: "Ask an organization admin to finish Stripe Connect setup.",
+      toast.error(t("projectPayments", "toastStripeAdminConnectOnly"), {
+        description: t("projectPayments", "toastStripeAdminConnectOnlyDescription"),
       });
       return;
     }
@@ -736,7 +826,7 @@ export default function ProjectPaymentsView() {
       });
       window.location.assign(result.url);
     } catch (error) {
-      toast.error("Could not open Stripe Connect onboarding", {
+      toast.error(t("projectPayments", "toastStripeOnboardingFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -746,8 +836,8 @@ export default function ProjectPaymentsView() {
 
   const syncStripeConnectStatus = async () => {
     if (!canManageStripeConnect) {
-      toast.error("Only organization admins can refresh Stripe Connect", {
-        description: "Ask an organization admin to manage Stripe Connect setup.",
+      toast.error(t("projectPayments", "toastStripeAdminRefreshOnly"), {
+        description: t("projectPayments", "toastStripeAdminRefreshOnlyDescription"),
       });
       return;
     }
@@ -756,12 +846,12 @@ export default function ProjectPaymentsView() {
     try {
       const result = await refreshStripeConnectAccount({ teamId: project.teamId });
       if (result.onboardingComplete) {
-        toast.success("Stripe Connect is ready");
+        toast.success(t("projectPayments", "toastStripeConnectReady"));
       } else {
-        toast.message("Stripe Connect setup is still incomplete");
+        toast.message(t("projectPayments", "toastStripeConnectIncomplete"));
       }
     } catch (error) {
-      toast.error("Could not refresh Stripe Connect status", {
+      toast.error(t("projectPayments", "toastStripeRefreshFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -780,9 +870,9 @@ export default function ProjectPaymentsView() {
         },
         invoiceFieldRequirements,
       });
-      toast.success("Organization billing profile updated");
+      toast.success(t("projectPayments", "toastBillingProfileUpdated"));
     } catch (error) {
-      toast.error("Could not update billing profile", {
+      toast.error(t("projectPayments", "toastBillingProfileUpdateFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -803,7 +893,7 @@ export default function ProjectPaymentsView() {
       });
     } catch (error) {
       setInvoiceFieldRequirements(previous);
-      toast.error("Could not update field visibility", {
+      toast.error(t("projectPayments", "toastFieldVisibilityUpdateFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -854,9 +944,9 @@ export default function ProjectPaymentsView() {
         projectId: project._id,
         customer,
       });
-      toast.success("Bill-to details updated");
+      toast.success(t("projectPayments", "toastBillToUpdated"));
     } catch (error) {
-      toast.error("Could not update customer details", {
+      toast.error(t("projectPayments", "toastCustomerUpdateFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -866,20 +956,20 @@ export default function ProjectPaymentsView() {
 
   const applyProjectClientDetails = () => {
     if (!hasProjectClientDefaults) {
-      toast.error("No client details are saved in project settings yet");
+      toast.error(t("projectPayments", "toastNoClientDetails"));
       return;
     }
     setCustomer(projectClientDefaults);
-    toast.success("Filled customer details from the project client data");
+    toast.success(t("projectPayments", "toastCustomerFilledFromProject"));
   };
 
   const applyProjectClientDetailsToEditor = () => {
     if (!hasProjectClientDefaults) {
-      toast.error("No client details are saved in project settings yet");
+      toast.error(t("projectPayments", "toastNoClientDetails"));
       return;
     }
     setEditorCustomer(cloneCustomerDetails(projectClientDefaults));
-    toast.success("Filled invoice customer details from the project client data");
+    toast.success(t("projectPayments", "toastInvoiceCustomerFilledFromProject"));
   };
 
   const updateEditorLineItem = (
@@ -895,13 +985,13 @@ export default function ProjectPaymentsView() {
   };
 
   const addEditorLineItem = () => {
-    setEditorLineItems((current) => [...current, createEmptyInvoiceLineItem()]);
+    setEditorLineItems((current) => [...current, createEmptyInvoiceLineItem(undefined, defaultLineItemTitle)]);
   };
 
   const removeEditorLineItem = (index: number) => {
     setEditorLineItems((current) =>
       current.length === 1
-        ? [createEmptyInvoiceLineItem()]
+        ? [createEmptyInvoiceLineItem(undefined, defaultLineItemTitle)]
         : current.filter((_, itemIndex) => itemIndex !== index),
     );
   };
@@ -909,12 +999,12 @@ export default function ProjectPaymentsView() {
   const saveInstallment = async () => {
     const parsedLineItems = normalizedEditorLineItems.filter((item) => item.title || item.description);
     if (parsedLineItems.length === 0) {
-      toast.error("Add at least one invoice line item");
+      toast.error(t("projectPayments", "toastAddLineItem"));
       return;
     }
 
     if (parsedLineItems.some((item) => !item.isValid)) {
-      toast.error("Each line item needs a title, quantity, and unit price");
+      toast.error(t("projectPayments", "toastInvalidLineItems"));
       return;
     }
 
@@ -928,7 +1018,7 @@ export default function ProjectPaymentsView() {
     const totalAmount = editorTaxBreakdown.gross;
 
     if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
-      toast.error("Enter at least one valid invoice amount");
+      toast.error(t("projectPayments", "toastInvalidInvoiceAmount"));
       return;
     }
 
@@ -950,7 +1040,7 @@ export default function ProjectPaymentsView() {
         } else {
           const nextInvoiceNumber = form.invoiceNumber.trim();
           if (!nextInvoiceNumber) {
-            toast.error("Enter a valid invoice number");
+            toast.error(t("projectPayments", "toastInvalidInvoiceNumber"));
             return;
           }
 
@@ -967,7 +1057,7 @@ export default function ProjectPaymentsView() {
             invoiceCustomerSnapshot: editorCustomer,
           });
         }
-        toast.success("Invoice updated");
+        toast.success(t("projectPayments", "toastInvoiceUpdated"));
       } else {
         await createPayment({
           projectId: project._id,
@@ -980,11 +1070,11 @@ export default function ProjectPaymentsView() {
           invoiceSellerSnapshot: serializeBillingProfile(editorBillingProfile),
           invoiceCustomerSnapshot: editorCustomer,
         });
-        toast.success("Invoice created");
+        toast.success(t("projectPayments", "toastInvoiceCreated"));
       }
       resetDialog();
     } catch (error) {
-      toast.error("Could not save invoice", {
+      toast.error(t("projectPayments", "toastInvoiceSaveFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -1014,13 +1104,13 @@ export default function ProjectPaymentsView() {
     try {
       if (actionName === "issue") {
         await createInvoice({ installmentId });
-        toast.success("Invoice issued");
+        toast.success(t("projectPayments", "toastInvoiceIssued"));
         return;
       }
 
       if (actionName === "send") {
         await sendInvoiceEmail({ installmentId });
-        toast.success("Invoice email sent");
+        toast.success(t("projectPayments", "toastInvoiceEmailSent"));
         return;
       }
 
@@ -1033,10 +1123,10 @@ export default function ProjectPaymentsView() {
       if (actionName === "link") {
         const result = await createStripePaymentLink({ installmentId });
         if (!result.url) {
-          throw new Error("Stripe payment link is not available yet");
+          throw new Error(t("projectPayments", "stripePaymentLinkUnavailable"));
         }
         window.open(result.url, "_blank", "noopener,noreferrer");
-        toast.success("Stripe payment link is ready");
+        toast.success(t("projectPayments", "toastStripePaymentLinkReady"));
         return;
       }
 
@@ -1047,13 +1137,13 @@ export default function ProjectPaymentsView() {
 
       toast.success(
         actionName === "paid"
-          ? "Invoice marked as paid"
+          ? t("projectPayments", "toastInvoiceMarkedPaid")
           : actionName === "open"
-            ? "Invoice reopened"
-            : "Invoice voided",
+            ? t("projectPayments", "toastInvoiceReopened")
+            : t("projectPayments", "toastInvoiceVoided"),
       );
     } catch (error) {
-      toast.error("Payment action failed", {
+      toast.error(t("projectPayments", "toastPaymentActionFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -1065,9 +1155,9 @@ export default function ProjectPaymentsView() {
     setBusyInstallmentId(installmentId);
     try {
       await deletePayment({ installmentId });
-      toast.success("Draft invoice deleted");
+      toast.success(t("projectPayments", "toastDraftInvoiceDeleted"));
     } catch (error) {
-      toast.error("Could not delete invoice", {
+      toast.error(t("projectPayments", "toastInvoiceDeleteFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -1077,27 +1167,27 @@ export default function ProjectPaymentsView() {
 
   const copyReference = async (value?: string) => {
     if (!value) {
-      toast.error("No payment reference available yet");
+      toast.error(t("projectPayments", "toastNoPaymentReference"));
       return;
     }
     try {
       await navigator.clipboard.writeText(value);
-      toast.success("Payment reference copied");
+      toast.success(t("projectPayments", "toastPaymentReferenceCopied"));
     } catch {
-      toast.error("Could not copy payment reference");
+      toast.error(t("projectPayments", "toastPaymentReferenceCopyFailed"));
     }
   };
 
   const copyPaymentLink = async (value?: string) => {
     if (!value) {
-      toast.error("No payment link available yet");
+      toast.error(t("projectPayments", "toastNoPaymentLink"));
       return;
     }
     try {
       await navigator.clipboard.writeText(value);
-      toast.success("Payment link copied");
+      toast.success(t("projectPayments", "toastPaymentLinkCopied"));
     } catch {
-      toast.error("Could not copy payment link");
+      toast.error(t("projectPayments", "toastPaymentLinkCopyFailed"));
     }
   };
 
@@ -1114,21 +1204,21 @@ export default function ProjectPaymentsView() {
       <ProjectPageLayout>
         <div className="flex flex-col gap-8">
           <ProjectPageHeader
-            title={dialogMode === "edit" ? "Edit invoice" : "New invoice"}
+            title={dialogMode === "edit" ? t("projectPayments", "editInvoice") : t("projectPayments", "newInvoice")}
             icon={<Wallet />}
-            subtitle="This editor is prefilled from invoice setup and project client data, but changes here apply only to this invoice."
+            subtitle={t("projectPayments", "invoiceEditorPageSubtitle")}
             actions={
               <div className="flex flex-wrap gap-2">
                 <Button type="button" variant="outline" onClick={resetDialog}>
                   <ArrowLeft data-icon="inline-start" />
-                  Back to payments
+                  {t("projectPayments", "backToPayments")}
                 </Button>
                 <Button type="button" onClick={() => void saveInstallment()} disabled={submittingInstallment}>
                   {submittingInstallment
-                    ? "Saving..."
+                    ? t("projectPayments", "saving")
                     : editingInstallment
-                      ? "Save invoice"
-                      : "Create invoice"}
+                      ? t("projectPayments", "saveInvoice")
+                      : t("projectPayments", "createInvoice")}
                 </Button>
               </div>
             }
@@ -1165,24 +1255,30 @@ export default function ProjectPaymentsView() {
 
   const invoiceSetupIncomplete = !paymentsData.billingSetup?.sellerReady || !paymentsData.billingSetup?.customerReady;
   const sellerMissingText = paymentsData.billingSetup?.missingSellerFields?.length
-    ? `Seller profile is missing: ${paymentsData.billingSetup.missingSellerFields.join(", ")}.`
+    ? t("projectPayments", "sellerProfileMissing", {
+        fields: paymentsData.billingSetup.missingSellerFields.map(translateMissingField).join(", "),
+      })
     : "";
   const customerMissingText = paymentsData.billingSetup?.missingCustomerFields?.length
-    ? `Customer details are missing: ${paymentsData.billingSetup.missingCustomerFields.join(", ")}.`
+    ? t("projectPayments", "customerDetailsMissing", {
+        fields: paymentsData.billingSetup.missingCustomerFields.map(translateMissingField).join(", "),
+      })
     : "";
   const showPaymentSetupPanel = invoiceSetupIncomplete || stripeConnectNeedsSetup;
-  const stripeSetupActionLabel = stripeConnect?.accountId ? "Resume Stripe setup" : "Connect Stripe";
+  const stripeSetupActionLabel = stripeConnect?.accountId
+    ? t("projectPayments", "resumeStripeSetup")
+    : t("projectPayments", "connectStripe");
 
   return (
     <ProjectPageLayout>
       <div className="flex flex-col gap-6">
         <ProjectPageHeader
-          title="Payments"
+          title={t("projectPayments", "payments")}
           icon={<Wallet />}
           actions={
             <Button type="button" onClick={openCreateDialog}>
               <Plus data-icon="inline-start" />
-              New invoice
+              {t("projectPayments", "newInvoice")}
             </Button>
           }
         />
@@ -1202,9 +1298,9 @@ export default function ProjectPaymentsView() {
                 <Building2 className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Payment setup</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{t("projectPayments", "paymentSetup")}</p>
                 <h2 className="mt-1 text-base font-semibold tracking-tight">
-                  {invoiceSetupIncomplete ? "Invoice setup incomplete" : "Stripe payments need setup"}
+                  {invoiceSetupIncomplete ? t("projectPayments", "invoiceSetupIncomplete") : t("projectPayments", "stripePaymentsNeedSetup")}
                 </h2>
                 {invoiceSetupIncomplete ? (
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
@@ -1212,7 +1308,7 @@ export default function ProjectPaymentsView() {
                   </p>
                 ) : (
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                    Connect Stripe once for this organization to collect card payments from issued invoices.
+                    {t("projectPayments", "stripeSetupDescription")}
                   </p>
                 )}
               </div>
@@ -1225,11 +1321,11 @@ export default function ProjectPaymentsView() {
                     <Wallet className="h-4 w-4" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-medium leading-tight">Stripe setup</p>
+                    <p className="font-medium leading-tight">{t("projectPayments", "stripeSetup")}</p>
                     <p className="mt-1 text-sm leading-5 text-muted-foreground">
                       {canManageStripeConnect
-                        ? "Finish the organization payment route."
-                        : "Only organization admins can connect Stripe payments."}
+                        ? t("projectPayments", "finishOrganizationPaymentRoute")
+                        : t("projectPayments", "onlyAdminsCanConnectStripe")}
                     </p>
                   </div>
                 </div>
@@ -1251,7 +1347,7 @@ export default function ProjectPaymentsView() {
                     disabled={isStripeConnectRefreshBusy || !canManageStripeConnect}
                   >
                     <RefreshCw data-icon="inline-start" />
-                    Refresh status
+                    {t("projectPayments", "refreshStatus")}
                   </Button>
                 </div>
               </div>
@@ -1271,7 +1367,7 @@ export default function ProjectPaymentsView() {
             >
               <span className="flex w-full items-center gap-3">
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold leading-tight">Draft invoices</span>
+                  <span className="block text-sm font-semibold leading-tight">{t("projectPayments", "draftInvoices")}</span>
                 </span>
                 <Badge variant="outline" className="shrink-0 border-border/70 bg-secondary/70 px-3 py-1 text-xs font-semibold">
                   {draftInstallments.length}
@@ -1284,7 +1380,7 @@ export default function ProjectPaymentsView() {
             >
               <span className="flex w-full items-center gap-3">
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold leading-tight">Issued invoices</span>
+                  <span className="block text-sm font-semibold leading-tight">{t("projectPayments", "issuedInvoices")}</span>
                 </span>
                 <Badge variant="outline" className="shrink-0 border-border/70 bg-secondary/70 px-3 py-1 text-xs font-semibold">
                   {issuedInstallments.length}
@@ -1297,7 +1393,7 @@ export default function ProjectPaymentsView() {
             >
               <span className="flex w-full items-center gap-3">
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold leading-tight">Invoice setup</span>
+                  <span className="block text-sm font-semibold leading-tight">{t("projectPayments", "invoiceSetup")}</span>
                 </span>
                 <Badge
                   variant={invoiceSetupReady ? "default" : "outline"}
@@ -1310,10 +1406,10 @@ export default function ProjectPaymentsView() {
                   {invoiceSetupReady ? (
                     <>
                       <CheckCircle2 />
-                      Ready
+                      {t("projectPayments", "ready")}
                     </>
                   ) : (
-                    `${invoiceSetupIssues} missing`
+                    t("projectPayments", "missingCount", { count: invoiceSetupIssues })
                   )}
                 </Badge>
               </span>
@@ -1370,9 +1466,10 @@ export default function ProjectPaymentsView() {
         <DialogContent className="!max-w-[95vw] !max-h-[95vh] !w-[95vw] !h-[95vh] flex flex-col p-0">
           <DialogHeader className="p-6 pb-2">
             <DialogTitle>
-              Invoice PDF preview{invoicePreviewTitle ? ` - ${invoicePreviewTitle}` : ""}
+              {t("projectPayments", "invoicePdfPreview")}
+              {invoicePreviewTitle ? ` - ${invoicePreviewTitle}` : ""}
             </DialogTitle>
-            <DialogDescription>Generated invoice document preview.</DialogDescription>
+            <DialogDescription>{t("projectPayments", "invoicePdfPreviewDescription")}</DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-auto p-2">
             {invoicePreviewUrl ? (
@@ -1393,15 +1490,15 @@ export default function ProjectPaymentsView() {
           <DialogHeader>
             <DialogTitle>
               {invoiceGuardAction === "send"
-                ? "Cannot send invoice yet"
+                ? t("projectPayments", "cannotSendInvoiceYet")
                 : invoiceGuardAction === "link"
-                  ? "Cannot create payment link yet"
-                  : "Cannot issue invoice yet"}
+                  ? t("projectPayments", "cannotCreatePaymentLinkYet")
+                  : t("projectPayments", "cannotIssueInvoiceYet")}
             </DialogTitle>
             <DialogDescription>
               {invoiceGuardReason === "setup"
-                ? "Complete required billing data, including seller/customer identity and either bank account number or Stripe Connect."
-                : "Add a valid customer billing email before sending the invoice."}
+                ? t("projectPayments", "invoiceGuardSetupDescription")
+                : t("projectPayments", "invoiceGuardEmailDescription")}
             </DialogDescription>
           </DialogHeader>
 
@@ -1409,20 +1506,20 @@ export default function ProjectPaymentsView() {
             <div className="flex flex-col gap-3 text-sm">
               {missingSellerFields.length ? (
                 <div>
-                  <p className="font-medium">Missing seller profile fields:</p>
+                  <p className="font-medium">{t("projectPayments", "missingSellerProfileFields")}</p>
                   <ul className="list-disc pl-5 text-muted-foreground">
                     {missingSellerFields.map((field) => (
-                      <li key={`seller-${field}`}>{field}</li>
+                      <li key={`seller-${field}`}>{translateMissingField(field)}</li>
                     ))}
                   </ul>
                 </div>
               ) : null}
               {missingCustomerFields.length ? (
                 <div>
-                  <p className="font-medium">Missing customer fields:</p>
+                  <p className="font-medium">{t("projectPayments", "missingCustomerFields")}</p>
                   <ul className="list-disc pl-5 text-muted-foreground">
                     {missingCustomerFields.map((field) => (
-                      <li key={`customer-${field}`}>{field}</li>
+                      <li key={`customer-${field}`}>{translateMissingField(field)}</li>
                     ))}
                   </ul>
                 </div>
@@ -1430,13 +1527,14 @@ export default function ProjectPaymentsView() {
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              The customer must have a valid billing email in <span className="font-medium text-foreground">Bill-To Customer</span>.
+              {t("projectPayments", "customerMustHaveBillingEmailPrefix")}{" "}
+              <span className="font-medium text-foreground">{t("projectPayments", "billToCustomer")}</span>.
             </p>
           )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setInvoiceGuardDialogOpen(false)}>
-              Close
+              {t("projectPayments", "close")}
             </Button>
             <Button
               type="button"
@@ -1445,7 +1543,7 @@ export default function ProjectPaymentsView() {
                 setActiveTab("invoice-setup");
               }}
             >
-              Open invoice setup
+              {t("projectPayments", "openInvoiceSetup")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -49,6 +49,7 @@ import {
   usesChoiceOptions,
   usesRatingScale,
 } from "@/components/surveys/QuestionBuilderFields";
+import { useI18n } from "@/lib/i18n";
 
 type TemplateQuestion = {
   _id?: Id<"surveyTemplateQuestions">;
@@ -100,6 +101,7 @@ function toQuestionPayload(question: TemplateQuestion, index: number) {
 }
 
 export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const { organization } = useOrganization();
   const [title, setTitle] = useState("");
@@ -211,7 +213,7 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
     });
 
     if (invalidChoiceQuestion) {
-      toast.error("Choice questions need at least two options");
+      toast.error(t("surveys", "choiceNeedsTwoOptions"));
       return;
     }
 
@@ -264,11 +266,13 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
       }
 
       toast.success(
-        templateId ? "Survey template updated" : "Survey template created",
+        templateId
+          ? t("surveys", "surveyTemplateUpdated")
+          : t("surveys", "surveyTemplateCreated"),
       );
       router.push("/organisation/survey-library");
     } catch (error) {
-      toast.error("Could not save survey template", {
+      toast.error(t("surveys", "couldNotSaveTemplate"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -285,10 +289,10 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="font-serif text-[2rem] leading-none tracking-[-0.04em] text-foreground">
-            {templateId ? "Edit Survey Template" : "New Survey Template"}
+            {templateId ? t("surveys", "editSurveyTemplate") : t("surveys", "newSurveyTemplate")}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Build a reusable question set your team can copy into any project.
+            {t("surveys", "updateTemplateTitle")}
           </p>
         </div>
         <Button
@@ -298,7 +302,7 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
           onClick={() => router.back()}
         >
           <ArrowLeft data-icon="inline-start" />
-          Back
+          {t("surveys", "back")}
         </Button>
       </div>
 
@@ -307,9 +311,9 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
           <div className="flex items-center gap-3">
             <ClipboardList data-icon="inline-start" />
             <div className="flex flex-col gap-1">
-              <CardTitle className="text-xl">Template Details</CardTitle>
+              <CardTitle className="text-xl">{t("surveys", "templateDetails")}</CardTitle>
               <CardDescription>
-                Name and reusable context for this question set.
+                {t("surveys", "templateDetailsDescription")}
               </CardDescription>
             </div>
           </div>
@@ -317,26 +321,26 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
         <CardContent className="flex flex-col gap-6">
           <div className="flex flex-col gap-3">
             <Label htmlFor="title" className="text-sm font-semibold">
-              Template Title *
+              {t("surveys", "templateTitle")}
             </Label>
             <Input
               id="title"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="Client onboarding survey"
+              placeholder={t("surveys", "templateTitlePlaceholder")}
               required
               className="h-11 text-base"
             />
           </div>
           <div className="flex flex-col gap-3">
             <Label htmlFor="description" className="text-sm font-semibold">
-              Description
+              {t("surveys", "description")}
             </Label>
             <Textarea
               id="description"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="When this template should be used"
+              placeholder={t("surveys", "templateDescriptionPlaceholder")}
               rows={4}
               className="resize-none text-base"
             />
@@ -350,9 +354,9 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
             <div className="flex items-center gap-3">
               <HelpCircle data-icon="inline-start" />
               <div className="flex flex-col gap-1">
-                <CardTitle className="text-xl">Questions</CardTitle>
+                <CardTitle className="text-xl">{t("surveys", "questions")}</CardTitle>
                 <CardDescription>
-                  Questions copied into a project survey.
+                  {t("surveys", "questionsCopied")}
                 </CardDescription>
               </div>
             </div>
@@ -363,7 +367,7 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
               }
             >
               <Plus data-icon="inline-start" />
-              Add Question
+              {t("surveys", "addQuestion")}
             </Button>
           </div>
         </CardHeader>
@@ -372,10 +376,10 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
             <EmptyState
               className="border border-border bg-card"
               icon={HelpCircle}
-              title="No questions"
-              description="Add at least one question before using this template."
+              title={t("surveys", "noQuestionsTemplate")}
+              description={t("surveys", "noQuestionsTemplateDescription")}
               action={{
-                label: "Add Question",
+                label: t("surveys", "addQuestion"),
                 onClick: () => setQuestions([newQuestion()]),
                 icon: Plus,
               }}
@@ -394,7 +398,7 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
                           <div className="flex items-center gap-3">
                             <GripVertical className="text-muted-foreground" />
                             <Badge variant="outline">
-                              Question {index + 1}
+                              {t("surveys", "question").replace("{number}", String(index + 1))}
                             </Badge>
                           </div>
                           <Button
@@ -404,14 +408,14 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
                             onClick={() => removeQuestion(question.id)}
                           >
                             <Trash2 data-icon="inline-start" />
-                            Remove
+                            {t("surveys", "remove")}
                           </Button>
                         </div>
                         <Separator />
                         <div className="grid gap-6 lg:grid-cols-2">
                           <div className="flex flex-col gap-3">
                             <Label className="text-sm font-semibold">
-                              Question Content *
+                              {t("surveys", "questionContent")}
                             </Label>
                             <Textarea
                               value={question.questionText}
@@ -420,14 +424,14 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
                                   questionText: event.target.value,
                                 })
                               }
-                              placeholder="What should the client answer?"
+                              placeholder={t("surveys", "enterQuestionContent")}
                               rows={3}
                               className="resize-none text-base"
                             />
                           </div>
                           <div className="flex flex-col gap-3">
                             <Label className="text-sm font-semibold">
-                              Question Type
+                              {t("surveys", "questionType")}
                             </Label>
                             <Select
                               value={question.questionType}
@@ -438,7 +442,7 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
                               }
                             >
                               <SelectTrigger className="h-11">
-                                <SelectValue placeholder="Select question type" />
+                                <SelectValue placeholder={t("surveys", "selectQuestionType")} />
                               </SelectTrigger>
                               <SelectContent>
                                 {surveyQuestionTypes.map((type) => (
@@ -446,7 +450,7 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
                                     key={type.value}
                                     value={type.value}
                                   >
-                                    {type.label}
+                                    {t("surveys", type.labelKey)}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -485,10 +489,10 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
                         <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 p-4">
                           <div className="flex flex-col gap-1">
                             <Label className="text-sm font-medium">
-                              Required Question
+                              {t("surveys", "requiredQuestion")}
                             </Label>
                             <p className="text-xs text-muted-foreground">
-                              Respondents have to answer this question.
+                              {t("surveys", "requiredQuestionDescription")}
                             </p>
                           </div>
                           <Switch
@@ -512,11 +516,11 @@ export function SurveyTemplateForm({ templateId }: SurveyTemplateFormProps) {
 
       <div className="flex justify-end gap-3 pt-2">
         <Button type="button" variant="outline" onClick={() => router.back()}>
-          Cancel
+          {t("surveys", "cancel")}
         </Button>
         <Button type="submit" disabled={isSubmitting || !title.trim()}>
           <Save data-icon="inline-start" />
-          {isSubmitting ? "Saving..." : "Save Template"}
+          {isSubmitting ? t("surveys", "saving") : t("surveys", "saveTemplate")}
         </Button>
       </div>
     </form>

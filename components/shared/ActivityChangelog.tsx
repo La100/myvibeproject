@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
+import { enUS, pl } from "date-fns/locale";
 import {
   FileText,
   Edit3,
@@ -40,6 +41,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { dedupeActivityLogActivities } from "@/lib/activityLogDeduplication";
 import { getClientActorName } from "@/lib/clientNotificationCopy";
+import { useI18n } from "@/lib/i18n";
 
 type ActivityItem = {
   _id: string;
@@ -163,11 +165,15 @@ const getDecisionBadgeColor = (decision: "accepted" | "rejected") =>
     ? "border-primary/20 bg-primary/10 text-primary"
     : "border-destructive/20 bg-destructive/10 text-destructive";
 
-const getActivityDescription = (actionType: string, details: Record<string, unknown>) => {
+const getActivityDescription = (
+  actionType: string,
+  details: Record<string, unknown>,
+  t: ReturnType<typeof useI18n>["t"],
+) => {
   if (actionType.startsWith("task.")) {
     switch (actionType) {
       case "task.create":
-        return `created the task "${details.title}"`;
+        return t("activity", "taskCreated", { title: String(details.title ?? "") });
       case "task.update": {
         const updatedFields = Array.isArray(details.updatedFields) ? details.updatedFields : [];
         const friendlyFields = updatedFields
@@ -176,21 +182,21 @@ const getActivityDescription = (actionType: string, details: Record<string, unkn
               case "updatedAt":
                 return null;
               case "title":
-                return "title";
+                return t("activity", "fieldTitle");
               case "description":
-                return "description";
+                return t("activity", "fieldDescription");
               case "status":
-                return "status";
+                return t("activity", "fieldStatus");
               case "priority":
-                return "priority";
+                return t("activity", "fieldPriority");
               case "assignedTo":
-                return "assignee";
+                return t("activity", "fieldAssignee");
               case "dueDate":
-                return "due date";
+                return t("activity", "fieldDueDate");
               case "tags":
-                return "tags";
+                return t("activity", "fieldTags");
               case "content":
-                return "content";
+                return t("activity", "fieldContent");
               default:
                 return field;
             }
@@ -198,9 +204,12 @@ const getActivityDescription = (actionType: string, details: Record<string, unkn
           .filter(Boolean);
 
         if (friendlyFields.length === 0) {
-          return "updated the task";
+          return t("activity", "taskUpdatedGeneric");
         }
-        return `updated ${friendlyFields.join(", ")} in task "${details.title || "Untitled"}"`;
+        return t("activity", "taskUpdatedFields", {
+          fields: friendlyFields.join(", "),
+          title: String(details.title || t("activity", "untitled")),
+        });
       }
       case "task.status.change":
       case "task.status_change": {
@@ -208,144 +217,168 @@ const getActivityDescription = (actionType: string, details: Record<string, unkn
         const toStatus = (details.toStatus || details.to) as string | undefined;
 
         if (toStatus === "done") {
-          return `marked task "${details.title || "Untitled"}" as done`;
+          return t("activity", "taskMarkedDone", {
+            title: String(details.title || t("activity", "untitled")),
+          });
         }
 
         if (fromStatus && toStatus && fromStatus !== toStatus) {
-          return `changed task "${details.title || "Untitled"}" status from ${getStatusLabel(fromStatus)} to ${getStatusLabel(toStatus)}`;
+          return t("activity", "taskStatusChangedFromTo", {
+            title: String(details.title || t("activity", "untitled")),
+            from: getStatusLabel(fromStatus, t),
+            to: getStatusLabel(toStatus, t),
+          });
         }
 
         if (toStatus) {
-          return `changed task "${details.title || "Untitled"}" status to ${getStatusLabel(toStatus)}`;
+          return t("activity", "taskStatusChangedTo", {
+            title: String(details.title || t("activity", "untitled")),
+            to: getStatusLabel(toStatus, t),
+          });
         }
 
-        return `updated task "${details.title || "Untitled"}" status`;
+        return t("activity", "taskStatusUpdated", {
+          title: String(details.title || t("activity", "untitled")),
+        });
       }
       case "task.assign":
-        return `reassigned task "${details.title || "Untitled"}" from "${details.from}" to "${details.to}"`;
+        return t("activity", "taskReassigned", {
+          title: String(details.title || t("activity", "untitled")),
+          from: String(details.from ?? ""),
+          to: String(details.to ?? ""),
+        });
       case "task.comment.add":
-        return `added a comment to "${details.title || "Untitled"}"`;
+        return t("activity", "taskCommentAdded", { title: String(details.title || t("activity", "untitled")) });
       case "task.file.add":
-        return `uploaded file "${details.fileName}" to task "${details.title || "Untitled"}"`;
+        return t("activity", "taskFileUploaded", {
+          fileName: String(details.fileName ?? ""),
+          title: String(details.title || t("activity", "untitled")),
+        });
       case "task.content.update":
-        return `updated task "${details.title || "Untitled"}" description`;
+        return t("activity", "taskContentUpdated", { title: String(details.title || t("activity", "untitled")) });
       case "task.delete":
-        return `deleted the task "${details.title}"`;
+        return t("activity", "taskDeleted", { title: String(details.title ?? "") });
       default:
-        return "performed a task action";
+        return t("activity", "taskAction");
     }
   }
 
   if (actionType.startsWith("shopping.")) {
     switch (actionType) {
       case "shopping.create":
-        return `added "${details.name}" to shopping list`;
+        return t("activity", "shoppingCreated", { name: String(details.name ?? "") });
       case "shopping.update":
-        return `updated "${details.name}" in shopping list`;
+        return t("activity", "shoppingUpdated", { name: String(details.name ?? "") });
       case "shopping.delete":
-        return `removed "${details.name}" from shopping list`;
+        return t("activity", "shoppingDeleted", { name: String(details.name ?? "") });
       case "shopping.customer.option_selected":
-        return `selected option "${details.selectedItemName || details.selectedItemId}" for a shopping item`;
+        return t("activity", "shoppingOptionSelected", {
+          name: String(details.selectedItemName || details.selectedItemId || ""),
+        });
       case "shopping.customer.feedback":
         if (details.decision === "accepted") {
-          return `approved "${details.itemName}" in the client portal`;
+          return t("activity", "shoppingApproved", { name: String(details.itemName ?? "") });
         }
         if (details.decision === "rejected") {
-          return `rejected "${details.itemName}" in the client portal`;
+          return t("activity", "shoppingRejected", { name: String(details.itemName ?? "") });
         }
-        return `left feedback on "${details.itemName}" in the client portal`;
+        return t("activity", "shoppingFeedback", { name: String(details.itemName ?? "") });
       case "shopping.customer.decision":
-        return `${details.decision === "accepted" ? "approved" : "rejected"} "${details.itemName}" in the client portal`;
+        return details.decision === "accepted"
+          ? t("activity", "shoppingApproved", { name: String(details.itemName ?? "") })
+          : t("activity", "shoppingRejected", { name: String(details.itemName ?? "") });
       default:
-        return "performed a shopping list action";
+        return t("activity", "shoppingAction");
     }
   }
 
   if (actionType.startsWith("labor.")) {
     switch (actionType) {
       case "labor.create":
-        return `added labor item "${details.name}"`;
+        return t("activity", "laborCreated", { name: String(details.name ?? "") });
       case "labor.update":
-        return `updated labor item "${details.name}"`;
+        return t("activity", "laborUpdated", { name: String(details.name ?? "") });
       case "labor.delete":
-        return `removed labor item "${details.name}"`;
+        return t("activity", "laborDeleted", { name: String(details.name ?? "") });
       case "labor.customer.feedback":
         if (details.decision === "accepted") {
-          return `approved labor item "${details.itemName}" in the client portal`;
+          return t("activity", "laborApproved", { name: String(details.itemName ?? "") });
         }
         if (details.decision === "rejected") {
-          return `rejected labor item "${details.itemName}" in the client portal`;
+          return t("activity", "laborRejected", { name: String(details.itemName ?? "") });
         }
-        return `left feedback on labor item "${details.itemName}" in the client portal`;
+        return t("activity", "laborFeedback", { name: String(details.itemName ?? "") });
       case "labor.customer.decision":
-        return `${details.decision === "accepted" ? "approved" : "rejected"} labor item "${details.itemName}" in the client portal`;
+        return details.decision === "accepted"
+          ? t("activity", "laborApproved", { name: String(details.itemName ?? "") })
+          : t("activity", "laborRejected", { name: String(details.itemName ?? "") });
       default:
-        return "performed a labor action";
+        return t("activity", "laborAction");
     }
   }
 
   if (actionType.startsWith("note.")) {
     switch (actionType) {
       case "note.create":
-        return `added note "${details.title}"`;
+        return t("activity", "noteCreated", { title: String(details.title ?? "") });
       case "note.update":
-        return `updated note "${details.title}"`;
+        return t("activity", "noteUpdated", { title: String(details.title ?? "") });
       case "note.delete":
-        return `deleted note "${details.title}"`;
+        return t("activity", "noteDeleted", { title: String(details.title ?? "") });
       default:
-        return "performed a note action";
+        return t("activity", "noteAction");
     }
   }
 
   if (actionType.startsWith("contact.")) {
     switch (actionType) {
       case "contact.create":
-        return `added contact "${details.name}"`;
+        return t("activity", "contactCreated", { name: String(details.name ?? "") });
       case "contact.update":
-        return `updated contact "${details.name}"`;
+        return t("activity", "contactUpdated", { name: String(details.name ?? "") });
       case "contact.archive":
-        return `archived contact "${details.name}"`;
+        return t("activity", "contactArchived", { name: String(details.name ?? "") });
       case "contact.delete":
-        return `deleted contact "${details.name}"`;
+        return t("activity", "contactDeleted", { name: String(details.name ?? "") });
       default:
-        return "performed a contact action";
+        return t("activity", "contactAction");
     }
   }
 
   if (actionType.startsWith("survey.")) {
     switch (actionType) {
       case "survey.create":
-        return `created survey "${details.title}"`;
+        return t("activity", "surveyCreated", { title: String(details.title ?? "") });
       case "survey.update":
-        return `updated survey "${details.title}"`;
+        return t("activity", "surveyUpdated", { title: String(details.title ?? "") });
       case "survey.delete":
-        return `deleted survey "${details.title}"`;
+        return t("activity", "surveyDeleted", { title: String(details.title ?? "") });
       case "survey.question.create":
-        return `added question to survey "${details.surveyTitle}"`;
+        return t("activity", "surveyQuestionCreated", { title: String(details.surveyTitle ?? "") });
       case "survey.question.update":
-        return `updated question in survey "${details.surveyTitle}"`;
+        return t("activity", "surveyQuestionUpdated", { title: String(details.surveyTitle ?? "") });
       case "survey.question.delete":
-        return `deleted question from survey "${details.surveyTitle}"`;
+        return t("activity", "surveyQuestionDeleted", { title: String(details.surveyTitle ?? "") });
       case "survey.response.submit":
-        return `submitted survey "${details.surveyTitle || "Untitled"}" in the client portal`;
+        return t("activity", "surveySubmitted", { title: String(details.surveyTitle || t("activity", "untitled")) });
       default:
-        return "performed a survey action";
+        return t("activity", "surveyAction");
     }
   }
 
-  return "performed an action";
+  return t("activity", "performedAction");
 };
 
-const getStatusLabel = (status: string) => {
+const getStatusLabel = (status: string, t: ReturnType<typeof useI18n>["t"]) => {
   switch (status) {
     case "todo":
-      return "To do";
+      return t("activity", "statusTodo");
     case "in_progress":
-      return "In progress";
+      return t("activity", "statusInProgress");
     case "review":
-      return "In review";
+      return t("activity", "statusReview");
     case "done":
-      return "Done";
+      return t("activity", "statusDone");
     default:
       return status;
   }
@@ -366,14 +399,14 @@ const getStatusBadgeColor = (status: string) => {
   }
 };
 
-const getEntityTypeLabel = (actionType: string) => {
-  if (actionType.startsWith("task.")) return "Task";
-  if (actionType.startsWith("shopping.")) return "Shopping";
-  if (actionType.startsWith("labor.")) return "Labor";
-  if (actionType.startsWith("note.")) return "Note";
-  if (actionType.startsWith("contact.")) return "Contact";
-  if (actionType.startsWith("survey.")) return "Survey";
-  return "Other";
+const getEntityTypeLabel = (actionType: string, t: ReturnType<typeof useI18n>["t"]) => {
+  if (actionType.startsWith("task.")) return t("activity", "entityTask");
+  if (actionType.startsWith("shopping.")) return t("activity", "entityShopping");
+  if (actionType.startsWith("labor.")) return t("activity", "entityLabor");
+  if (actionType.startsWith("note.")) return t("activity", "entityNote");
+  if (actionType.startsWith("contact.")) return t("activity", "entityContact");
+  if (actionType.startsWith("survey.")) return t("activity", "entitySurvey");
+  return t("activity", "entityOther");
 };
 
 export function ActivityChangelog({
@@ -385,6 +418,7 @@ export function ActivityChangelog({
   className,
 }: ActivityChangelogProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { locale, t } = useI18n();
   const [filterType, setFilterType] = useState<string>("all");
   const [timeFilter, setTimeFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
@@ -439,7 +473,13 @@ export function ActivityChangelog({
               <div className="text-sm font-semibold">{title}</div>
               <div className="text-xs text-muted-foreground">
                 {isExpanded
-                  ? `${filteredActivities.length} ${filteredActivities.length === 1 ? "activity" : "activities"}`
+                  ? t("activity", "activityCount", {
+                      count: filteredActivities.length,
+                      activityLabel:
+                        filteredActivities.length === 1
+                          ? t("activity", "activitySingular")
+                          : t("activity", "activityPlural"),
+                    })
                   : collapsedLabel}
               </div>
             </div>
@@ -463,34 +503,34 @@ export function ActivityChangelog({
                 <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
                   <div className="flex items-center gap-2">
                     <Filter className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Filters:</span>
+                    <span className="text-sm font-medium">{t("activity", "filters")}</span>
                   </div>
 
                   <div className="flex flex-1 flex-wrap gap-3">
                     <Select value={filterType} onValueChange={setFilterType}>
                       <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Entity Type" />
+                        <SelectValue placeholder={t("activity", "entityType")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="task">Tasks</SelectItem>
-                        <SelectItem value="shopping">Shopping List</SelectItem>
-                        <SelectItem value="labor">Labor</SelectItem>
-                        <SelectItem value="note">Notes</SelectItem>
-                        <SelectItem value="contact">Contacts</SelectItem>
-                        <SelectItem value="survey">Surveys</SelectItem>
+                        <SelectItem value="all">{t("activity", "allTypes")}</SelectItem>
+                        <SelectItem value="task">{t("activity", "tasks")}</SelectItem>
+                        <SelectItem value="shopping">{t("activity", "shoppingList")}</SelectItem>
+                        <SelectItem value="labor">{t("activity", "labor")}</SelectItem>
+                        <SelectItem value="note">{t("activity", "notes")}</SelectItem>
+                        <SelectItem value="contact">{t("activity", "contacts")}</SelectItem>
+                        <SelectItem value="survey">{t("activity", "surveys")}</SelectItem>
                       </SelectContent>
                     </Select>
 
                     <Select value={timeFilter} onValueChange={setTimeFilter}>
                       <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Time Range" />
+                        <SelectValue placeholder={t("activity", "timeRange")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Time</SelectItem>
-                        <SelectItem value="24h">Last 24 Hours</SelectItem>
-                        <SelectItem value="7d">Last 7 Days</SelectItem>
-                        <SelectItem value="30d">Last 30 Days</SelectItem>
+                        <SelectItem value="all">{t("activity", "allTime")}</SelectItem>
+                        <SelectItem value="24h">{t("activity", "last24Hours")}</SelectItem>
+                        <SelectItem value="7d">{t("activity", "last7Days")}</SelectItem>
+                        <SelectItem value="30d">{t("activity", "last30Days")}</SelectItem>
                       </SelectContent>
                     </Select>
 
@@ -503,14 +543,16 @@ export function ActivityChangelog({
                           setTimeFilter("all");
                         }}
                       >
-                        Clear Filters
+                        {t("activity", "clearFilters")}
                       </Button>
                     ) : null}
                   </div>
 
                   <div className="text-sm text-muted-foreground">
                     {filteredActivities.length}{" "}
-                    {filteredActivities.length === 1 ? "activity" : "activities"}
+                    {filteredActivities.length === 1
+                      ? t("activity", "activitySingular")
+                      : t("activity", "activityPlural")}
                   </div>
                 </div>
               </CardContent>
@@ -521,10 +563,10 @@ export function ActivityChangelog({
                 <CardContent className="py-12">
                   <div className="text-center text-muted-foreground">
                     <History className="mx-auto mb-4 h-12 w-12 opacity-50" />
-                    <p className="text-lg font-medium">No activity found</p>
+                    <p className="text-lg font-medium">{t("activity", "noActivityFound")}</p>
                     <p className="mt-1 text-sm">
                       {filterType !== "all" || timeFilter !== "all"
-                        ? "Try adjusting your filters"
+                        ? t("activity", "tryAdjustingFilters")
                         : emptyMessage}
                     </p>
                   </div>
@@ -537,7 +579,7 @@ export function ActivityChangelog({
                     activity.userName ||
                       (typeof activity.details?.actorName === "string"
                         ? activity.details.actorName
-                        : "Unknown User"),
+                        : t("activity", "unknownUser")),
                   );
                   const decisionState = getClientDecisionState(
                     activity.actionType,
@@ -565,7 +607,7 @@ export function ActivityChangelog({
                           <div className="flex-1 text-sm">
                             <span className="font-medium text-foreground">{actorName}</span>
                             <span className="ml-1 text-muted-foreground">
-                              {getActivityDescription(activity.actionType, activity.details ?? {})}
+                              {getActivityDescription(activity.actionType, activity.details ?? {}, t)}
                             </span>
                             {showProjectBadge && activity.projectName && activity.projectSlug ? (
                               <span className="ml-2 inline-flex align-middle">
@@ -585,11 +627,13 @@ export function ActivityChangelog({
                                 variant="outline"
                                 className={cn("text-xs capitalize", getDecisionBadgeColor(decisionState))}
                               >
-                                {decisionState}
+                                {decisionState === "accepted"
+                                  ? t("activity", "accepted")
+                                  : t("activity", "rejected")}
                               </Badge>
                             ) : null}
                             <Badge variant="outline" className="text-xs">
-                              {getEntityTypeLabel(activity.actionType)}
+                              {getEntityTypeLabel(activity.actionType, t)}
                             </Badge>
                           </div>
                         </div>
@@ -598,11 +642,11 @@ export function ActivityChangelog({
                           activity.actionType === "task.status_change") && (
                           <div className="mt-2 flex items-center gap-2">
                             <Badge className={getStatusBadgeColor((activity.details?.fromStatus || activity.details?.from) as string)}>
-                              {getStatusLabel((activity.details?.fromStatus || activity.details?.from) as string)}
+                              {getStatusLabel((activity.details?.fromStatus || activity.details?.from) as string, t)}
                             </Badge>
                             <span className="text-muted-foreground">→</span>
                             <Badge className={getStatusBadgeColor((activity.details?.toStatus || activity.details?.to) as string)}>
-                              {getStatusLabel((activity.details?.toStatus || activity.details?.to) as string)}
+                              {getStatusLabel((activity.details?.toStatus || activity.details?.to) as string, t)}
                             </Badge>
                           </div>
                         )}
@@ -617,7 +661,9 @@ export function ActivityChangelog({
                           <div className="mt-2 flex items-center gap-2">
                             <FileText className="h-4 w-4 text-muted-foreground" />
                             <span className="text-xs text-muted-foreground">
-                              {String(activity.details?.fileType ?? "File")} file
+                              {t("activity", "fileTypeLabel", {
+                                fileType: String(activity.details?.fileType ?? t("activity", "file")),
+                              })}
                             </span>
                           </div>
                         ) : null}
@@ -627,6 +673,7 @@ export function ActivityChangelog({
                           <span>
                             {formatDistanceToNow(new Date(activity._creationTime), {
                               addSuffix: true,
+                              locale: locale === "pl" ? pl : enUS,
                             })}
                           </span>
                           <span>•</span>
@@ -641,7 +688,11 @@ export function ActivityChangelog({
 
             {filteredActivities.length > 0 ? (
               <div className="mt-6 text-center text-sm text-muted-foreground">
-                Showing {showingStart}-{showingEnd} of {filteredActivities.length} activities
+                {t("activity", "showingActivities", {
+                  start: showingStart,
+                  end: showingEnd,
+                  count: filteredActivities.length,
+                })}
               </div>
             ) : null}
 
@@ -653,10 +704,10 @@ export function ActivityChangelog({
                   onClick={() => setPage((current) => Math.max(1, current - 1))}
                   disabled={page === 1}
                 >
-                  Previous
+                  {t("activity", "previous")}
                 </Button>
                 <span className="text-sm text-muted-foreground">
-                  Page {page} of {totalPages}
+                  {t("activity", "pageOf", { page, totalPages })}
                 </span>
                 <Button
                   variant="outline"
@@ -664,7 +715,7 @@ export function ActivityChangelog({
                   onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
                   disabled={page === totalPages}
                 >
-                  Next
+                  {t("activity", "next")}
                 </Button>
               </div>
             ) : null}

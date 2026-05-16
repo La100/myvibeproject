@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileSpreadsheetIcon, FileTextIcon } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 export type ShoppingListExportOptions = {
   format: 'csv' | 'pdf' | 'xlsx';
@@ -31,19 +32,21 @@ export function ExportModal({
   onExport, 
   isPending 
 }: ExportModalProps) {
+  const { t } = useI18n();
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Export Shopping List</DialogTitle>
+          <DialogTitle>{t("shoppingList", "exportShoppingList")}</DialogTitle>
           <DialogDescription>
-            Choose the format and filters for your export.
+            {t("shoppingList", "selectFormatFilters")}
           </DialogDescription>
         </DialogHeader>
 
         <FieldGroup>
           <Field>
-            <FieldLabel>Format</FieldLabel>
+            <FieldLabel>{t("shoppingList", "format")}</FieldLabel>
             <div className="flex gap-2">
               <Button
                 variant={exportOptions.format === 'csv' ? 'default' : 'outline'}
@@ -73,7 +76,7 @@ export function ExportModal({
           </Field>
 
           <Field>
-            <FieldLabel>Data Source</FieldLabel>
+            <FieldLabel>{t("shoppingList", "dataSource")}</FieldLabel>
             <Select
               value={exportOptions.scope}
               onValueChange={(value) => onExportOptionsChange({...exportOptions, scope: value as 'all' | 'currentView'})}
@@ -82,8 +85,8 @@ export function ExportModal({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All items</SelectItem>
-                <SelectItem value="currentView">Current view only</SelectItem>
+                <SelectItem value="all">{t("shoppingList", "allItems")}</SelectItem>
+                <SelectItem value="currentView">{t("shoppingList", "currentViewOnly")}</SelectItem>
               </SelectContent>
             </Select>
           </Field>
@@ -94,21 +97,21 @@ export function ExportModal({
                 checked={exportOptions.includeNotes}
                 onCheckedChange={(checked) => onExportOptionsChange({...exportOptions, includeNotes: checked === true})}
               />
-              <span className="text-sm">Include Notes</span>
+              <span className="text-sm">{t("shoppingList", "includeNotes")}</span>
             </label>
             <label className="flex items-center gap-2 text-sm">
               <Checkbox
                 checked={exportOptions.includeSupplier}
                 onCheckedChange={(checked) => onExportOptionsChange({...exportOptions, includeSupplier: checked === true})}
               />
-              <span className="text-sm">Include Supplier</span>
+              <span className="text-sm">{t("shoppingList", "includeSupplier")}</span>
             </label>
             <label className="flex items-center gap-2 text-sm">
               <Checkbox
                 checked={exportOptions.includeStatus}
                 onCheckedChange={(checked) => onExportOptionsChange({...exportOptions, includeStatus: checked === true})}
               />
-              <span className="text-sm">Include Status</span>
+              <span className="text-sm">{t("shoppingList", "includeStatus")}</span>
             </label>
             {exportOptions.format !== 'csv' ? (
               <label className="flex items-center gap-2 text-sm">
@@ -116,7 +119,7 @@ export function ExportModal({
                   checked={exportOptions.groupBySections}
                   onCheckedChange={(checked) => onExportOptionsChange({...exportOptions, groupBySections: checked === true})}
                 />
-                <span className="text-sm">Group by Sections</span>
+                <span className="text-sm">{t("shoppingList", "groupBySections")}</span>
               </label>
             ) : null}
           </Field>
@@ -127,10 +130,12 @@ export function ExportModal({
             onClick={onExport}
             disabled={isPending}
           >
-            {isPending ? 'Exporting...' : `Export ${exportOptions.format.toUpperCase()}`}
+            {isPending
+              ? t("shoppingList", "exporting")
+              : `${t("shoppingList", "export")} ${exportOptions.format.toUpperCase()}`}
           </Button>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t("shoppingList", "cancel")}
           </Button>
         </DialogFooter>
       </DialogContent>

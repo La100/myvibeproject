@@ -33,12 +33,14 @@ import { formatDistanceToNow } from "date-fns";
 import { Spinner } from "@/components/ui/spinner";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
+import { useI18n } from "@/lib/i18n";
 
 export function FilesViewLoading() {
   return <Spinner className="p-6" />;
 }
 
 export default function FilesView() {
+  const { t } = useI18n();
   const [currentFolderId, setCurrentFolderId] = useState<Id<"folders"> | undefined>(undefined);
   const [folderPath, setFolderPath] = useState<Array<{ id: Id<"folders"> | undefined, name: string }>>([]);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
@@ -100,7 +102,7 @@ export default function FilesView() {
   const navigateToBreadcrumb = (index: number) => {
     if (index === 0) {
       // Going to root
-      navigateToFolder(undefined, "Files");
+      navigateToFolder(undefined, t("files", "files"));
     } else {
       const targetFolder = folderPath[index - 1];
       if (targetFolder) {
@@ -112,7 +114,7 @@ export default function FilesView() {
   // Build breadcrumbs
   const breadcrumbItems = [
     {
-      name: "Files",
+      name: t("files", "files"),
       onClick: () => navigateToBreadcrumb(0)
     },
     ...folderPath.map((folder, index) => ({
@@ -124,7 +126,7 @@ export default function FilesView() {
 
   if (!project || !content || (currentFolderId && !currentFolder)) {
     if (!project) {
-      return <div>Project not found.</div>;
+      return <div>{t("files", "projectNotFound")}</div>;
     }
     return null;
   }
@@ -169,9 +171,9 @@ export default function FilesView() {
         fileSize: file.size,
       });
 
-      toast.success("File uploaded successfully");
+      toast.success(t("files", "fileUploaded"));
     } catch (error) {
-      toast.error("Failed to upload file", {
+      toast.error(t("files", "failedToUploadFile"), {
         description: toUserFacingErrorMessage(error)
       });
     } finally {
@@ -191,11 +193,11 @@ export default function FilesView() {
         parentFolderId: currentFolderId,
       });
 
-      toast.success("Folder created successfully");
+      toast.success(t("files", "folderCreated"));
       setNewFolderName("");
       setShowCreateFolder(false);
     } catch (error) {
-      toast.error("Failed to create folder", {
+      toast.error(t("files", "failedToCreateFolder"), {
         description: toUserFacingErrorMessage(error)
       });
     }
@@ -204,9 +206,9 @@ export default function FilesView() {
   const handleDeleteFile = async (fileId: Id<"files">) => {
     try {
       await deleteFile({ fileId });
-      toast.success("File deleted successfully");
+      toast.success(t("files", "fileDeleted"));
     } catch (error) {
-      toast.error("Failed to delete file", {
+      toast.error(t("files", "failedToDeleteFile"), {
         description: toUserFacingErrorMessage(error)
       });
     }
@@ -215,9 +217,9 @@ export default function FilesView() {
   const handleDeleteFolder = async (folderId: Id<"folders">) => {
     try {
       await deleteFolder({ folderId });
-      toast.success("Folder deleted successfully");
+      toast.success(t("files", "folderDeleted"));
     } catch (error) {
-      toast.error("Failed to delete folder", {
+      toast.error(t("files", "failedToDeleteFolder"), {
         description: toUserFacingErrorMessage(error)
       });
     }
@@ -231,11 +233,11 @@ export default function FilesView() {
       await setFileCustomerPortalVisibility({ fileId, showInClientPortal });
       toast.success(
         showInClientPortal
-          ? "File is now visible in customer portal"
-          : "File hidden from customer portal"
+          ? t("files", "fileVisibleInCustomerPortal")
+          : t("files", "fileHiddenFromCustomerPortal")
       );
     } catch (error) {
-      toast.error("Failed to update customer portal visibility", {
+      toast.error(t("files", "failedToUpdateCustomerPortalVisibility"), {
         description: toUserFacingErrorMessage(error),
       });
     }
@@ -250,11 +252,11 @@ export default function FilesView() {
       await setFileAiKnowledgeInclusion({ fileId, enabled });
       toast.success(
         enabled
-          ? "File added to AI knowledge"
-          : "File removed from AI knowledge",
+          ? t("files", "fileAddedToAiKnowledge")
+          : t("files", "fileRemovedFromAiKnowledge"),
       );
     } catch (error) {
-      toast.error("Failed to update AI knowledge", {
+      toast.error(t("files", "failedToUpdateAiKnowledge"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -292,7 +294,7 @@ export default function FilesView() {
 
   const getAiKnowledgeStatusText = (file: Record<string, unknown>) => {
     if (aiKnowledgeBusyFileId === file._id) {
-      return "Updating AI knowledge status...";
+      return t("files", "updatingAiKnowledgeStatus");
     }
 
     if (file.aiKnowledgeEnabled !== true) {
@@ -300,18 +302,18 @@ export default function FilesView() {
     }
 
     if (file.aiKnowledgeStatus === "pending") {
-      return "Indexing document for AI search...";
+      return t("files", "indexingDocument");
     }
 
     if (file.aiKnowledgeStatus === "failed") {
-      return "AI indexing failed.";
+      return t("files", "aiIndexingFailed");
     }
 
     if (typeof file.aiKnowledgeIndexedAt === "number") {
-      return `Indexed ${formatDistanceToNow(new Date(file.aiKnowledgeIndexedAt), { addSuffix: true })}`;
+      return t("files", "indexedAgo", { time: formatDistanceToNow(new Date(file.aiKnowledgeIndexedAt), { addSuffix: true }) });
     }
 
-    return "Indexed and ready for AI search.";
+    return t("files", "indexedAndReady");
   };
 
   return (
@@ -319,7 +321,7 @@ export default function FilesView() {
       <div>
         <div className="mb-6">
           <ProjectPageHeader
-            title="Files"
+            title={t("files", "files")}
             icon={<FolderOpen className="h-8 w-8 text-primary" />}
             actions={
               currentFolderId && currentFolder ? (
@@ -333,12 +335,12 @@ export default function FilesView() {
                       const parentFolder = folderPath[folderPath.length - 2];
                       navigateToFolder(parentFolder.id, parentFolder.name);
                     } else {
-                      navigateToFolder(undefined, "Files");
+                      navigateToFolder(undefined, t("files", "files"));
                     }
                   }}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Delete Folder
+                  {t("files", "deleteFolder")}
                 </Button>
               ) : undefined
             }
@@ -353,29 +355,29 @@ export default function FilesView() {
             <DialogTrigger asChild>
               <Button variant="outline">
                 <FolderPlus className="h-4 w-4 mr-2" />
-                New Folder
+                {t("files", "newFolder")}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create New Folder</DialogTitle>
+                <DialogTitle>{t("files", "createNewFolder")}</DialogTitle>
                 <DialogDescription>
-                  Create a new folder to organize your files.
+                  {t("files", "createNewFolderDescription")}
                 </DialogDescription>
               </DialogHeader>
               <div className="flex flex-col gap-4">
                 <Input
-                  placeholder="Folder name"
+                  placeholder={t("files", "folderName")}
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleCreateFolder()}
                 />
                 <div className="flex gap-2 justify-end">
                   <Button variant="outline" onClick={() => setShowCreateFolder(false)}>
-                    Cancel
+                    {t("files", "cancel")}
                   </Button>
                   <Button onClick={handleCreateFolder} disabled={!newFolderName.trim()}>
-                    Create Folder
+                    {t("files", "createFolder")}
                   </Button>
                 </div>
               </div>
@@ -397,7 +399,7 @@ export default function FilesView() {
                 className={isUploadingFile ? "cursor-not-allowed" : "cursor-pointer"}
               >
                 {isUploadingFile ? <Spinner fullHeight={false} className="py-0 mr-2" iconClassName="size-4" /> : <Upload className="h-4 w-4 mr-2" />}
-                {isUploadingFile ? "Uploading..." : "Upload File"}
+                {isUploadingFile ? t("files", "uploading") : t("files", "uploadFile")}
               </label>
             </Button>
           </div>
@@ -407,8 +409,7 @@ export default function FilesView() {
           <div className="mb-6 flex items-center gap-3 rounded-2xl border border-border/70 bg-secondary/70 px-4 py-3 text-sm text-muted-foreground">
             <Spinner fullHeight={false} className="py-0" iconClassName="size-4" />
             <span>
-              Uploading {uploadingFileName ? `"${uploadingFileName}"` : "file"}.
-              Larger files can take a while.
+              {t("files", "uploadingFile", { name: uploadingFileName ? `"${uploadingFileName}"` : t("files", "uploadingGenericFile") })}
             </span>
           </div>
         )}
@@ -488,7 +489,7 @@ export default function FilesView() {
                         variant="outline"
                         className="rounded-full bg-card"
                         onClick={() => window.open(file.url, "_blank")}
-                        aria-label={`Preview ${file.name}`}
+                        aria-label={t("files", "previewFile", { name: file.name })}
                       >
                         <Eye className="h-3 w-3" />
                       </Button>
@@ -502,7 +503,7 @@ export default function FilesView() {
                           a.download = file.name;
                           a.click();
                         }}
-                        aria-label={`Download ${file.name}`}
+                        aria-label={t("files", "downloadFile", { name: file.name })}
                       >
                         <Download className="h-3 w-3" />
                       </Button>
@@ -535,17 +536,17 @@ export default function FilesView() {
                         className="text-[11px]"
                       >
                         {file.aiKnowledgeStatus === "pending"
-                          ? "AI pending"
+                          ? t("files", "aiPending")
                           : file.aiKnowledgeStatus === "failed"
-                            ? "AI failed"
-                            : "AI knowledge"}
+                            ? t("files", "aiFailed")
+                            : t("files", "aiKnowledge")}
                       </Badge>
                     )}
                   </div>
 
                   <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-secondary/70 p-2.5">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="whitespace-nowrap text-xs font-medium text-foreground/80">Customer portal</span>
+                      <span className="whitespace-nowrap text-xs font-medium text-foreground/80">{t("files", "customerPortal")}</span>
                       <Switch
                         checked={file.showInClientPortal === true}
                         onCheckedChange={(checked) =>
@@ -559,8 +560,8 @@ export default function FilesView() {
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs font-medium text-foreground/80">
                             {aiKnowledgeBusyFileId === file._id
-                              ? "AI knowledge updating..."
-                              : "AI knowledge"}
+                              ? t("files", "aiKnowledgeUpdating")
+                              : t("files", "aiKnowledge")}
                           </span>
                           <Switch
                             checked={file.aiKnowledgeEnabled === true}
@@ -594,14 +595,14 @@ export default function FilesView() {
 
                   <div className="flex items-center justify-between gap-2 pt-0.5">
                     <p className="text-[11px] text-muted-foreground">
-                      Uploaded {formatDistanceToNow(new Date(file._creationTime), { addSuffix: true })}
+                      {t("files", "uploadedAgo", { time: formatDistanceToNow(new Date(file._creationTime), { addSuffix: true }) })}
                     </p>
                     <Button
                       size="icon-sm"
                       variant="outline"
                       className="text-destructive hover:bg-destructive/10"
                       onClick={() => handleDeleteFile(file._id)}
-                      aria-label={`Delete ${file.name}`}
+                      aria-label={t("files", "deleteFile", { name: file.name })}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -619,17 +620,17 @@ export default function FilesView() {
               <FolderOpen className="h-12 w-12 mx-auto" />
             </div>
             <p className="mb-4 font-medium text-foreground">
-              This folder is empty. Create a folder or upload files to get started.
+              {t("files", "thisFolderIsEmpty")}
             </p>
             <div className="flex gap-2 justify-center">
               <Button variant="outline" onClick={() => setShowCreateFolder(true)}>
                 <FolderPlus className="h-4 w-4 mr-2" />
-                Create Folder
+                {t("files", "createFolder")}
               </Button>
               <Button asChild>
                 <label htmlFor="file-upload" className="cursor-pointer">
                   <Upload className="h-4 w-4 mr-2" />
-                  Upload File
+                  {t("files", "uploadFile")}
                 </label>
               </Button>
             </div>
@@ -644,16 +645,16 @@ export default function FilesView() {
                 {fileForPreview?.name}
                 {fileForPreview?.aiPrompt && (
                   <Badge variant="secondary" className="text-xs">
-                    AI Generated
+                    {t("files", "aiGenerated")}
                   </Badge>
                 )}
               </DialogTitle>
               <DialogDescription>
-                {fileForPreview?.fileType} - Uploaded {fileForPreview && formatDistanceToNow(new Date(fileForPreview._creationTime), { addSuffix: true })}
+                {fileForPreview?.fileType} - {fileForPreview && t("files", "uploadedAgo", { time: formatDistanceToNow(new Date(fileForPreview._creationTime), { addSuffix: true }) })}
               </DialogDescription>
               {fileForPreview?.aiPrompt && (
                 <div className="mt-3 rounded-2xl border border-border/70 bg-secondary/70 p-3">
-                  <p className="mb-1 text-xs font-medium text-muted-foreground">Prompt:</p>
+                  <p className="mb-1 text-xs font-medium text-muted-foreground">{t("files", "prompt")}</p>
                   <p className="text-sm text-foreground">{fileForPreview.aiPrompt}</p>
                 </div>
               )}
@@ -675,7 +676,7 @@ export default function FilesView() {
                   className="max-w-full max-h-full"
                   preload="metadata"
                 >
-                  Your browser does not support the video tag.
+                  {t("files", "videoNotSupported")}
                 </video>
               )}
               {fileForPreview?.fileType === 'document' && fileForPreview?.url && fileForPreview?.mimeType === 'application/pdf' && (

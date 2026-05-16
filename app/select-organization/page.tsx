@@ -12,8 +12,10 @@ import { Input } from "@/components/ui/input";
 import { AppLoadingState } from "@/components/ui/loading-state";
 import { postAuthResolverUrl, signInUrl } from "@/lib/authRedirects";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useI18n } from "@/lib/i18n";
 
 export default function SelectOrganizationPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
   const { organization } = useOrganization();
@@ -68,7 +70,7 @@ export default function SelectOrganizationPage() {
       } catch (error) {
         console.error("Failed to activate workspace", error);
         setIsActivatingExistingWorkspace(false);
-        toast.error("Could not reconnect to your workspace.", {
+        toast.error(t("workspaceSetup", "reconnectError"), {
           description: toUserFacingErrorMessage(error),
         });
       }
@@ -83,6 +85,7 @@ export default function SelectOrganizationPage() {
     organizations,
     router,
     setActive,
+    t,
   ]);
 
   const handleCreateWorkspace = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -90,12 +93,12 @@ export default function SelectOrganizationPage() {
 
     const trimmedName = workspaceName.trim();
     if (!trimmedName || trimmedName.length < 2) {
-      toast.error("Enter at least 2 characters for workspace name.");
+      toast.error(t("workspaceSetup", "nameMinLength"));
       return;
     }
 
     if (!createOrganization || !setActive || organizations.length > 0) {
-      toast.error("This account already has a workspace.");
+      toast.error(t("workspaceSetup", "alreadyHasWorkspace"));
       return;
     }
 
@@ -108,7 +111,7 @@ export default function SelectOrganizationPage() {
       router.replace(postAuthResolverUrl);
     } catch (error) {
       console.error(error);
-      toast.error("Could not create workspace.", {
+      toast.error(t("workspaceSetup", "createError"), {
         description: toUserFacingErrorMessage(error),
       });
       setIsSubmitting(false);
@@ -130,17 +133,16 @@ export default function SelectOrganizationPage() {
                   className="size-14"
                 />
                 <span className="text-sm font-medium uppercase tracking-[0.24em] text-muted-foreground">
-                  Workspace
+                  {t("workspaceSetup", "workspaceLabel")}
                 </span>
               </Link>
 
               <h1 className="max-w-[12ch] text-5xl font-medium leading-[0.98] tracking-[-0.04em] text-foreground">
-                Create your workspace and continue.
+                {t("workspaceSetup", "headline")}
               </h1>
 
               <p className="mt-5 max-w-lg text-lg leading-8 text-muted-foreground">
-                Each account now works inside a single organization. Create your
-                workspace once and we will take you straight into the app.
+                {t("workspaceSetup", "description")}
               </p>
             </div>
           </section>
@@ -157,27 +159,27 @@ export default function SelectOrganizationPage() {
                     className="size-11"
                   />
                   <span className="text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
-                    Organization
+                    {t("navigation", "companySpace")}
                   </span>
                 </Link>
               </div>
 
               <div className="mb-7">
                 <p className="text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
-                  Workspace access
+                  {t("workspaceSetup", "workspaceAccess")}
                 </p>
                 <h2 className="mt-3 text-3xl font-medium tracking-[-0.03em] text-foreground">
-                  Create workspace
+                  {t("workspaceSetup", "title")}
                 </h2>
                 <p className="mt-3 max-w-[38ch] text-sm leading-6 text-muted-foreground">
-                  Your account can belong to only one workspace. Start by naming it.
+                  {t("workspaceSetup", "subtitle")}
                 </p>
               </div>
               {!isLoaded || isActivatingExistingWorkspace || (organizations.length > 0 && !organization?.id) ? (
                 <AppLoadingState
                   variant="inline"
-                  title="Opening workspace"
-                  description="Reconnecting this account to its organization."
+                  title={t("workspaceSetup", "loadingWorkspace")}
+                  description={t("workspaceSetup", "loadingWorkspaceDescription")}
                   className="min-h-40 px-0"
                 />
               ) : (
@@ -187,7 +189,7 @@ export default function SelectOrganizationPage() {
                       <Input
                         value={workspaceName}
                         onChange={(event) => setWorkspaceName(event.target.value)}
-                        placeholder="Workspace name"
+                        placeholder={t("workspaceSetup", "namePlaceholder")}
                         className="h-12 rounded-2xl"
                         disabled={isSubmitting || organizations.length > 0}
                       />
@@ -196,11 +198,11 @@ export default function SelectOrganizationPage() {
                         className="h-12 rounded-2xl"
                         disabled={isSubmitting || organizations.length > 0}
                       >
-                        {isSubmitting ? "Creating..." : "Create workspace"}
+                        {isSubmitting ? t("workspaceSetup", "creating") : t("workspaceSetup", "create")}
                       </Button>
                       {organizations.length > 0 ? (
                         <p className="text-sm leading-6 text-muted-foreground">
-                          This account already has a workspace. We are reconnecting you to it now.
+                          {t("workspaceSetup", "alreadyHasWorkspaceReconnect")}
                         </p>
                       ) : null}
                     </form>

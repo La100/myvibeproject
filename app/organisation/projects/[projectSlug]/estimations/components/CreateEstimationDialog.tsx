@@ -37,6 +37,7 @@ import {
   getTaxAmountKindLabel,
   resolveOrganizationTaxSettings,
 } from '@/lib/organizationTax';
+import { useI18n } from '@/lib/i18n';
 
 interface CreateEstimationDialogProps {
   open: boolean;
@@ -68,6 +69,7 @@ export function CreateEstimationDialog({
   currencySymbol,
   estimationId,
 }: CreateEstimationDialogProps) {
+  const { t } = useI18n();
   const { project, team } = useProject();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -167,9 +169,9 @@ export function CreateEstimationDialog({
     const explicitCategory = item.category?.trim();
     if (explicitCategory) return explicitCategory;
     if (item.sectionId) {
-      return shoppingSectionNameById.get(item.sectionId) || 'Uncategorized';
+      return shoppingSectionNameById.get(item.sectionId) || t('estimations', 'uncategorized');
     }
-    return 'Uncategorized';
+    return t('estimations', 'uncategorized');
   };
 
   const filteredLaborItems = (laborItems || []).filter((item) => {
@@ -347,6 +349,10 @@ export function CreateEstimationDialog({
     primarySummaryAmountKind,
     summaryTaxSettings,
   );
+  const localizedPrimarySummaryAmountLabel =
+    primarySummaryAmountKind === 'tax'
+      ? primarySummaryAmountLabel
+      : t('estimations', primarySummaryAmountKind === 'gross' ? 'gross' : 'net');
   const laborSummaryAmount =
     calculateTaxBreakdown(laborTotal, summaryTaxSettings)[primarySummaryAmountKind];
   const materialsSummaryAmount =
@@ -354,39 +360,39 @@ export function CreateEstimationDialog({
   const totalSummaryAmount =
     calculateTaxBreakdown(netTotal, summaryTaxSettings)[primarySummaryAmountKind];
   const taxSettingsDescription = hasTaxApplied
-    ? 'Uses the current workspace tax default for document exports.'
-    : 'No default tax is configured for this workspace.';
+    ? t('estimations', 'taxDefaultDescription')
+    : t('estimations', 'noTaxDefaultDescription');
 
   const validateStep = (targetStep: number) => {
     if (targetStep === 2) {
       if (!title.trim()) {
-        toast.error('Please enter a title');
+        toast.error(t('estimations', 'pleaseEnterTitle'));
         return false;
       }
       if (plannedStartDate && validUntil && validUntil < plannedStartDate) {
-        toast.error('Valid until date cannot be earlier than planned start date');
+        toast.error(t('estimations', 'validUntilBeforeStart'));
         return false;
       }
     }
 
     if (targetStep === 3) {
       if (selectedLaborIds.length === 0 && selectedMaterialIds.length === 0) {
-        toast.error('Select at least one labor or shopping list item');
+        toast.error(t('estimations', 'selectAtLeastOneItem'));
         return false;
       }
     }
 
     if (targetStep === 4) {
       if (!customerName.trim()) {
-        toast.error('Please provide a customer name');
+        toast.error(t('estimations', 'pleaseProvideCustomerName'));
         return false;
       }
       if (customerEmail.trim() && !CUSTOMER_EMAIL_REGEX.test(customerEmail.trim())) {
-        toast.error('Customer email is invalid');
+        toast.error(t('estimations', 'customerEmailInvalid'));
         return false;
       }
       if (vatPercent < 0 || vatPercent > 100) {
-        toast.error('Tax must be between 0 and 100');
+        toast.error(t('estimations', 'taxBetweenZeroAndHundred'));
         return false;
       }
     }
@@ -436,10 +442,10 @@ export function CreateEstimationDialog({
         });
       }
 
-      toast.success(isEditMode ? 'Estimation updated successfully' : 'Estimation created successfully');
+      toast.success(isEditMode ? t('estimations', 'estimationUpdated') : t('estimations', 'estimationCreated'));
       onOpenChange(false);
     } catch (error) {
-      toast.error(isEditMode ? 'Failed to update estimation' : 'Failed to create estimation', {
+      toast.error(isEditMode ? t('estimations', 'failedToUpdateEstimation') : t('estimations', 'failedToCreateEstimation'), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -489,7 +495,7 @@ export function CreateEstimationDialog({
     setSelectedMaterialIds(allMaterialIds);
   };
 
-  const dialogTitle = isEditMode ? 'Edit Cost Estimation' : 'New Cost Estimation';
+  const dialogTitle = isEditMode ? t('estimations', 'editCostEstimation') : t('estimations', 'newCostEstimation');
   const summaryNumber = isEditMode ? estimationToEdit?.estimationNumber : nextNumber;
   const isEditLoading = isEditMode && estimationToEdit === undefined;
   const isEditMissing = isEditMode && estimationToEdit === null;
@@ -509,12 +515,12 @@ export function CreateEstimationDialog({
           </div>
         ) : isEditMissing ? (
           <div className="flex min-h-80 flex-col items-center justify-center gap-3 text-center">
-            <p className="text-lg font-medium">Estimation not found</p>
+            <p className="text-lg font-medium">{t('estimations', 'estimationNotFound')}</p>
             <p className="max-w-md text-sm text-muted-foreground">
-              This estimation could not be loaded. It may have been deleted in another session.
+              {t('estimations', 'estimationMissingDescription')}
             </p>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Close
+              {t('estimations', 'close')}
             </Button>
           </div>
         ) : (
@@ -546,42 +552,42 @@ export function CreateEstimationDialog({
 
         {step === 1 && (
           <div className="flex flex-col gap-4">
-            <h3 className="mb-4 text-lg font-medium">Details</h3>
+            <h3 className="mb-4 text-lg font-medium">{t('estimations', 'details')}</h3>
             <div className="grid gap-4">
               <div>
-                <Label>Title *</Label>
+                <Label>{t('estimations', 'titleRequired')}</Label>
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Estimation title"
+                  placeholder={t('estimations', 'estimationTitlePlaceholder')}
                   className="mt-1"
                 />
               </div>
               <div>
-                <Label>Location</Label>
+                <Label>{t('estimations', 'location')}</Label>
                 <Input
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  placeholder="Location"
+                  placeholder={t('estimations', 'location')}
                   className="mt-1"
                 />
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <Label>Planned Start Date</Label>
+                  <Label>{t('estimations', 'plannedStartDate')}</Label>
                   <DatePicker
                     date={plannedStartDate}
                     onDateChange={setPlannedStartDate}
-                    placeholder="Select date"
+                    placeholder={t('estimations', 'selectDate')}
                     className="mt-1 w-full border-border bg-secondary/70 hover:bg-secondary aria-expanded:bg-secondary"
                   />
                 </div>
                 <div>
-                  <Label>Valid Until</Label>
+                  <Label>{t('estimations', 'validUntil')}</Label>
                   <DatePicker
                     date={validUntil}
                     onDateChange={setValidUntil}
-                    placeholder="Select date"
+                    placeholder={t('estimations', 'selectDate')}
                     className="mt-1 w-full border-border bg-secondary/70 hover:bg-secondary aria-expanded:bg-secondary"
                   />
                 </div>
@@ -592,40 +598,40 @@ export function CreateEstimationDialog({
 
         {step === 2 && (
           <div className="flex flex-col gap-6">
-            <h3 className="mb-4 text-lg font-medium">Labor</h3>
+            <h3 className="mb-4 text-lg font-medium">{t('estimations', 'labor')}</h3>
             <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-sm text-muted-foreground">{selectedLaborIds.length} selected</span>
+              <span className="text-sm text-muted-foreground">{t('estimations', 'selectedCount', { count: selectedLaborIds.length })}</span>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                 <Select value={laborFilter} onValueChange={setLaborFilter}>
                   <SelectTrigger className="h-8 w-full sm:w-[200px]">
-                    <SelectValue placeholder="Filter by section" />
+                    <SelectValue placeholder={t('estimations', 'filterBySection')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All sections</SelectItem>
+                    <SelectItem value="all">{t('estimations', 'allSections')}</SelectItem>
                     {(laborSections || []).map((section) => (
                       <SelectItem key={section._id} value={section._id}>
                         {section.name}
                       </SelectItem>
                     ))}
-                    <SelectItem value="unassigned">No section</SelectItem>
+                    <SelectItem value="unassigned">{t('estimations', 'noSection')}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button className="w-full sm:w-auto" variant="ghost" size="sm" onClick={toggleAllLaborSelection}>
-                  {allLaborSelected ? 'Deselect all' : 'Select all'}
+                  {allLaborSelected ? t('estimations', 'deselectAll') : t('estimations', 'selectAll')}
                 </Button>
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              Start from an empty document and choose only the work items you want in this estimation.
+              {t('estimations', 'laborSelectionDescription')}
             </p>
             <div className="max-h-64 overflow-y-auto overflow-x-hidden rounded-lg border">
               {laborItems?.length === 0 ? (
                 <div className="p-4 text-center text-muted-foreground">
-                  No labor items. Add some in the Labor section first.
+                  {t('estimations', 'noLaborItems')}
                 </div>
               ) : filteredLaborItems.length === 0 ? (
                 <div className="p-4 text-center text-muted-foreground">
-                  No labor items match this section filter.
+                  {t('estimations', 'noLaborItemsMatchFilter')}
                 </div>
               ) : (
                 filteredLaborItems.map((item) => (
@@ -654,16 +660,16 @@ export function CreateEstimationDialog({
               )}
             </div>
 
-            <h3 className="mb-4 mt-6 text-lg font-medium">Materials</h3>
+            <h3 className="mb-4 mt-6 text-lg font-medium">{t('estimations', 'materials')}</h3>
             <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-sm text-muted-foreground">{selectedMaterialIds.length} selected</span>
+              <span className="text-sm text-muted-foreground">{t('estimations', 'selectedCount', { count: selectedMaterialIds.length })}</span>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                 <Select value={materialFilter} onValueChange={setMaterialFilter}>
                   <SelectTrigger className="h-8 w-full sm:w-[220px]">
-                    <SelectValue placeholder="Filter by category" />
+                    <SelectValue placeholder={t('estimations', 'filterByCategory')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All categories</SelectItem>
+                    <SelectItem value="all">{t('estimations', 'allCategories')}</SelectItem>
                     {materialCategoryOptions.map((category) => (
                       <SelectItem key={category} value={`category:${category}`}>
                         {category}
@@ -672,21 +678,21 @@ export function CreateEstimationDialog({
                   </SelectContent>
                 </Select>
                 <Button className="w-full sm:w-auto" variant="ghost" size="sm" onClick={toggleAllMaterialSelection}>
-                  {allMaterialsSelected ? 'Deselect all' : 'Select all'}
+                  {allMaterialsSelected ? t('estimations', 'deselectAll') : t('estimations', 'selectAll')}
                 </Button>
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              Materials are not auto-included anymore. Select the exact scope for this client document.
+              {t('estimations', 'materialsSelectionDescription')}
             </p>
             <div className="max-h-64 overflow-y-auto overflow-x-hidden rounded-lg border">
               {materialItems?.length === 0 ? (
                 <div className="p-4 text-center text-muted-foreground">
-                  No materials available. Add items in Shopping list first.
+                  {t('estimations', 'noMaterials')}
                 </div>
               ) : filteredMaterialItems.length === 0 ? (
                 <div className="p-4 text-center text-muted-foreground">
-                  No materials match this category filter.
+                  {t('estimations', 'noMaterialsMatchFilter')}
                 </div>
               ) : (
                 filteredMaterialItems.map((item) => (
@@ -701,7 +707,7 @@ export function CreateEstimationDialog({
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">{item.name}</div>
                       <div className="truncate text-sm text-muted-foreground">
-                        Qty: {item.quantity}
+                        {t('estimations', 'qtyWithValue', { value: item.quantity })}
                         <span> • {resolveMaterialCategory(item)}</span>
                       </div>
                     </div>
@@ -717,9 +723,9 @@ export function CreateEstimationDialog({
 
         {step === 3 && (
           <div className="flex flex-col gap-4">
-            <h3 className="mb-4 text-lg font-medium">Customer</h3>
+            <h3 className="mb-4 text-lg font-medium">{t('estimations', 'customer')}</h3>
             <div>
-              <Label>Project Contact</Label>
+              <Label>{t('estimations', 'projectContact')}</Label>
               <Select
                 value={selectedContactId}
                 onValueChange={(value) =>
@@ -727,10 +733,10 @@ export function CreateEstimationDialog({
                 }
               >
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Choose project contact" />
+                  <SelectValue placeholder={t('estimations', 'chooseProjectContact')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="custom">Custom details</SelectItem>
+                  <SelectItem value="custom">{t('estimations', 'customDetails')}</SelectItem>
                   {contactOptions.map((contact) => (
                     <SelectItem key={contact._id} value={contact._id}>
                       {contact.name}
@@ -740,56 +746,56 @@ export function CreateEstimationDialog({
                 </SelectContent>
               </Select>
               <p className="mt-2 text-sm text-muted-foreground">
-                The selected contact fills the document snapshot, but you can still adjust the values below before saving.
+                {t('estimations', 'selectedContactDescription')}
               </p>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <Label>Name</Label>
+                <Label>{t('estimations', 'name')}</Label>
                 <Input
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Customer name"
+                  placeholder={t('estimations', 'customerNamePlaceholder')}
                   className="mt-1"
                 />
               </div>
               <div>
-                <Label>Email</Label>
+                <Label>{t('estimations', 'email')}</Label>
                 <Input
                   type="email"
                   value={customerEmail}
                   onChange={(e) => setCustomerEmail(e.target.value)}
-                  placeholder="john@example.com"
+                  placeholder={t('estimations', 'emailPlaceholder')}
                   className="mt-1"
                 />
               </div>
               <div>
-                <Label>Phone</Label>
+                <Label>{t('estimations', 'phone')}</Label>
                 <Input
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="Phone"
+                  placeholder={t('estimations', 'phone')}
                   className="mt-1"
                 />
               </div>
               <div>
-                <Label>Address</Label>
+                <Label>{t('estimations', 'address')}</Label>
                 <Input
                   value={customerAddress}
                   onChange={(e) => setCustomerAddress(e.target.value)}
-                  placeholder="Address"
+                  placeholder={t('estimations', 'address')}
                   className="mt-1"
                 />
               </div>
             </div>
 
             <div className="border-t pt-4">
-              <Label>Tax</Label>
+              <Label>{t('estimations', 'tax')}</Label>
               <div className="mt-1 rounded-xl border border-border/70 bg-secondary/70 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex flex-col gap-1">
                     <p className="text-sm font-medium">
-                      {hasTaxApplied ? `${estimationTaxLabel} (${vatPercent}%)` : 'No tax'}
+                      {hasTaxApplied ? `${estimationTaxLabel} (${vatPercent}%)` : t('estimations', 'noTax')}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {taxSettingsDescription}
@@ -803,11 +809,11 @@ export function CreateEstimationDialog({
             </div>
 
             <div>
-              <Label>Notes</Label>
+              <Label>{t('estimations', 'notes')}</Label>
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Notes"
+                placeholder={t('estimations', 'notes')}
                 className="mt-1"
                 rows={3}
               />
@@ -817,37 +823,45 @@ export function CreateEstimationDialog({
 
         {step === 4 && (
           <div className="flex flex-col gap-4">
-            <h3 className="mb-4 text-lg font-medium">Summary</h3>
+            <h3 className="mb-4 text-lg font-medium">{t('estimations', 'summary')}</h3>
 
             <Card className="rounded-2xl border border-border/70 bg-secondary/70 shadow-none">
               <CardContent className="flex flex-col gap-2 p-4">
                 <div className="flex items-center justify-between">
-                  <span className="font-medium">{title || 'Untitled estimation'}</span>
+                  <span className="font-medium">{title || t('estimations', 'untitledEstimation')}</span>
                   {summaryNumber && (
                     <Badge variant="outline" className="text-xs">#{summaryNumber}</Badge>
                   )}
                 </div>
                 {location && <p className="text-sm text-muted-foreground">{location}</p>}
-                {customerName && <p className="text-sm text-muted-foreground">Customer: {customerName}</p>}
+                {customerName && <p className="text-sm text-muted-foreground">{t('estimations', 'customerWithName', { name: customerName })}</p>}
               </CardContent>
             </Card>
 
             <div className="flex flex-col gap-3 pt-4">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
-                  Labor ({selectedLaborIds.length} items, {primarySummaryAmountLabel.toLowerCase()})
+                  {t('estimations', 'summaryLineLabel', {
+                    label: t('estimations', 'labor'),
+                    count: selectedLaborIds.length,
+                    amount: localizedPrimarySummaryAmountLabel.toLowerCase(),
+                  })}
                 </span>
                 <span>{laborSummaryAmount.toFixed(2)} {currencySymbol}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
-                  Materials ({selectedMaterialIds.length} items, {primarySummaryAmountLabel.toLowerCase()})
+                  {t('estimations', 'summaryLineLabel', {
+                    label: t('estimations', 'materials'),
+                    count: selectedMaterialIds.length,
+                    amount: localizedPrimarySummaryAmountLabel.toLowerCase(),
+                  })}
                 </span>
                 <span>{materialsSummaryAmount.toFixed(2)} {currencySymbol}</span>
               </div>
               <div className="flex justify-between border-t pt-3">
                 <span className="text-xl font-semibold">
-                  Total ({primarySummaryAmountLabel.toLowerCase()})
+                  {t('estimations', 'totalWithAmount', { amount: localizedPrimarySummaryAmountLabel.toLowerCase() })}
                 </span>
                 <span className="text-xl font-semibold">
                   {totalSummaryAmount.toFixed(2)} {currencySymbol}
@@ -863,17 +877,19 @@ export function CreateEstimationDialog({
             onClick={() => step > 1 ? setStep(step - 1) : onOpenChange(false)}
           >
             <ChevronLeftIcon className="h-4 w-4 mr-2" />
-            {step === 1 ? 'Cancel' : 'Back'}
+            {step === 1 ? t('estimations', 'cancel') : t('estimations', 'back')}
           </Button>
 
           {step < 4 ? (
             <Button onClick={handleNextStep}>
-              Next
+              {t('estimations', 'next')}
               <ChevronRightIcon className="h-4 w-4 ml-2" />
             </Button>
           ) : (
             <Button onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save Changes' : 'Create Estimation')}
+              {isSubmitting
+                ? (isEditMode ? t('estimations', 'saving') : t('estimations', 'creating'))
+                : (isEditMode ? t('estimations', 'saveChanges') : t('estimations', 'createEstimation'))}
             </Button>
           )}
         </div>

@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { Id } from "@/convex/_generated/dataModel";
 import { Card, CardContent } from "@/components/ui/card";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useI18n } from "@/lib/i18n";
 
 interface AddToProjectModalProps {
   product: { _id: string; name: string; brand?: string; imageUrl?: string; };
@@ -29,6 +30,7 @@ interface AddToProjectModalProps {
 }
 
 export function AddToProjectModal({ product, teamId, onClose }: AddToProjectModalProps) {
+  const { t } = useI18n();
   const { user } = useUser();
   const addToShoppingList = useMutation(apiAny.productLibrary.addToShoppingList);
   
@@ -57,12 +59,12 @@ export function AddToProjectModal({ product, teamId, onClose }: AddToProjectModa
     e.preventDefault();
     
     if (!selectedProjectId) {
-      toast.error("Please select a project");
+      toast.error(t("productLibrary", "pleaseSelectProject"));
       return;
     }
     
     if (!quantity || parseFloat(quantity) <= 0) {
-      toast.error("Please enter a valid quantity");
+      toast.error(t("productLibrary", "pleaseValidQuantity"));
       return;
     }
 
@@ -79,11 +81,15 @@ export function AddToProjectModal({ product, teamId, onClose }: AddToProjectModa
       });
 
       const selectedProject = projects?.find(p => p._id === selectedProjectId);
-      toast.success(`${product.name} added to ${selectedProject?.name}!`);
+      toast.success(
+        t("productLibrary", "addedToProject")
+          .replace("{product}", product.name)
+          .replace("{project}", selectedProject?.name ?? ""),
+      );
       onClose();
     } catch (error) {
       console.error("Error adding to shopping list:", error);
-      toast.error("Failed to add product to project", {
+      toast.error(t("productLibrary", "failedAddToProject"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -97,7 +103,7 @@ export function AddToProjectModal({ product, teamId, onClose }: AddToProjectModa
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShoppingCart className="h-5 w-5" />
-            Add to Project
+            {t("productLibrary", "addToProject")}
           </DialogTitle>
         </DialogHeader>
 
@@ -126,10 +132,10 @@ export function AddToProjectModal({ product, teamId, onClose }: AddToProjectModa
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {/* Project Selection */}
           <div>
-            <Label htmlFor="project">Select Project *</Label>
+            <Label htmlFor="project">{t("productLibrary", "selectProject")}</Label>
             <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
               <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Choose a project" />
+                <SelectValue placeholder={t("productLibrary", "chooseProject")} />
               </SelectTrigger>
               <SelectContent>
                 {projects?.map(project => (
@@ -151,13 +157,13 @@ export function AddToProjectModal({ product, teamId, onClose }: AddToProjectModa
           {/* Section Selection */}
           {sections && sections.length > 0 && (
             <div>
-              <Label htmlFor="section">Shopping List Section (Optional)</Label>
+              <Label htmlFor="section">{t("productLibrary", "shoppingListSectionOptional")}</Label>
               <Select value={sectionId} onValueChange={setSectionId}>
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Choose a section" />
+                  <SelectValue placeholder={t("productLibrary", "chooseSection")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No specific section</SelectItem>
+                  <SelectItem value="none">{t("productLibrary", "noSpecificSection")}</SelectItem>
                   {sections.map(section => (
                     <SelectItem key={section._id} value={section._id}>
                       {section.name}
@@ -170,7 +176,7 @@ export function AddToProjectModal({ product, teamId, onClose }: AddToProjectModa
 
           {/* Quantity */}
           <div>
-            <Label htmlFor="quantity">Quantity *</Label>
+            <Label htmlFor="quantity">{t("productLibrary", "quantity")}</Label>
             <Input
               id="quantity"
               type="number"
@@ -178,7 +184,7 @@ export function AddToProjectModal({ product, teamId, onClose }: AddToProjectModa
               step="1"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
-              placeholder="Enter quantity"
+              placeholder={t("productLibrary", "enterQuantity")}
               required
               className="mt-1"
             />
@@ -186,12 +192,12 @@ export function AddToProjectModal({ product, teamId, onClose }: AddToProjectModa
 
           {/* Notes */}
           <div>
-            <Label htmlFor="notes">Notes (Optional)</Label>
+            <Label htmlFor="notes">{t("productLibrary", "notesOptional")}</Label>
             <Textarea
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Additional notes for this item..."
+              placeholder={t("productLibrary", "additionalNotesShortPlaceholder")}
               rows={3}
               className="mt-1"
             />
@@ -200,10 +206,10 @@ export function AddToProjectModal({ product, teamId, onClose }: AddToProjectModa
           {/* Actions */}
           <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
             <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-              Cancel
+              {t("productLibrary", "cancel")}
             </Button>
             <Button type="submit" disabled={isSubmitting || !selectedProjectId}>
-              {isSubmitting ? "Adding..." : "Add to Project"}
+              {isSubmitting ? t("productLibrary", "adding") : t("productLibrary", "addToProject")}
             </Button>
           </div>
         </form>

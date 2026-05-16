@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileSpreadsheetIcon, FileTextIcon } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 export type LaborListExportOptions = {
   format: 'csv' | 'pdf' | 'xlsx';
@@ -30,19 +31,20 @@ export function LaborExportDialog({
   onExport,
   onExportOptionsChange,
 }: LaborExportDialogProps) {
+  const { t } = useI18n();
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Export Labor List</DialogTitle>
+          <DialogTitle>{t('labor', 'exportLaborList')}</DialogTitle>
           <DialogDescription>
-            Choose the format, source, and columns for this labor export.
+            {t('labor', 'promptSourceColumns')}
           </DialogDescription>
         </DialogHeader>
 
         <FieldGroup>
           <Field>
-            <FieldLabel>Format</FieldLabel>
+            <FieldLabel>{t('labor', 'format')}</FieldLabel>
             <div className="flex gap-2">
               <Button
                 variant={exportOptions.format === 'csv' ? 'default' : 'outline'}
@@ -72,7 +74,7 @@ export function LaborExportDialog({
           </Field>
 
           <Field>
-            <FieldLabel>Data Source</FieldLabel>
+            <FieldLabel>{t('labor', 'dataSource')}</FieldLabel>
             <Select
               value={exportOptions.scope}
               onValueChange={(value) =>
@@ -83,8 +85,8 @@ export function LaborExportDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All items</SelectItem>
-                <SelectItem value="currentView">Current view only</SelectItem>
+                <SelectItem value="all">{t('labor', 'allItems')}</SelectItem>
+                <SelectItem value="currentView">{t('labor', 'currentViewOnly')}</SelectItem>
               </SelectContent>
             </Select>
           </Field>
@@ -97,7 +99,7 @@ export function LaborExportDialog({
                   onExportOptionsChange({ ...exportOptions, includeNotes: checked === true })
                 }
               />
-              <span className="text-sm">Include Notes</span>
+              <span className="text-sm">{t('labor', 'includeNotes')}</span>
             </label>
             <label className="flex items-center gap-2 text-sm">
               <Checkbox
@@ -106,7 +108,7 @@ export function LaborExportDialog({
                   onExportOptionsChange({ ...exportOptions, includeReferenceLink: checked === true })
                 }
               />
-              <span className="text-sm">Include Reference Links</span>
+              <span className="text-sm">{t('labor', 'includeReferenceLinks')}</span>
             </label>
             {exportOptions.format !== 'csv' ? (
               <label className="flex items-center gap-2 text-sm">
@@ -116,7 +118,7 @@ export function LaborExportDialog({
                     onExportOptionsChange({ ...exportOptions, groupBySections: checked === true })
                   }
                 />
-                <span className="text-sm">Group by Sections</span>
+                <span className="text-sm">{t('labor', 'groupBySections')}</span>
               </label>
             ) : null}
           </Field>
@@ -124,10 +126,10 @@ export function LaborExportDialog({
 
         <DialogFooter>
           <Button onClick={onExport} disabled={isPending}>
-            {isPending ? 'Exporting...' : `Export ${exportOptions.format.toUpperCase()}`}
+            {isPending ? t('labor', 'exporting') : t('labor', 'exportFormat', { format: exportOptions.format.toUpperCase() })}
           </Button>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t('labor', 'cancel')}
           </Button>
         </DialogFooter>
       </DialogContent>

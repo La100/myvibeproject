@@ -1,8 +1,11 @@
+"use client";
+
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { BrandWordmark } from "@/components/ui/brand/BrandWordmark";
 import { Card } from "@/components/ui/card";
+import { useI18n } from "@/lib/i18n";
 
 type AuthShellProps = {
   children: ReactNode;
@@ -13,6 +16,20 @@ export function AuthShell({
   children,
   termsVerb,
 }: AuthShellProps) {
+  const { t } = useI18n();
+  const agreementPrefix =
+    termsVerb === "in"
+      ? t("auth", "termsAgreementIn").split("{privacy}")[0]
+      : t("auth", "termsAgreementUp").split("{privacy}")[0];
+  const agreementMiddle =
+    termsVerb === "in"
+      ? t("auth", "termsAgreementIn").split("{privacy}")[1]?.split("{terms}")[0]
+      : t("auth", "termsAgreementUp").split("{privacy}")[1]?.split("{terms}")[0];
+  const agreementSuffix =
+    termsVerb === "in"
+      ? t("auth", "termsAgreementIn").split("{terms}")[1]
+      : t("auth", "termsAgreementUp").split("{terms}")[1];
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(139,111,89,0.16),transparent_34%),linear-gradient(180deg,rgba(250,248,244,0.98)_0%,rgba(246,242,236,0.94)_100%)] lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)]">
       <section className="hidden border-b border-border/60 bg-muted/20 lg:block lg:border-b-0 lg:border-r lg:min-h-screen">
@@ -53,19 +70,19 @@ export function AuthShell({
           <div id="clerk-captcha" className="mt-4 w-full" />
 
           <p className="mt-6 max-w-[34ch] text-center text-xs leading-5 text-foreground/90">
-            By signing {termsVerb} you agree to our{" "}
+            {agreementPrefix}
             <Link href="/privacy" className="font-semibold hover:text-foreground">
-              Privacy Policy
+              {t("auth", "privacyPolicy")}
             </Link>{" "}
-            and{" "}
+            {agreementMiddle}
             <Link href="/terms" className="font-semibold hover:text-foreground">
-              Terms of Service
+              {t("auth", "termsOfService")}
             </Link>
-            .
+            {agreementSuffix}
           </p>
 
           <p className="mt-10 text-sm text-muted-foreground">
-            by{" "}
+            {t("auth", "by")}{" "}
             <Link href="/" className="whitespace-nowrap text-foreground transition-opacity duration-200 hover:opacity-90">
               <BrandWordmark className="gap-x-1.5" />
             </Link>

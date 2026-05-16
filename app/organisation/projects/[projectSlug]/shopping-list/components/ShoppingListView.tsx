@@ -33,6 +33,7 @@ import {
   sanitizeFileName,
 } from '@/lib/pdfExport';
 import { exportWorkbookTables, getSectionAccentColor } from '@/lib/xlsxExport';
+import { useI18n } from '@/lib/i18n';
 
 import { AddItemForm } from './AddItemForm';
 import { ExportModal, type ShoppingListExportOptions } from './ExportModal';
@@ -48,42 +49,40 @@ type ShoppingSet = Doc<"shoppingSets"> & {
   resolvedAt?: number | null;
 };
 
-const STATUS_LABELS: Record<ShoppingListItem["realizationStatus"], string> = {
-  PLANNED: 'Planned',
-  ORDERED: 'Ordered',
-  IN_TRANSIT: 'In Transit',
-  DELIVERED: 'Delivered',
-  COMPLETED: 'Completed',
-  CANCELLED: 'Cancelled',
-};
+const STATUS_VALUES: ShoppingListItem["realizationStatus"][] = [
+  "PLANNED",
+  "ORDERED",
+  "IN_TRANSIT",
+  "DELIVERED",
+  "COMPLETED",
+  "CANCELLED",
+];
 
-const getStatusLabel = (status: ShoppingListItem["realizationStatus"]) => STATUS_LABELS[status] ?? status;
-const getToolbarStatusLabel = (status: ShoppingListItem["realizationStatus"]) => {
+const getStatusLabelKey = (status: ShoppingListItem["realizationStatus"]) => {
   switch (status) {
     case 'PLANNED':
-      return 'Planned';
+      return 'planned';
     case 'ORDERED':
-      return 'Ordered';
+      return 'ordered';
     case 'IN_TRANSIT':
-      return 'In transit';
+      return 'inTransit';
     case 'DELIVERED':
-      return 'Delivered';
+      return 'delivered';
     case 'COMPLETED':
-      return 'Completed';
+      return 'completed';
     case 'CANCELLED':
-      return 'Cancelled';
+      return 'cancelled';
     default:
-      return status;
+      return 'status';
   }
 };
-const getSectionOptionLabel = (section: string) => section === 'No Section' ? 'No section' : section;
-const formatItemCountLabel = (count: number) => `${count} ${count === 1 ? 'item' : 'items'}`;
 
 export function ShoppingListViewLoading() {
   return <Spinner className="p-4 sm:p-6" />;
 }
 
 export default function ShoppingListView() {
+  const { t } = useI18n();
   const [isPending] = useTransition();
   const [showMainAddForm, setShowMainAddForm] = useState(false);
   const [isSectionManagerOpen, setIsSectionManagerOpen] = useState(false);
@@ -139,6 +138,12 @@ export default function ShoppingListView() {
     team.organizationTaxSettings,
   );
   const sectionMap = new Map(sections.map((section) => [String(section._id), section]));
+  const getStatusLabel = (status: ShoppingListItem["realizationStatus"]) =>
+    t("shoppingList", getStatusLabelKey(status));
+  const getSectionOptionLabel = (section: string) =>
+    section === 'No Section' ? t("shoppingList", "noSectionLower") : section;
+  const formatItemCountLabel = (count: number) =>
+    `${count} ${count === 1 ? t("shoppingList", "item") : t("shoppingList", "items")}`;
   const resolveSectionName = (item: ShoppingListItem) => {
     if (!item.sectionId) return 'No Section';
     return sectionMap.get(String(item.sectionId))?.name || 'No Section';
@@ -241,8 +246,8 @@ export default function ShoppingListView() {
   const grandTotal = calculateShoppingTotal(items, sets);
   const visibleGrandTotal = calculateShoppingTotal(filteredItems, sets);
   const formatTotalSummary = (value: number) =>
-    `Total: ${formatMoney(value, currencySymbol)}`;
-  const shoppingPdfPriceColumns = [{ key: 'totalNet', label: 'Total' }];
+    `${t("shoppingList", "totalLabel")} ${formatMoney(value, currencySymbol)}`;
+  const shoppingPdfPriceColumns = [{ key: 'totalNet', label: t("shoppingList", "total") }];
   const showFirstRunOnboarding = items.length === 0 && !isOnboardingDismissed;
   const hasActiveFilters =
     normalizedSearchQuery.length > 0 ||
@@ -286,7 +291,7 @@ export default function ShoppingListView() {
 
   const handleDeleteSet = async (setId: Id<"shoppingSets">) => {
     await deleteSet({ setId });
-    toast.success('Alternative group removed');
+    toast.success(t("shoppingList", "alternativeGroupRemoved"));
   };
 
   const handleEnableAlternativesForItem = async (
@@ -316,7 +321,7 @@ export default function ShoppingListView() {
       status: 'active',
     });
 
-    toast.success('Alternative group created');
+    toast.success(t("shoppingList", "alternativeGroupCreated"));
     return setId;
   };
 
@@ -347,7 +352,7 @@ export default function ShoppingListView() {
       ...rest,
       realizationStatus: (realizationStatus as ShoppingListItem["realizationStatus"]) || 'PLANNED',
     });
-    toast.success('Product added');
+    toast.success(t("shoppingList", "productAdded"));
     return itemId;
   };
 
@@ -387,7 +392,7 @@ export default function ShoppingListView() {
 
   const handleDeleteItem = async (itemId: Id<"shoppingListItems">) => {
     await deleteItem({ itemId });
-    toast.success('Item deleted');
+    toast.success(t("shoppingList", "itemDeleted"));
   };
 
   const handleUpdateSet = async (setId: Id<"shoppingSets">, updates: Partial<ShoppingSet>) => {
@@ -448,18 +453,18 @@ export default function ShoppingListView() {
   };
 
   const buildShoppingPdfColumns = (includeSection: boolean) => [
-    ...(includeSection ? [{ key: 'sectionName', label: 'Section' }] : []),
-    { key: 'product', label: 'Product' },
-    { key: 'qty', label: 'Qty' },
+    ...(includeSection ? [{ key: 'sectionName', label: t("shoppingList", "section") }] : []),
+    { key: 'product', label: t("projectWorkspace", "product") },
+    { key: 'qty', label: t("shoppingList", "qty") },
     ...shoppingPdfPriceColumns,
-    ...(exportOptions.includeStatus ? [{ key: 'status', label: 'Status' }] : []),
-    ...(exportOptions.includeSupplier ? [{ key: 'supplier', label: 'Supplier' }] : []),
-    ...(exportOptions.includeNotes ? [{ key: 'notes', label: 'Notes' }] : []),
+    ...(exportOptions.includeStatus ? [{ key: 'status', label: t("shoppingList", "status") }] : []),
+    ...(exportOptions.includeSupplier ? [{ key: 'supplier', label: t("shoppingList", "supplier") }] : []),
+    ...(exportOptions.includeNotes ? [{ key: 'notes', label: t("projectWorkspace", "notes") }] : []),
   ];
 
   const handleExportCSV = () => {
     if (filteredItemsForExport.length === 0) {
-      toast.info('No items match the current export filters.');
+      toast.info(t("shoppingList", "itemsMatchExportFilters"));
       return;
     }
 
@@ -471,18 +476,18 @@ export default function ShoppingListView() {
       ),
     });
     setIsExportModalOpen(false);
-    toast.success('CSV exported successfully!');
+    toast.success(t("shoppingList", "csvExported"));
   };
 
   const handleExportPDF = async () => {
     if (filteredItemsForExport.length === 0) {
-      toast.info('No items match the current export filters.');
+      toast.info(t("shoppingList", "itemsMatchExportFilters"));
       return;
     }
 
     await exportSectionedTablePdf({
       brand: {
-        teamName: team.name || 'Organization',
+        teamName: team.name || t("projectWorkspace", "organization"),
         teamImageUrl: team.imageUrl,
       },
       columns: buildShoppingPdfColumns(!exportOptions.groupBySections),
@@ -503,24 +508,24 @@ export default function ShoppingListView() {
           ...(exportOptions.includeNotes ? { notes: row.notes } : {}),
         })),
       })),
-      subtitle: `Items: ${filteredItemsForExport.length} | ${formatTotalSummary(
+      subtitle: `${t("shoppingList", "itemsSubtitle")} ${filteredItemsForExport.length} | ${formatTotalSummary(
         calculateShoppingTotal(filteredItemsForExport, exportSets),
       )}`,
-      title: `Shopping List - ${project.name}`,
+      title: `${t("shoppingList", "shoppingList")} - ${project.name}`,
     });
     setIsExportModalOpen(false);
-    toast.success('PDF exported successfully!');
+    toast.success(t("shoppingList", "pdfExported"));
   };
 
   const handleExportXlsx = async () => {
     if (filteredItemsForExport.length === 0) {
-      toast.info('No items match the current export filters.');
+      toast.info(t("shoppingList", "itemsMatchExportFilters"));
       return;
     }
 
     const fileDate = format(new Date(), 'yyyy-MM-dd');
     const generatedOn = format(new Date(), 'yyyy-MM-dd HH:mm');
-    const subtitle = `Items: ${filteredItemsForExport.length} | ${formatTotalSummary(
+    const subtitle = `${t("shoppingList", "itemsSubtitle")} ${filteredItemsForExport.length} | ${formatTotalSummary(
       calculateShoppingTotal(filteredItemsForExport, exportSets),
     )}`;
 
@@ -529,7 +534,7 @@ export default function ShoppingListView() {
       sheets: [
         {
           generatedOn,
-          name: 'Shopping List',
+          name: t("shoppingList", "shoppingList"),
           subtitle,
           tables: exportOptions.groupBySections
             ? shoppingExportSections.map((section, index) => ({
@@ -546,15 +551,15 @@ export default function ShoppingListView() {
                   rows: flatShoppingExportRows.map((row) =>
                     getShoppingExportCsvRow(row, flatShoppingColumnOptions),
                   ),
-                  title: 'Items',
+                  title: t("shoppingList", "xlsxItemsSheet"),
                 },
               ],
-          title: `Shopping List - ${project.name}`,
+          title: `${t("shoppingList", "shoppingList")} - ${project.name}`,
         },
       ],
     });
     setIsExportModalOpen(false);
-    toast.success('Excel exported successfully!');
+    toast.success(t("shoppingList", "excelExported"));
   };
 
   return (
@@ -563,7 +568,7 @@ export default function ShoppingListView() {
         <div className="text-sm">
           <ShoppingListHeader
             projectName={project.name}
-            grandTotalLabel={`Total: ${formatCurrency(grandTotal, project.currency)}`}
+            grandTotalLabel={`${t("shoppingList", "totalLabel")} ${formatCurrency(grandTotal, project.currency)}`}
             onExportClick={() => setIsExportModalOpen(true)}
             onAddProductClick={() => setShowMainAddForm((current) => !current)}
           />
@@ -618,10 +623,10 @@ export default function ShoppingListView() {
 
                   <Select value={sectionFilter} onValueChange={setSectionFilter}>
                     <SelectTrigger className="h-11 w-full rounded-full border-border/70 bg-white px-5 shadow-none sm:w-fit sm:min-w-[210px]">
-                      <SelectValue placeholder="Section" />
+                      <SelectValue placeholder={t("shoppingList", "section")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All sections</SelectItem>
+                      <SelectItem value="all">{t("shoppingList", "allSections")}</SelectItem>
                       {availableSections.map((section) => (
                         <SelectItem key={section} value={section}>
                           {getSectionOptionLabel(section)}
@@ -632,10 +637,10 @@ export default function ShoppingListView() {
 
                   <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                     <SelectTrigger className="h-11 w-full rounded-full border-border/70 bg-white px-5 shadow-none sm:w-fit sm:min-w-[210px]">
-                      <SelectValue placeholder="Category" />
+                      <SelectValue placeholder={t("shoppingList", "category")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All categories</SelectItem>
+                      <SelectItem value="all">{t("shoppingList", "allCategories")}</SelectItem>
                       {availableCategories.map((category) => (
                         <SelectItem key={category} value={category}>
                           {category}
@@ -646,13 +651,13 @@ export default function ShoppingListView() {
 
                   <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
                     <SelectTrigger className="h-11 w-full rounded-full border-border/70 bg-white px-5 shadow-none sm:w-fit sm:min-w-[210px]">
-                      <SelectValue placeholder="Status" />
+                      <SelectValue placeholder={t("shoppingList", "status")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All statuses</SelectItem>
-                      {Object.keys(STATUS_LABELS).map((value) => (
+                      <SelectItem value="all">{t("shoppingList", "allStatuses")}</SelectItem>
+                      {STATUS_VALUES.map((value) => (
                         <SelectItem key={value} value={value}>
-                          {getToolbarStatusLabel(value as ShoppingListItem["realizationStatus"])}
+                          {getStatusLabel(value)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -668,13 +673,13 @@ export default function ShoppingListView() {
                       className="h-11 rounded-full border border-border/70 px-4"
                     >
                       <XIcon className="mr-2 h-4 w-4" />
-                      Clear filters
+                      {t("shoppingList", "clearFilters")}
                     </Button>
                   ) : null}
 
                   <div className="min-w-0 rounded-2xl border border-border/60 bg-white px-4 py-2.5">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                      Total
+                      {t("shoppingList", "total")}
                     </div>
                     <div className="mt-1 text-[1.35rem] font-semibold leading-none text-foreground sm:text-[1.6rem]">
                       {formatCurrency(visibleGrandTotal, project.currency)}
@@ -691,7 +696,7 @@ export default function ShoppingListView() {
                   <InputGroupInput
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search products, supplier, notes, or SKU"
+                    placeholder={t("shoppingList", "searchPlaceholder")}
                     className="h-11 rounded-full pr-4"
                   />
                 </InputGroup>
@@ -699,44 +704,44 @@ export default function ShoppingListView() {
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <Select value={priorityFilter} onValueChange={(value) => setPriorityFilter(value as typeof priorityFilter)}>
                     <SelectTrigger className="h-10 w-full rounded-full border-border/70 bg-white px-4 shadow-none sm:w-fit sm:min-w-[190px]">
-                      <SelectValue placeholder="Priority" />
+                      <SelectValue placeholder={t("shoppingList", "priority")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All priorities</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="urgent">Urgent</SelectItem>
+                      <SelectItem value="all">{t("shoppingList", "allPriorities")}</SelectItem>
+                      <SelectItem value="low">{t("shoppingList", "low")}</SelectItem>
+                      <SelectItem value="medium">{t("shoppingList", "medium")}</SelectItem>
+                      <SelectItem value="high">{t("shoppingList", "high")}</SelectItem>
+                      <SelectItem value="urgent">{t("shoppingList", "urgent")}</SelectItem>
                     </SelectContent>
                   </Select>
 
                   {searchQuery ? (
                     <Badge variant="outline" className="rounded-full border-border/60 px-3 py-1.5">
-                      Search: {searchQuery}
+                      {t("shoppingList", "search")} {searchQuery}
                     </Badge>
                   ) : null}
 
                   {sectionFilter !== 'all' ? (
                     <Badge variant="outline" className="rounded-full border-border/60 px-3 py-1.5">
-                      Section: {getSectionOptionLabel(sectionFilter)}
+                      {t("shoppingList", "sectionFilter")} {getSectionOptionLabel(sectionFilter)}
                     </Badge>
                   ) : null}
 
                   {categoryFilter !== 'all' ? (
                     <Badge variant="outline" className="rounded-full border-border/60 px-3 py-1.5">
-                      Category: {categoryFilter}
+                      {t("shoppingList", "categoryFilter")} {categoryFilter}
                     </Badge>
                   ) : null}
 
                   {statusFilter !== 'all' ? (
                     <Badge variant="outline" className="rounded-full border-border/60 px-3 py-1.5">
-                      Status: {getToolbarStatusLabel(statusFilter)}
+                      {t("shoppingList", "statusFilter")} {getStatusLabel(statusFilter)}
                     </Badge>
                   ) : null}
 
                   {priorityFilter !== 'all' ? (
                     <Badge variant="outline" className="rounded-full border-border/60 px-3 py-1.5">
-                      Priority: {priorityFilter === 'low' ? 'Low' : priorityFilter === 'medium' ? 'Medium' : priorityFilter === 'high' ? 'High' : 'Urgent'}
+                      {t("shoppingList", "priorityFilter")} {t("shoppingList", priorityFilter)}
                     </Badge>
                   ) : null}
                 </div>
@@ -746,15 +751,15 @@ export default function ShoppingListView() {
 
           {visibleSectionEntries.length === 0 ? (
             <div className="vibe-panel border-dashed px-8 py-14 text-center">
-              <h3 className="text-lg font-semibold text-foreground">No items match the current view</h3>
+              <h3 className="text-lg font-semibold text-foreground">{t("shoppingList", "noItemsCurrentView")}</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                Adjust your filters or clear the current search to bring products back into view.
+                {t("shoppingList", "adjustFilters")}
               </p>
               {hasActiveFilters ? (
                 <div className="mt-5">
                   <Button variant="outline" onClick={resetFilters} className="rounded-full border-border/70 bg-white">
                     <XIcon className="mr-2 h-4 w-4" />
-                    Reset filters
+                    {t("shoppingList", "resetFilters")}
                   </Button>
                 </div>
               ) : null}

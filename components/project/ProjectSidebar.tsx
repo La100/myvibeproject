@@ -58,8 +58,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { isClientNotificationActivity } from "@/lib/projectClientNotifications";
+import { useI18n } from "@/lib/i18n";
 
 function ProjectSidebarContent() {
+  const { t } = useI18n();
   const params = useParams<{ projectSlug: string }>();
   const pathname = usePathname();
   const router = useRouter();
@@ -113,37 +115,37 @@ function ProjectSidebarContent() {
   ]);
 
   const allNavItems = [
-    { href: `/organisation/projects/${params.projectSlug}`, label: "Overview", icon: LayoutDashboard, key: "overview", group: "project" },
-    { href: `/organisation/projects/${params.projectSlug}/customer-panel`, label: "Client Portal", icon: Eye, key: "customer_panel", group: "project" },
+    { href: `/organisation/projects/${params.projectSlug}`, label: t("projectWorkspace", "overview"), icon: LayoutDashboard, key: "overview", group: "project" },
+    { href: `/organisation/projects/${params.projectSlug}/customer-panel`, label: t("projectSidebar", "clientPortal"), icon: Eye, key: "customer_panel", group: "project" },
     {
       href: notificationsHref,
-      label: "Notifications",
+      label: t("navigation", "notifications"),
       icon: BellRing,
       key: "notifications",
       group: "project",
       notificationCount: visibleNotificationCount,
     },
-    { href: `/organisation/projects/${params.projectSlug}/tasks`, label: "Tasks", icon: CheckSquare, key: "tasks", group: "architecture" },
-    { href: `/organisation/projects/${params.projectSlug}/moodboard`, label: "Moodboard", icon: Image, key: "moodboard", group: "project" },
-    { href: `/organisation/projects/${params.projectSlug}/notes`, label: "Notes", icon: StickyNote, key: "notes", group: "project" },
-    { href: `/organisation/projects/${params.projectSlug}/contacts`, label: "Contacts", icon: Contact, key: "contacts", group: "project" },
-    { href: `/organisation/projects/${params.projectSlug}/calendar`, label: "Calendar", icon: Calendar, key: "calendar", group: "project" },
-    { href: `/organisation/projects/${params.projectSlug}/payments`, label: "Payments", icon: Wallet, key: "payments", group: "project" },
-    { href: `/organisation/projects/${params.projectSlug}/surveys`, label: "Surveys", icon: ClipboardList, key: "surveys", group: "project" },
-    { href: `/organisation/projects/${params.projectSlug}/files`, label: "Files", icon: Files, key: "files", group: "project" },
-    { href: `/organisation/projects/${params.projectSlug}/shopping-list`, label: "Shopping List", icon: ShoppingCart, key: "shopping_list", group: "architecture" },
-    { href: `/organisation/projects/${params.projectSlug}/labor`, label: "Labor", icon: Hammer, key: "labor", group: "architecture" },
-    { href: `/organisation/projects/${params.projectSlug}/estimations`, label: "Estimations", icon: Calculator, key: "estimations", group: "project" },
+    { href: `/organisation/projects/${params.projectSlug}/tasks`, label: t("projectWorkspace", "tasks"), icon: CheckSquare, key: "tasks", group: "architecture" },
+    { href: `/organisation/projects/${params.projectSlug}/moodboard`, label: t("projectSidebar", "moodboard"), icon: Image, key: "moodboard", group: "project" },
+    { href: `/organisation/projects/${params.projectSlug}/notes`, label: t("projectWorkspace", "notes"), icon: StickyNote, key: "notes", group: "project" },
+    { href: `/organisation/projects/${params.projectSlug}/contacts`, label: t("navigation", "contacts"), icon: Contact, key: "contacts", group: "project" },
+    { href: `/organisation/projects/${params.projectSlug}/calendar`, label: t("navigation", "calendar"), icon: Calendar, key: "calendar", group: "project" },
+    { href: `/organisation/projects/${params.projectSlug}/payments`, label: t("projectWorkspace", "payments"), icon: Wallet, key: "payments", group: "project" },
+    { href: `/organisation/projects/${params.projectSlug}/surveys`, label: t("surveys", "surveys"), icon: ClipboardList, key: "surveys", group: "project" },
+    { href: `/organisation/projects/${params.projectSlug}/files`, label: t("projectSidebar", "files"), icon: Files, key: "files", group: "project" },
+    { href: `/organisation/projects/${params.projectSlug}/shopping-list`, label: t("projectWorkspace", "shoppingList"), icon: ShoppingCart, key: "shopping_list", group: "architecture" },
+    { href: `/organisation/projects/${params.projectSlug}/labor`, label: t("projectWorkspace", "labor"), icon: Hammer, key: "labor", group: "architecture" },
+    { href: `/organisation/projects/${params.projectSlug}/estimations`, label: t("projectSidebar", "estimations"), icon: Calculator, key: "estimations", group: "project" },
   ];
 
   const aiItem = { href: `/organisation/projects/${params.projectSlug}/ai`, label: "AI", icon: Sparkles, key: "ai" };
-  const settingsItem = { href: `/organisation/projects/${params.projectSlug}/settings`, label: "Settings", icon: Settings, key: "settings" };
+  const settingsItem = { href: `/organisation/projects/${params.projectSlug}/settings`, label: t("navigation", "settings"), icon: Settings, key: "settings" };
 
   const projectNavItems = allNavItems.filter((item) => item.group === "project");
   const architectureNavItems = allNavItems.filter((item) => item.group === "architecture");
   const footerItems = [
     settingsItem,
-    { href: "/contact", label: "Contact", icon: Mail },
+    { href: "/contact", label: t("navigation", "contact"), icon: Mail },
   ];
 
   const userInitial =
@@ -151,7 +153,7 @@ function ProjectSidebarContent() {
     user?.firstName?.charAt(0) ||
     user?.primaryEmailAddress?.emailAddress?.charAt(0) ||
     "U";
-  const projectName = project?.name || "Project";
+  const projectName = project?.name || t("projectSidebar", "project");
 
   const handleLinkClick = () => {
     setOpenMobile(false);
@@ -236,8 +238,8 @@ function ProjectSidebarContent() {
 
       <SidebarContent className="flex flex-col gap-0 px-2 pb-2">
         <SidebarGroup className="flex-1 px-3 pt-7 pb-2">
-          {renderSection("Project", FolderOpen, projectNavItems)}
-          {renderSection("Architecture", DraftingCompass, architectureNavItems)}
+          {renderSection(t("projectSidebar", "project"), FolderOpen, projectNavItems)}
+          {renderSection(t("projectSidebar", "architecture"), DraftingCompass, architectureNavItems)}
         </SidebarGroup>
 
         <SidebarGroup className="mt-auto px-4 pb-9 pt-1.5">
@@ -296,7 +298,7 @@ function ProjectSidebarContent() {
                     <div className="relative h-8 w-8 overflow-hidden rounded-full border border-sidebar-border/70">
                       <img
                         src={user.imageUrl}
-                        alt={user.fullName || user.firstName || "User"}
+                        alt={user.fullName || user.firstName || t("projectSidebar", "user")}
                         className="h-full w-full object-cover"
                       />
                     </div>
@@ -307,7 +309,7 @@ function ProjectSidebarContent() {
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-semibold text-sidebar-foreground">
-                      {user?.fullName || user?.firstName || "Account"}
+                      {user?.fullName || user?.firstName || t("projectSidebar", "account")}
                     </p>
                     <p className="truncate text-[11px] text-sidebar-foreground/60">
                       {user?.primaryEmailAddress?.emailAddress || ""}
@@ -319,7 +321,7 @@ function ProjectSidebarContent() {
               <DropdownMenuContent align="end" className="w-64 rounded-xl border-border/70">
                 <div className="px-3 py-2">
                   <p className="text-sm font-semibold text-foreground">
-                    {user?.fullName || user?.firstName || "Account"}
+                    {user?.fullName || user?.firstName || t("projectSidebar", "account")}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {user?.primaryEmailAddress?.emailAddress || ""}
@@ -329,11 +331,11 @@ function ProjectSidebarContent() {
                 <DropdownMenuGroup>
                   <DropdownMenuItem onClick={() => openUserProfile?.()}>
                     <Settings2 className="mr-2 h-4 w-4" />
-                    Manage account
+                    {t("projectSidebar", "manageAccount")}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => signOut()}>
                     <LogOut className="mr-2 h-4 w-4" />
-                    Sign out
+                    {t("projectSidebar", "signOut")}
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
               </DropdownMenuContent>

@@ -42,6 +42,7 @@ import {
   usesChoiceOptions,
   usesRatingScale,
 } from "@/components/surveys/QuestionBuilderFields";
+import { useI18n } from "@/lib/i18n";
 
 interface Question {
   _id?: Id<"surveyQuestions">;
@@ -75,6 +76,7 @@ interface EditSurveyFormProps {
 }
 
 export function EditSurveyForm({ survey }: EditSurveyFormProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const { project } = useProject();
   const updateSurvey = useMutation(apiAny.surveys.updateSurvey);
@@ -147,11 +149,11 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
       question.questionText.trim(),
     );
     if (!title.trim()) {
-      toast.error("Survey title is required");
+      toast.error(t("surveys", "surveyTitleRequired"));
       return;
     }
     if (validQuestions.length === 0) {
-      toast.error("Add at least one question before saving the survey");
+      toast.error(t("surveys", "addAtLeastOneBeforeSaving"));
       return;
     }
 
@@ -162,7 +164,7 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
     );
 
     if (invalidChoiceQuestion) {
-      toast.error("Choice questions need at least two options");
+      toast.error(t("surveys", "choiceNeedsTwoOptions"));
       return;
     }
 
@@ -231,10 +233,10 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
         }
       }
 
-      toast.success("Survey has been updated");
+      toast.success(t("surveys", "saveChanges"));
       router.push(`/organisation/projects/${project.slug}/surveys`);
     } catch (error) {
-      toast.error("Error updating survey", {
+      toast.error(t("surveys", "unableUpdateSurvey"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -246,16 +248,16 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
   const handleDeleteSurvey = async () => {
     if (
       confirm(
-        `Are you sure you want to delete the survey "${title}"? This action cannot be undone.`,
+        t("surveys", "deleteSurveyConfirm").replace("{title}", title),
       )
     ) {
       setLoading(true);
       try {
         await deleteSurvey({ surveyId: survey._id });
-        toast.success("Survey has been deleted");
+        toast.success(t("surveys", "surveyDeleted"));
         router.push(`/organisation/projects/${project.slug}/surveys`);
       } catch (error) {
-        toast.error("Error deleting survey", {
+        toast.error(t("surveys", "unableDeleteSurvey"), {
           description: toUserFacingErrorMessage(error),
         });
         console.error(error);
@@ -273,9 +275,9 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
         title: title.trim() || survey.title,
         description: description.trim() || undefined,
       });
-      toast.success("Survey saved to library");
+      toast.success(t("surveys", "surveySavedToLibrary"));
     } catch (error) {
-      toast.error("Could not save survey to library", {
+      toast.error(t("surveys", "couldNotSaveToLibrary"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -287,12 +289,12 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
   return (
     <div className="flex flex-col gap-8">
       <ProjectPageHeader
-        title="Edit Survey"
+        title={t("surveys", "editSurvey")}
         icon={<Save className="h-8 w-8 text-primary" />}
         actions={
           <Button variant="outline" size="sm" onClick={() => router.back()}>
             <ArrowLeft data-icon="inline-start" />
-            Back
+            {t("surveys", "back")}
           </Button>
         }
       />
@@ -305,9 +307,9 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
               <div className="flex items-center gap-3">
                 <Save className="h-5 w-5 text-foreground" />
                 <div className="flex flex-col gap-1">
-                  <CardTitle className="text-xl">Basic Information</CardTitle>
+                  <CardTitle className="text-xl">{t("surveys", "basicInformation")}</CardTitle>
                   <CardDescription>
-                    Edit basic information about the survey
+                    {t("surveys", "editBasicInformation")}
                   </CardDescription>
                 </div>
               </div>
@@ -315,13 +317,13 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
             <CardContent className="flex flex-col gap-6">
               <div className="flex flex-col gap-3">
                 <Label htmlFor="title" className="text-sm font-semibold">
-                  Survey Title *
+                  {t("surveys", "surveyTitle")}
                 </Label>
                 <Input
                   id="title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Enter survey title"
+                  placeholder={t("surveys", "enterSurveyTitle")}
                   required
                   className="h-11 text-base"
                 />
@@ -329,13 +331,13 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
 
               <div className="flex flex-col gap-3">
                 <Label htmlFor="description" className="text-sm font-semibold">
-                  Description (optional)
+                  {t("surveys", "descriptionOptional")}
                 </Label>
                 <Textarea
                   id="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Enter survey description"
+                  placeholder={t("surveys", "enterSurveyDescription")}
                   rows={4}
                   className="resize-none text-base"
                 />
@@ -350,15 +352,15 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
                 <div className="flex items-center gap-3">
                   <Plus className="h-5 w-5 text-foreground" />
                   <div className="flex flex-col gap-1">
-                    <CardTitle className="text-xl">Questions</CardTitle>
+                    <CardTitle className="text-xl">{t("surveys", "questions")}</CardTitle>
                     <CardDescription>
-                      Edit questions in the survey
+                      {t("surveys", "editQuestionsDescription")}
                     </CardDescription>
                   </div>
                 </div>
                 <Button type="button" onClick={addNewQuestion}>
                   <Plus data-icon="inline-start" />
-                  Add Question
+                  {t("surveys", "addQuestion")}
                 </Button>
               </div>
             </CardHeader>
@@ -367,10 +369,10 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
                 <EmptyState
                   className="border border-border bg-card"
                   icon={Plus}
-                  title="No Questions"
-                  description='Click "Add Question" to add a new question.'
+                  title={t("surveys", "noQuestions")}
+                  description={t("surveys", "noQuestionsDescription")}
                   action={{
-                    label: "Add First Question",
+                    label: t("surveys", "addFirstQuestion"),
                     onClick: addNewQuestion,
                     icon: Plus,
                   }}
@@ -391,7 +393,7 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                 <Badge variant="outline">
-                                  Question {index + 1}
+                                  {t("surveys", "question").replace("{number}", String(index + 1))}
                                 </Badge>
                               </div>
                               <Button
@@ -407,7 +409,7 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
                             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                               <div className="flex flex-col gap-3">
                                 <Label className="text-sm font-semibold">
-                                  Question Content *
+                                  {t("surveys", "questionContent")}
                                 </Label>
                                 <Textarea
                                   value={question.questionText}
@@ -416,7 +418,7 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
                                       questionText: e.target.value,
                                     })
                                   }
-                                  placeholder="Enter question content"
+                                  placeholder={t("surveys", "enterQuestionContent")}
                                   required
                                   rows={3}
                                   className="resize-none text-base"
@@ -424,7 +426,7 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
                               </div>
                               <div className="flex flex-col gap-3">
                                 <Label className="text-sm font-semibold">
-                                  Question Type
+                                  {t("surveys", "questionType")}
                                 </Label>
                                 <Select
                                   value={question.questionType}
@@ -435,7 +437,7 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
                                   }
                                 >
                                   <SelectTrigger className="h-11">
-                                    <SelectValue placeholder="Select question type" />
+                                    <SelectValue placeholder={t("surveys", "selectQuestionType")} />
                                   </SelectTrigger>
                                   <SelectContent>
                                     {surveyQuestionTypes.map((type) => (
@@ -443,7 +445,7 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
                                         key={type.value}
                                         value={type.value}
                                       >
-                                        {type.label}
+                                        {t("surveys", type.labelKey)}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
@@ -491,11 +493,10 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
                                 />
                                 <div className="flex flex-col gap-1">
                                   <Label className="text-sm font-medium">
-                                    Required Question
+                                    {t("surveys", "requiredQuestion")}
                                   </Label>
                                   <p className="text-xs text-muted-foreground">
-                                    Respondents will have to answer this
-                                    question
+                                    {t("surveys", "requiredQuestionDescriptionAlt")}
                                   </p>
                                 </div>
                               </div>
@@ -517,11 +518,11 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
               onClick={() => router.back()}
               className="min-w-[120px]"
             >
-              Cancel
+              {t("surveys", "cancel")}
             </Button>
             <Button type="submit" disabled={loading} className="min-w-[160px]">
               <Save data-icon="inline-start" />
-              {loading ? "Saving..." : "Save Changes"}
+              {loading ? t("surveys", "saving") : t("surveys", "saveChanges")}
             </Button>
             <Button
               type="button"
@@ -530,7 +531,7 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
               disabled={loading || savingAsTemplate}
             >
               <Plus data-icon="inline-start" />
-              {savingAsTemplate ? "Saving..." : "Save as Template"}
+              {savingAsTemplate ? t("surveys", "saving") : t("surveys", "saveAsTemplate")}
             </Button>
             <Button
               type="button"
@@ -539,7 +540,7 @@ export function EditSurveyForm({ survey }: EditSurveyFormProps) {
               disabled={loading}
             >
               <Trash2 data-icon="inline-start" />
-              Delete Survey
+              {t("surveys", "deleteSurvey")}
             </Button>
           </div>
         </form>

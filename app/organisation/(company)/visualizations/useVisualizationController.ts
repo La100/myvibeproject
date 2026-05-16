@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 import { apiAny } from "@/lib/convexApiAny";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useI18n } from "@/lib/i18n";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ThreadListItem } from "@/components/ai/assistant/ui/Sidebar";
 
@@ -26,10 +27,12 @@ type ReferenceUpload = {
   name: string;
 };
 
-const toThreadList = (sessions: VisualizationSession[] | undefined): ThreadListItem[] =>
+type Translate = (namespace: string, key: string, values?: Record<string, string | number>) => string;
+
+const toThreadList = (sessions: VisualizationSession[] | undefined, t: Translate): ThreadListItem[] =>
   (sessions ?? []).map((session) => ({
     threadId: session._id,
-    title: session.title || "New visualization",
+    title: session.title || t("aiShell", "newVisualization"),
     lastMessageAt: session.lastMessageAt,
     lastMessagePreview: "",
     messageCount: session.messageCount,
@@ -67,12 +70,12 @@ const toDisplayMessages = (messages: VisualizationMessage[] | undefined): Visual
     return { raw: message, mapped };
   });
 
-const buildQuotaBlockedMessage = (message?: string): UIMessage => {
+const buildQuotaBlockedMessage = (t: Translate, message?: string): UIMessage => {
   const text = [
-    "### AI credits exhausted",
-    message || "AI credits are exhausted.",
+    `### ${t("aiShell", "creditsExhausted")}`,
+    message || t("aiShell", "defaultCreditsMessage"),
     "",
-    "Upgrade your plan or manage billing to continue. You can still browse your previous visualizations in history.",
+    t("aiShell", "visualizationQuotaBlockedDescription"),
   ].join("\n");
 
   return {
@@ -116,9 +119,11 @@ const uploadReferenceImages = async ({
   files,
   teamId,
   getUploadUrl,
+  t,
 }: {
   files: File[];
   teamId: Id<"teams">;
+  t: Translate;
   getUploadUrl: (args: {
     teamId: Id<"teams">;
     fileName: string;
@@ -163,7 +168,7 @@ const uploadReferenceImages = async ({
       continue;
     }
 
-    toast.error("Failed to upload file", {
+    toast.error(t("aiShell", "failedToUploadFile"), {
       description: toUserFacingErrorMessage(result.reason),
     });
   }
@@ -172,6 +177,7 @@ const uploadReferenceImages = async ({
 };
 
 export function useVisualizationController() {
+  const { t } = useI18n();
   const { organization } = useOrganization();
   const [generatingSessionId, setGeneratingSessionId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -204,7 +210,7 @@ export function useVisualizationController() {
   const addUserMessage = useMutation(apiAny.ai.visualizationSessions.addUserMessage);
 
   const isGenerating = !!generatingSessionId;
-  const threadList = useMemo(() => toThreadList(sessions), [sessions]);
+  const threadList = useMemo(() => toThreadList(sessions, t), [sessions, t]);
   const displayMessages = useMemo(() => toDisplayMessages(sessionMessages), [sessionMessages]);
 
   useEffect(() => {
@@ -218,8 +224,8 @@ export function useVisualizationController() {
   );
 
   const quotaBlockedAssistantMessage = useMemo(
-    () => (isQuotaBlocked ? buildQuotaBlockedMessage(aiAccess?.message) : null),
-    [aiAccess?.message, isQuotaBlocked]
+    () => (isQuotaBlocked ? buildQuotaBlockedMessage(t, aiAccess?.message) : null),
+    [aiAccess?.message, isQuotaBlocked, t]
   );
 
   const handleNewChat = () => {
@@ -239,7 +245,7 @@ export function useVisualizationController() {
   const runSendMessage = async ({ text, files }: VisualizationComposerPayload) => {
     if (isGenerating || isUploading || !team) return;
     if (isQuotaBlocked) {
-      toast.error("AI credits exhausted. Upgrade your plan or manage billing to continue.");
+      toast.error(t("aiShell", "visualizationQuotaBlockedToast"));
       return;
     }
 
@@ -270,6 +276,7 @@ export function useVisualizationController() {
         files: uploadFiles,
         teamId: team._id,
         getUploadUrl,
+        t,
       });
 
       await addUserMessage({
@@ -294,12 +301,12 @@ export function useVisualizationController() {
       });
 
       if (result.success) {
-        toast.success("Visualization generated!");
+        toast.success(t("aiShell", "visualizationGenerated"));
       } else {
-        toast.error(result.error || "Generation failed");
+        toast.error(result.error || t("aiShell", "generationFailed"));
       }
     } catch (error) {
-      toast.error("Generation failed", {
+      toast.error(t("aiShell", "generationFailed"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -335,10 +342,10 @@ export function useVisualizationController() {
       document.body.removeChild(link);
       URL.revokeObjectURL(blobUrl);
 
-      toast.success("Downloaded");
+      toast.success(t("aiShell", "downloaded"));
     } catch (error) {
       console.error("Download failed:", error);
-      toast.error("Download failed", {
+      toast.error(t("aiShell", "downloadFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     }

@@ -81,7 +81,10 @@ type StripeInvoiceWithSubscription = Stripe.Invoice & {
 const internalApi = anyApi as unknown as {
   stripe: {
     getTeamForStripe: unknown;
+    getTeamBillingSeatCount: unknown;
+    getTeamBillingSeatSyncState: unknown;
     updateTeamStripeCustomer: unknown;
+    updateTeamBillingSeatState: unknown;
     syncSubscriptionDirectly: unknown;
     claimSubscriptionActivatedEmail: unknown;
     markSubscriptionActivatedEmail: unknown;
@@ -176,6 +179,15 @@ export const createCheckoutSession = action({
       throw new Error("Only team members can manage subscriptions");
     }
 
+    const billingSeatQuantity = Math.max(
+      1,
+      Number(
+        await runQuery(internalApi.stripe.getTeamBillingSeatCount, {
+          teamId: args.teamId,
+        }),
+      ) || 1,
+    );
+
     // Get or create Stripe customer using component
     const customer = await stripeClient.getOrCreateCustomer(ctx, {
       userId: identity.subject,
@@ -198,7 +210,7 @@ export const createCheckoutSession = action({
       line_items: [
         {
           price: args.priceId,
-          quantity: 1,
+          quantity: billingSeatQuantity,
         },
       ],
       success_url: getBillingSettingsUrl(args.baseUrl, "success"),
@@ -209,6 +221,7 @@ export const createCheckoutSession = action({
           teamId: args.teamId,
           orgId: team.clerkOrgId,
           userId: identity.subject,
+          billingModel: "per_user",
         },
       },
     });
@@ -325,6 +338,30 @@ type EnsureSubscriptionSyncedResult =
 const getSubscriptionCustomerId = (subscription: Stripe.Subscription) => {
   const customer = subscription.customer;
   return typeof customer === "string" ? customer : customer.id;
+};
+
+const getPlanKeyFromPriceId = (priceId: string) => {
+  if (
+    priceId === process.env.STRIPE_CORE_USER_USD_PRICE_ID ||
+    priceId === process.env.STRIPE_CORE_USER_PLN_PRICE_ID
+  ) {
+    return "core";
+  }
+  if (
+    priceId === process.env.STRIPE_AI_USER_USD_PRICE_ID ||
+    priceId === process.env.STRIPE_AI_USER_PLN_PRICE_ID ||
+    priceId === process.env.STRIPE_AI_PRICE_ID
+  ) {
+    return "ai";
+  }
+  if (
+    priceId === process.env.STRIPE_AI_SCALE_USER_USD_PRICE_ID ||
+    priceId === process.env.STRIPE_AI_SCALE_USER_PLN_PRICE_ID ||
+    priceId === process.env.STRIPE_AI_SCALE_PRICE_ID
+  ) {
+    return "ai_scale";
+  }
+  throw new Error(`Unknown Stripe price ID: ${priceId}`);
 };
 
 const findActiveSubscriptionForTeam = async (
@@ -444,11 +481,7 @@ export const ensureSubscriptionSynced = action({
     const currentPeriodStart = subscriptionItem?.current_period_start
       ? subscriptionItem.current_period_start * 1000
       : Date.now();
-    const plan =
-      subscriptionItem?.price.id &&
-      process.env.STRIPE_AI_SCALE_PRICE_ID === subscriptionItem.price.id
-        ? "ai_scale"
-        : "ai";
+    const plan = getPlanKeyFromPriceId(priceId);
 
     if (!team.stripeCustomerId) {
       await runMutation(internalApi.stripe.updateTeamStripeCustomer, {
@@ -462,6 +495,8 @@ export const ensureSubscriptionSynced = action({
       subscriptionId: subscription.id,
       status: subscription.status,
       priceId,
+      quantity: subscriptionItem?.quantity || 1,
+      currency: subscriptionItem?.price.currency,
       currentPeriodStart,
       currentPeriodEnd,
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
@@ -477,6 +512,69 @@ export const ensureSubscriptionSynced = action({
   },
 });
 
+export const syncTeamSeatQuantity = internalAction({
+  args: {
+    teamId: v.id("teams"),
+  },
+  returns: v.object({
+    synced: v.boolean(),
+    quantity: v.optional(v.number()),
+  }),
+  async handler(ctx, args): Promise<{ synced: boolean; quantity?: number }> {
+    const runQuery = ctx.runQuery as (
+      query: unknown,
+      args: unknown,
+    ) => Promise<unknown>;
+    const runMutation = ctx.runMutation as (
+      mutation: unknown,
+      args: unknown,
+    ) => Promise<unknown>;
+
+    const state = (await runQuery(
+      internalApi.stripe.getTeamBillingSeatSyncState,
+      { teamId: args.teamId },
+    )) as
+      | {
+          subscriptionId?: string | null;
+          subscriptionStatus?: string | null;
+          billingSeatQuantity: number;
+        }
+      | null;
+
+    if (
+      !state ||
+      !state.subscriptionId ||
+      !["active", "trialing"].includes(state.subscriptionStatus || "")
+    ) {
+      return { synced: false };
+    }
+
+    const quantity = Math.max(1, Math.floor(state.billingSeatQuantity || 1));
+    const subscription = await getStripe().subscriptions.retrieve(
+      state.subscriptionId,
+    );
+    const item = subscription.items.data[0];
+
+    if (!item) {
+      return { synced: false };
+    }
+
+    if (item.quantity !== quantity) {
+      await getStripe().subscriptionItems.update(item.id, {
+        quantity,
+        proration_behavior: "create_prorations",
+      });
+    }
+
+    await runMutation(internalApi.stripe.updateTeamBillingSeatState, {
+      teamId: args.teamId,
+      billingSeatQuantity: quantity,
+    });
+
+    return { synced: true, quantity };
+  },
+});
+
 const escapeHtml = (value: string) =>
   value
     .replace(/&/g, "&amp;")
@@ -485,8 +583,12 @@ const escapeHtml = (value: string) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 
-const getPlanNameFromPriceId = (priceId: string) =>
-  process.env.STRIPE_AI_SCALE_PRICE_ID === priceId ? "AI Scale" : "AI Pro";
+const getPlanNameFromPriceId = (priceId: string) => {
+  const plan = getPlanKeyFromPriceId(priceId);
+  if (plan === "core") return "Core";
+  if (plan === "ai_scale") return "Studio AI Plus";
+  return "Studio AI";
+};
 
 const normalizeEmail = (value: unknown) => {
   if (typeof value !== "string") return null;

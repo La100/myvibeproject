@@ -57,6 +57,7 @@ import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import ProjectMembers from "./ProjectMembers";
 import TaskStatusSettings from "./TaskStatusSettings";
+import { useI18n } from "@/lib/i18n";
 
 const settingsFormSchema = z
   .object({
@@ -135,30 +136,34 @@ type SettingsTabValue = "general" | "members" | "taskstatus" | "advanced";
 
 interface SettingsTabConfig {
   value: SettingsTabValue;
-  label: string;
-  description: string;
+  labelKey: "general" | "members" | "taskStatus" | "delete";
+  descriptionKey:
+    | "generalDescription"
+    | "membersDescription"
+    | "taskStatusDescription"
+    | "advancedDeleteDescription";
 }
 
 const SETTINGS_TABS: SettingsTabConfig[] = [
   {
     value: "general",
-    label: "General",
-    description: "Identity, timeline, cover, and business defaults.",
+    labelKey: "general",
+    descriptionKey: "generalDescription",
   },
   {
     value: "members",
-    label: "Members",
-    description: "Who has access to the project workspace.",
+    labelKey: "members",
+    descriptionKey: "membersDescription",
   },
   {
     value: "taskstatus",
-    label: "Task Status",
-    description: "Labels and colors used across task flow.",
+    labelKey: "taskStatus",
+    descriptionKey: "taskStatusDescription",
   },
   {
     value: "advanced",
-    label: "Delete",
-    description: "Permanent project deletion.",
+    labelKey: "delete",
+    descriptionKey: "advancedDeleteDescription",
   },
 ];
 
@@ -303,6 +308,7 @@ function ProjectSettingsContent() {
   const params = useParams<{ projectSlug: string }>();
   const router = useRouter();
   const { organization } = useOrganization();
+  const { t } = useI18n();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<SettingsTabValue>("general");
 
@@ -485,19 +491,19 @@ function ProjectSettingsContent() {
           router.push(`/organisation/projects/${result.slug}/settings`);
         }
         if (!options?.silent) {
-          toast.success("Project settings saved.");
+          toast.success(t("projectSettings", "projectSettingsSaved"));
         }
         return true;
       } catch (error) {
         if (!options?.silent) {
-          toast.error("Error updating project settings", {
+          toast.error(t("projectSettings", "errorUpdatingProjectSettings"), {
             description: toUserFacingErrorMessage(error),
           });
         }
         return false;
       }
     },
-    [params.projectSlug, project, responsibleOptions, router, updateProject],
+    [params.projectSlug, project, responsibleOptions, router, t, updateProject],
   );
 
   if (!project || !teamMember || teamMembers === undefined) {
@@ -509,9 +515,11 @@ function ProjectSettingsContent() {
   if (!canEdit) {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
-        <h1 className="mb-2 text-2xl font-bold text-destructive">Read Only</h1>
+        <h1 className="mb-2 text-2xl font-bold text-destructive">
+          {t("projectSettings", "readOnly")}
+        </h1>
         <p className="text-muted-foreground">
-          You can view this project but cannot modify its settings.
+          {t("projectSettings", "readOnlyDescription")}
         </p>
       </div>
     );
@@ -524,18 +532,18 @@ function ProjectSettingsContent() {
     if (values.confirmName !== project.name) {
       deleteForm.setError("confirmName", {
         message:
-          "Project name doesn't match. Please type the exact project name.",
+          t("projectSettings", "projectNameDoesntMatch"),
       });
       return;
     }
 
     try {
       await deleteProject({ projectId: project._id });
-      toast.success("Project deleted successfully");
+      toast.success(t("projectSettings", "projectDeletedSuccessfully"));
       setDeleteDialogOpen(false);
       router.push("/organisation");
     } catch (error) {
-      toast.error("Error deleting project", {
+      toast.error(t("projectSettings", "errorDeletingProject"), {
         description: toUserFacingErrorMessage(error),
       });
     }
@@ -546,7 +554,7 @@ function ProjectSettingsContent() {
       <div className="min-h-screen pb-20">
         <div className="mx-auto flex w-full max-w-[1080px] flex-col gap-6 py-4">
           <ProjectPageHeader
-            title="Settings"
+            title={t("projectSettings", "settings")}
             icon={<Settings className="h-8 w-8 text-primary" />}
             subtitle={project.name}
           />
@@ -556,7 +564,7 @@ function ProjectSettingsContent() {
               <div className="flex flex-col gap-6">
                 <div className="flex flex-col gap-1">
                   <p className="px-4 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                    Project
+                    {t("projectSettings", "project")}
                   </p>
                   <nav className="flex flex-col gap-1">
                     {SETTINGS_TABS.map((tab) => {
@@ -574,7 +582,7 @@ function ProjectSettingsContent() {
                               : "text-foreground/80 hover:bg-secondary/70 hover:text-foreground",
                           )}
                         >
-                          {tab.label}
+                          {t("projectSettings", tab.labelKey)}
                         </button>
                       );
                     })}
@@ -587,7 +595,7 @@ function ProjectSettingsContent() {
               <section className="grid gap-8">
                 <div className="flex flex-col gap-2 border-b border-border/70 pb-5">
                   <h2 className="text-[1.2rem] font-semibold tracking-tight text-foreground md:text-[1.3rem]">
-                    {activeTabConfig.label}
+                    {t("projectSettings", activeTabConfig.labelKey)}
                   </h2>
                 </div>
 
@@ -665,6 +673,7 @@ function GeneralTab({
     options?: { silent?: boolean },
   ) => Promise<boolean>;
 }) {
+  const { t } = useI18n();
   const generateUploadUrl = useMutation(
     apiAny.files.generateUploadUrlWithCustomKey,
   );
@@ -793,7 +802,7 @@ function GeneralTab({
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file");
+      toast.error(t("projectSettings", "pleaseSelectImageFile"));
       return;
     }
 
@@ -805,7 +814,7 @@ function GeneralTab({
       normalizedFileName.endsWith(".heif")
     ) {
       setCoverPreviewErrorMessage(
-        "This HEIC/HEIF image may upload, but this browser cannot preview it reliably. Use JPG, PNG, or WebP for a visible cover.",
+        t("projectSettings", "thisHeicMayUpload"),
       );
     } else {
       setCoverPreviewErrorMessage(null);
@@ -856,16 +865,14 @@ function GeneralTab({
           1,
           Math.round((optimized.originalSize - uploadFile.size) / 1024),
         );
-        toast.success("Cover image uploaded and optimized.", {
-          description: `Reduced by about ${savedKb} KB. Click Save to apply it to the project.`,
+        toast.success(t("projectSettings", "coverImageUploadedAndOptimized"), {
+          description: `${t("projectSettings", "reducedByAbout")} ${savedKb} KB. ${t("projectSettings", "clickSaveToKeepChanges")}`,
         });
       } else {
-        toast.success(
-          "Cover image uploaded. Click Save to apply it to the project.",
-        );
+        toast.success(t("projectSettings", "coverImageUploaded"));
       }
     } catch (error) {
-      toast.error("Failed to upload cover image", {
+      toast.error(t("projectSettings", "failedToUploadCoverImage"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -926,10 +933,10 @@ function GeneralTab({
                 </span>
                 <div className="flex flex-col gap-0.5">
                   <p className="text-sm font-medium text-foreground">
-                    Unsaved project settings
+                    {t("projectSettings", "unsavedProjectSettings")}
                   </p>
                   <p className="text-xs leading-relaxed text-muted-foreground">
-                    Click Save to keep these changes.
+                    {t("projectSettings", "clickSaveToKeepChanges")}
                   </p>
                 </div>
               </div>
@@ -940,7 +947,7 @@ function GeneralTab({
                 className="w-full sm:w-auto sm:min-w-[140px]"
               >
                 <Save data-icon="inline-start" />
-                {isSavingSettings ? "Saving..." : "Save changes"}
+                {isSavingSettings ? t("projectSettings", "saving") : t("projectSettings", "saveChanges")}
               </Button>
             </div>
           ) : null}
@@ -948,11 +955,10 @@ function GeneralTab({
           <section className="flex flex-col gap-4">
             <div className="mb-4 flex flex-col gap-1">
               <h3 className="text-lg font-semibold text-foreground">
-                Identity
+                {t("projectSettings", "identity")}
               </h3>
               <p className="text-sm text-muted-foreground">
-                This information appears in dashboards, lists, and
-                notifications.
+                {t("projectSettings", "identityDescription")}
               </p>
             </div>
 
@@ -963,11 +969,11 @@ function GeneralTab({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm font-medium">
-                      Project Name
+                      {t("projectSettings", "projectName")}
                     </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Project name"
+                        placeholder={t("projectSettings", "projectName")}
                         {...field}
                         className="h-10 w-full"
                       />
@@ -983,7 +989,7 @@ function GeneralTab({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm font-medium">
-                      Project Status
+                      {t("projectSettings", "projectStatus")}
                     </FormLabel>
                     <Select
                       onValueChange={field.onChange}
@@ -991,15 +997,15 @@ function GeneralTab({
                     >
                       <FormControl>
                         <SelectTrigger className="h-10 w-full">
-                          <SelectValue placeholder="Select project status" />
+                          <SelectValue placeholder={t("projectSettings", "selectProjectStatus")} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="planning">Planning</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="on_hold">On Hold</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                        <SelectItem value="planning">{t("projectSettings", "planning")}</SelectItem>
+                        <SelectItem value="active">{t("projectSettings", "active")}</SelectItem>
+                        <SelectItem value="on_hold">{t("projectSettings", "onHold")}</SelectItem>
+                        <SelectItem value="completed">{t("projectSettings", "completed")}</SelectItem>
+                        <SelectItem value="cancelled">{t("projectWorkspace", "cancelled")}</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -1014,7 +1020,7 @@ function GeneralTab({
               render={({ field }) => (
                 <FormItem className="mt-4">
                   <FormLabel className="text-sm font-medium">
-                    Responsible Person
+                    {t("projectSettings", "responsiblePerson")}
                   </FormLabel>
                   <Select
                     onValueChange={field.onChange}
@@ -1023,7 +1029,7 @@ function GeneralTab({
                   >
                     <FormControl>
                       <SelectTrigger className="h-10 w-full">
-                        <SelectValue placeholder="Select team member responsible for this project" />
+                        <SelectValue placeholder={t("projectSettings", "selectTeamMemberResponsible")} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -1039,8 +1045,7 @@ function GeneralTab({
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    This is the main internal owner for day-to-day work on the
-                    project.
+                    {t("projectSettings", "responsiblePersonDescription")}
                   </p>
                   <FormMessage />
                 </FormItem>
@@ -1053,11 +1058,11 @@ function GeneralTab({
               render={({ field }) => (
                 <FormItem className="mt-4">
                   <FormLabel className="text-sm font-medium">
-                    Description
+                    {t("projectSettings", "description")}
                   </FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="What is this project about?"
+                      placeholder={t("projectSettings", "whatIsThisProjectAbout")}
                       {...field}
                       className="min-h-[110px] w-full resize-none"
                       rows={4}
@@ -1072,10 +1077,10 @@ function GeneralTab({
           <section className="border-t border-border/70 pt-8">
             <div className="mb-4 flex flex-col gap-1">
               <h3 className="text-lg font-semibold text-foreground">
-                Business Details
+                {t("projectSettings", "businessDetails")}
               </h3>
               <p className="text-sm text-muted-foreground">
-                Client, location, budget, and defaults for this project.
+                {t("projectSettings", "businessDetailsDescription")}
               </p>
             </div>
 
@@ -1086,11 +1091,11 @@ function GeneralTab({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm font-medium">
-                      Client
+                      {t("projectSettings", "client")}
                     </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Client name"
+                        placeholder={t("projectSettings", "client")}
                         {...field}
                         className="h-10 w-full"
                       />
@@ -1106,12 +1111,12 @@ function GeneralTab({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm font-medium">
-                      Customer Email
+                      {t("projectSettings", "customerEmail")}
                     </FormLabel>
                     <FormControl>
                       <Input
                         type="email"
-                        placeholder="client@example.com"
+                        placeholder={t("projectSettings", "customerEmailPlaceholder")}
                         {...field}
                         value={field.value ?? ""}
                         className="h-10 w-full"
@@ -1128,11 +1133,11 @@ function GeneralTab({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm font-medium">
-                      Location
+                      {t("projectSettings", "location")}
                     </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Street, city, state, postcode"
+                        placeholder={t("projectSettings", "locationPlaceholder")}
                         {...field}
                         className="h-10 w-full"
                       />
@@ -1149,13 +1154,13 @@ function GeneralTab({
                   render={({ field }) => (
                     <FormItem id="project-budget">
                       <FormLabel className="text-sm font-medium">
-                        Budget
+                        {t("projectSettings", "budget")}
                       </FormLabel>
                       <FormControl>
                         <Input
                           id="project-budget-input"
                           type="number"
-                          placeholder="Project budget"
+                          placeholder={t("projectSettings", "projectBudget")}
                           {...field}
                           className="h-10 w-full"
                         />
@@ -1171,7 +1176,7 @@ function GeneralTab({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-sm font-medium">
-                        Currency
+                        {t("projectSettings", "currency")}
                       </FormLabel>
                       <Select
                         onValueChange={field.onChange}
@@ -1179,7 +1184,7 @@ function GeneralTab({
                       >
                         <FormControl>
                           <SelectTrigger className="h-10 w-full">
-                            <SelectValue placeholder="Select project currency" />
+                            <SelectValue placeholder={t("projectSettings", "selectProjectCurrency")} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -1204,7 +1209,7 @@ function GeneralTab({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-sm font-medium">
-                        Measurements
+                        {t("projectSettings", "measurements")}
                       </FormLabel>
                       <Select
                         onValueChange={field.onChange}
@@ -1212,12 +1217,12 @@ function GeneralTab({
                       >
                         <FormControl>
                           <SelectTrigger className="h-10 w-full">
-                            <SelectValue placeholder="Select measurement system" />
+                            <SelectValue placeholder={t("projectSettings", "selectMeasurementSystem")} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="metric">Metric</SelectItem>
-                          <SelectItem value="imperial">Imperial</SelectItem>
+                          <SelectItem value="metric">{t("projectSettings", "metric")}</SelectItem>
+                          <SelectItem value="imperial">{t("projectSettings", "imperial")}</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -1231,11 +1236,10 @@ function GeneralTab({
           <section className="border-t border-border/70 pt-8">
             <div className="mb-4 flex flex-col gap-1">
               <h3 className="text-lg font-semibold text-foreground">
-                Timeline
+                {t("projectSettings", "timeline")}
               </h3>
               <p className="text-sm text-muted-foreground">
-                Set the planned project window shown across calendars, reports,
-                and operational views.
+                {t("projectSettings", "timelineDescription")}
               </p>
             </div>
 
@@ -1246,7 +1250,7 @@ function GeneralTab({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm font-medium">
-                      Start Date
+                      {t("projectSettings", "startDate")}
                     </FormLabel>
                     <FormControl>
                       <DatePicker
@@ -1254,7 +1258,7 @@ function GeneralTab({
                         onDateChange={(date) =>
                           field.onChange(formatDateInput(date))
                         }
-                        placeholder="Select start date"
+                        placeholder={t("projectSettings", "selectStartDate")}
                         className="h-10 w-full"
                       />
                     </FormControl>
@@ -1269,7 +1273,7 @@ function GeneralTab({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm font-medium">
-                      End Date
+                      {t("projectSettings", "endDate")}
                     </FormLabel>
                     <FormControl>
                       <DatePicker
@@ -1277,7 +1281,7 @@ function GeneralTab({
                         onDateChange={(date) =>
                           field.onChange(formatDateInput(date))
                         }
-                        placeholder="Select end date"
+                        placeholder={t("projectSettings", "selectEndDate")}
                         className="h-10 w-full"
                       />
                     </FormControl>
@@ -1289,8 +1293,7 @@ function GeneralTab({
 
             <div className="mt-4 rounded-2xl bg-secondary/70 px-4 py-3">
               <p className="text-xs leading-relaxed text-muted-foreground">
-                Leave dates empty if the project is still open-ended. Once set,
-                they feed project reporting and timeline views.
+                {t("projectSettings", "leaveDatesEmpty")}
               </p>
             </div>
           </section>
@@ -1298,10 +1301,10 @@ function GeneralTab({
           <section className="border-t border-border/70 pt-8">
             <div className="mb-4 flex flex-col gap-1">
               <h3 className="text-lg font-semibold text-foreground">
-                Cover Image
+                {t("projectSettings", "coverImage")}
               </h3>
               <p className="text-sm text-muted-foreground">
-                Optional image shown on the project.
+                {t("projectSettings", "optionalImageShown")}
               </p>
             </div>
 
@@ -1311,12 +1314,12 @@ function GeneralTab({
                   <div className="relative">
                     <img
                       src={coverPreviewUrl ?? undefined}
-                      alt="Project cover preview"
+                      alt={t("projectSettings", "projectCoverPreview")}
                       className="h-48 w-full object-cover sm:h-56 lg:h-64"
                     />
                     <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 bg-gradient-to-t from-black/55 via-black/15 to-transparent px-5 py-4">
                       <p className="text-sm font-medium text-white">
-                        Project cover
+                        {t("projectSettings", "projectCover")}
                       </p>
                       <div className="flex items-center gap-2">
                         <Button
@@ -1328,7 +1331,7 @@ function GeneralTab({
                           className="rounded-full"
                         >
                           <ImagePlus className="mr-2 h-4 w-4" />
-                          {uploadingCoverImage ? "Uploading..." : "Replace"}
+                          {uploadingCoverImage ? t("projectSettings", "uploading") : t("projectSettings", "replace")}
                         </Button>
                         <Button
                           type="button"
@@ -1339,7 +1342,7 @@ function GeneralTab({
                           className="rounded-full"
                         >
                           <X className="mr-2 h-4 w-4" />
-                          Remove
+                          {t("projectSettings", "remove")}
                         </Button>
                       </div>
                     </div>
@@ -1352,14 +1355,14 @@ function GeneralTab({
                     <div className="flex flex-col gap-1">
                       <p className="text-sm font-medium text-foreground">
                         {coverPreviewStatus === "loading"
-                          ? "Loading preview..."
-                          : "No cover image yet"}
+                          ? t("projectSettings", "loadingPreview")
+                          : t("projectSettings", "noCoverImageYet")}
                       </p>
                       <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
                         {coverPreviewStatus === "error"
                           ? coverPreviewErrorMessage ||
-                            "This image preview could not be loaded. Upload a different file or remove the current one."
-                          : "Upload a simple wide image if you want a visual header for this project."}
+                            t("projectSettings", "uploadADifferentFile")
+                          : t("projectSettings", "uploadSimpleWideImage")}
                       </p>
                     </div>
                     <Button
@@ -1370,7 +1373,7 @@ function GeneralTab({
                       className="rounded-full"
                     >
                       <ImagePlus className="mr-2 h-4 w-4" />
-                      {uploadingCoverImage ? "Uploading..." : "Upload image"}
+                      {uploadingCoverImage ? t("projectSettings", "uploading") : t("projectSettings", "uploadImage")}
                     </Button>
                   </div>
                 )}
@@ -1394,13 +1397,13 @@ function GeneralTab({
 
           <div className="sticky bottom-4 z-10 flex flex-col gap-3 rounded-2xl border border-border/70 bg-card/95 p-3 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">
-              Project settings are saved only when you click Save.
+              {t("projectSettings", "projectSettingsSavedOnly")}
             </p>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               {showSavedState ? (
                 <span className="inline-flex items-center gap-1.5 text-sm font-medium text-primary">
                   <Check className="h-4 w-4" />
-                  Saved
+                  {t("projectSettings", "saved")}
                 </span>
               ) : null}
               <Button
@@ -1408,7 +1411,7 @@ function GeneralTab({
                 disabled={isSaveDisabled}
                 className="min-w-[120px]"
               >
-                {isSavingSettings ? "Saving..." : "Save"}
+                {isSavingSettings ? t("projectSettings", "saving") : t("projectSettings", "save")}
               </Button>
             </div>
           </div>
@@ -1431,6 +1434,8 @@ function TaskStatusTab({
 }: {
   project: { _id: string; taskStatusSettings?: unknown };
 }) {
+  const { t } = useI18n();
+
   return (
     <div>
       {project && project.taskStatusSettings ? (
@@ -1448,13 +1453,13 @@ function TaskStatusTab({
       ) : (
         <div className="border-b border-border/70 pb-5">
           <h3 className="text-lg font-semibold text-foreground">
-            Task Status Settings
+            {t("projectSettings", "taskStatusSettings")}
           </h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Configure custom task statuses for this project.
+            {t("projectSettings", "configureCustomTaskStatuses")}
           </p>
           <p className="mt-5 text-sm text-muted-foreground">
-            Task status settings will be available here.
+            {t("projectSettings", "taskStatusSettingsAvailable")}
           </p>
         </div>
       )}
@@ -1475,31 +1480,31 @@ function AdvancedTab({
   setDeleteDialogOpen: (open: boolean) => void;
   onDeleteSubmit: (values: z.infer<typeof deleteFormSchema>) => void;
 }) {
+  const { t } = useI18n();
   const copyProjectName = async () => {
     try {
       await navigator.clipboard.writeText(project.name);
-      toast.success("Project name copied");
+      toast.success(t("projectSettings", "projectNameCopied"));
     } catch {
-      toast.error("Could not copy project name");
+      toast.error(t("projectSettings", "couldNotCopyProjectName"));
     }
   };
 
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h3 className="text-lg font-semibold text-destructive">Delete</h3>
+        <h3 className="text-lg font-semibold text-destructive">{t("projectSettings", "delete")}</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Deleting this project removes tasks, files, comments, and related
-          history. This action is irreversible.
+          {t("projectSettings", "deletingRemoves")}
         </p>
       </div>
 
       <div className="rounded-2xl bg-destructive/5 p-4">
         <h4 className="mb-2 text-sm font-medium text-destructive">
-          Delete Project
+          {t("projectSettings", "deleteProject")}
         </h4>
         <p className="mb-4 text-sm text-muted-foreground">
-          This permanently removes the project for the whole team.
+          {t("projectSettings", "thisPermanentlyRemoves")}
         </p>
         <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <DialogTrigger asChild>
@@ -1509,10 +1514,9 @@ function AdvancedTab({
           </DialogTrigger>
           <DialogContent className="mx-4 sm:max-w-[460px]">
             <DialogHeader>
-              <DialogTitle className="text-lg">Delete Project</DialogTitle>
+              <DialogTitle className="text-lg">{t("projectSettings", "deleteProject")}</DialogTitle>
               <DialogDescription className="text-sm">
-                This action cannot be undone. Type the project name exactly to
-                confirm permanent deletion.
+                {t("projectSettings", "thisActionCannotBeUndone")}
               </DialogDescription>
             </DialogHeader>
             <Form {...deleteForm}>
@@ -1526,7 +1530,7 @@ function AdvancedTab({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-sm">
-                        Type{" "}
+                        {t("projectSettings", "type")}{" "}
                         <span className="inline-flex items-center gap-1.5">
                           <span className="font-mono font-semibold">
                             {project.name}
@@ -1539,14 +1543,14 @@ function AdvancedTab({
                               event.preventDefault();
                               void copyProjectName();
                             }}
-                            aria-label="Copy project name"
-                            title="Copy project name"
+                            aria-label={t("projectSettings", "copyProjectName")}
+                            title={t("projectSettings", "copyProjectName")}
                             className="text-muted-foreground hover:text-foreground"
                           >
                             <Copy className="h-3 w-3" />
                           </Button>
                         </span>{" "}
-                        to confirm:
+                        {t("projectSettings", "toConfirm")}
                       </FormLabel>
                       <FormControl>
                         <Input
@@ -1567,7 +1571,7 @@ function AdvancedTab({
                     onClick={() => setDeleteDialogOpen(false)}
                     className="w-full sm:w-auto"
                   >
-                    Cancel
+                    {t("projectSettings", "cancel")}
                   </Button>
                   <Button
                     type="submit"
@@ -1576,8 +1580,8 @@ function AdvancedTab({
                     className="w-full sm:w-auto"
                   >
                     {deleteForm.formState.isSubmitting
-                      ? "Deleting..."
-                      : "Delete Project"}
+                      ? t("projectSettings", "deleting")
+                      : t("projectSettings", "deleteProject")}
                   </Button>
                 </DialogFooter>
               </form>

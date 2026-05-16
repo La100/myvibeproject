@@ -920,6 +920,11 @@ export const createProjectInOrg = mutation({
         joinedAt: Date.now(),
         permissions: [],
       });
+      await ctx.scheduler.runAfter(
+        0,
+        internalAny.stripeActions.syncTeamSeatQuantity,
+        { teamId: team._id },
+      );
     } else if (creatorMembership.role !== "admin") {
       // If already a member but not admin, promote to admin
       await ctx.db.patch(creatorMembership._id, { role: "admin" });

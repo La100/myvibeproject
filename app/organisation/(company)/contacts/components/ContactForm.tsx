@@ -18,6 +18,7 @@ import {
 import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useI18n } from "@/lib/i18n";
 
 interface ContactFormProps {
   contactId?: Id<"contacts">;
@@ -32,6 +33,7 @@ export function ContactForm({
   onSuccess,
   onCancel,
 }: ContactFormProps) {
+  const { t } = useI18n();
   const { organization } = useOrganization();
   const [formData, setFormData] = useState({
     name: "",
@@ -84,7 +86,7 @@ export function ContactForm({
     e.preventDefault();
 
     if (!formData.name.trim()) {
-      toast.error("Contact name is required");
+      toast.error(t("contacts", "contactNameRequired"));
       return;
     }
 
@@ -107,10 +109,10 @@ export function ContactForm({
           contactId,
           ...contactData,
         });
-        toast.success("Contact updated successfully");
+        toast.success(t("contacts", "contactUpdated"));
       } else {
         if (!team?.slug) {
-          toast.error("Organization is not ready yet");
+          toast.error(t("contacts", "organizationNotReady"));
           return;
         }
         const createdContactId = (await createContact({
@@ -123,15 +125,15 @@ export function ContactForm({
             projectId,
             contactId: createdContactId,
           });
-          toast.success("Contact added to project");
+          toast.success(t("contacts", "contactAddedToProject"));
         } else {
-          toast.success("Contact added successfully");
+          toast.success(t("contacts", "contactAdded"));
         }
       }
 
       onSuccess();
     } catch (error) {
-      toast.error("Error saving contact", {
+      toast.error(t("contacts", "errorSavingContact"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -142,7 +144,7 @@ export function ContactForm({
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-3">
-          <Label htmlFor="name">Contact Name *</Label>
+          <Label htmlFor="name">{t("contacts", "contactName")}</Label>
           <Input
             id="name"
             value={formData.name}
@@ -154,7 +156,7 @@ export function ContactForm({
         </div>
 
         <div className="flex flex-col gap-3">
-          <Label htmlFor="companyName">Company Name</Label>
+          <Label htmlFor="companyName">{t("contacts", "companyName")}</Label>
           <Input
             id="companyName"
             value={formData.companyName}
@@ -167,7 +169,7 @@ export function ContactForm({
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-3">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{t("contacts", "email")}</Label>
           <Input
             id="email"
             type="email"
@@ -179,7 +181,7 @@ export function ContactForm({
         </div>
 
         <div className="flex flex-col gap-3">
-          <Label htmlFor="phone">Phone</Label>
+          <Label htmlFor="phone">{t("contacts", "phone")}</Label>
           <Input
             id="phone"
             value={formData.phone}
@@ -191,7 +193,7 @@ export function ContactForm({
       </div>
 
       <div className="flex flex-col gap-3">
-        <Label htmlFor="address">Address</Label>
+        <Label htmlFor="address">{t("contacts", "address")}</Label>
         <Input
           id="address"
           value={formData.address}
@@ -203,7 +205,7 @@ export function ContactForm({
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-3">
-          <Label htmlFor="city">City</Label>
+          <Label htmlFor="city">{t("contacts", "city")}</Label>
           <Input
             id="city"
             value={formData.city}
@@ -214,7 +216,7 @@ export function ContactForm({
         </div>
 
         <div className="flex flex-col gap-3">
-          <Label htmlFor="postalCode">Postal Code</Label>
+          <Label htmlFor="postalCode">{t("contacts", "postalCode")}</Label>
           <Input
             id="postalCode"
             value={formData.postalCode}
@@ -227,7 +229,7 @@ export function ContactForm({
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-3">
-          <Label htmlFor="website">Website</Label>
+          <Label htmlFor="website">{t("contacts", "website")}</Label>
           <Input
             id="website"
             value={formData.website}
@@ -238,7 +240,7 @@ export function ContactForm({
         </div>
 
         <div className="flex flex-col gap-3">
-          <Label htmlFor="taxId">Tax ID</Label>
+          <Label htmlFor="taxId">{t("contacts", "taxId")}</Label>
           <Input
             id="taxId"
             value={formData.taxId}
@@ -251,7 +253,7 @@ export function ContactForm({
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-3">
-          <Label htmlFor="type">Contact Type</Label>
+          <Label htmlFor="type">{t("contacts", "contactType")}</Label>
           <Select
             value={formData.type}
             onValueChange={(
@@ -262,17 +264,25 @@ export function ContactForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="contractor">Contractor</SelectItem>
-              <SelectItem value="supplier">Supplier</SelectItem>
-              <SelectItem value="subcontractor">Subcontractor</SelectItem>
-              <SelectItem value="other">Other</SelectItem>
+              <SelectItem value="contractor">
+                {t("contacts", "typeContractor")}
+              </SelectItem>
+              <SelectItem value="supplier">
+                {t("contacts", "typeSupplier")}
+              </SelectItem>
+              <SelectItem value="subcontractor">
+                {t("contacts", "typeSubcontractor")}
+              </SelectItem>
+              <SelectItem value="other">
+                {t("contacts", "typeOther")}
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
       <div className="flex flex-col gap-3">
-        <Label htmlFor="notes">Notes</Label>
+        <Label htmlFor="notes">{t("contacts", "notes")}</Label>
         <Textarea
           id="notes"
           value={formData.notes}
@@ -285,10 +295,12 @@ export function ContactForm({
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
+          {t("contacts", "cancel")}
         </Button>
         <Button type="submit">
-          {contactId ? "Save Changes" : "Add Contact"}
+          {contactId
+            ? t("contacts", "saveChanges")
+            : t("contacts", "addContact")}
         </Button>
       </div>
     </form>

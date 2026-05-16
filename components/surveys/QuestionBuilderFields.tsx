@@ -4,6 +4,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useI18n } from "@/lib/i18n";
 
 export type RatingScaleValue = {
   min: number;
@@ -32,16 +33,24 @@ export type SurveyQuestionBuilderFields = {
 
 export const surveyQuestionTypes: Array<{
   value: SurveyQuestionType;
-  label: string;
+  labelKey:
+    | "shortText"
+    | "longText"
+    | "singleChoice"
+    | "multipleChoice"
+    | "ratingScale"
+    | "yesNo"
+    | "number"
+    | "fileUpload";
 }> = [
-  { value: "text_short", label: "Short Text" },
-  { value: "text_long", label: "Long Text" },
-  { value: "single_choice", label: "Single Choice" },
-  { value: "multiple_choice", label: "Multiple Choice" },
-  { value: "rating", label: "Rating Scale" },
-  { value: "yes_no", label: "Yes/No" },
-  { value: "number", label: "Number" },
-  { value: "file", label: "File Upload" },
+  { value: "text_short", labelKey: "shortText" },
+  { value: "text_long", labelKey: "longText" },
+  { value: "single_choice", labelKey: "singleChoice" },
+  { value: "multiple_choice", labelKey: "multipleChoice" },
+  { value: "rating", labelKey: "ratingScale" },
+  { value: "yes_no", labelKey: "yesNo" },
+  { value: "number", labelKey: "number" },
+  { value: "file", labelKey: "fileUpload" },
 ];
 
 export function normalizeChoiceOptions(options: string[]) {
@@ -79,6 +88,7 @@ export function ChoiceOptionsEditor({
   options,
   onChange,
 }: ChoiceOptionsEditorProps) {
+  const { t } = useI18n();
   const rows = options.length >= 2 ? options : createDefaultOptions();
 
   const updateOption = (index: number, value: string) => {
@@ -97,7 +107,7 @@ export function ChoiceOptionsEditor({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <Label className="text-sm font-semibold">Options</Label>
+        <Label className="text-sm font-semibold">{t("surveys", "options")}</Label>
         <Button
           type="button"
           variant="outline"
@@ -105,7 +115,7 @@ export function ChoiceOptionsEditor({
           onClick={() => onChange([...rows, ""])}
         >
           <Plus data-icon="inline-start" />
-          Add option
+          {t("surveys", "addOption")}
         </Button>
       </div>
       <div className="flex flex-col gap-2">
@@ -114,7 +124,7 @@ export function ChoiceOptionsEditor({
             <Input
               value={option}
               onChange={(event) => updateOption(index, event.target.value)}
-              placeholder={`Option ${index + 1}`}
+              placeholder={t("surveys", "option").replace("{number}", String(index + 1))}
               className="h-11 text-base"
             />
             <Button
@@ -123,7 +133,7 @@ export function ChoiceOptionsEditor({
               size="icon"
               disabled={rows.length <= 2}
               onClick={() => removeOption(index)}
-              aria-label={`Remove option ${index + 1}`}
+              aria-label={t("surveys", "removeOption").replace("{number}", String(index + 1))}
             >
               <Trash2 />
             </Button>
@@ -142,6 +152,7 @@ type RatingScaleEditorProps = {
 };
 
 export function RatingScaleEditor({ value, onChange }: RatingScaleEditorProps) {
+  const { t } = useI18n();
   const min = Number.isFinite(value.min) ? value.min : 1;
   const max = Number.isFinite(value.max) ? value.max : 5;
   const previewMin = Math.min(min, max);
@@ -155,7 +166,7 @@ export function RatingScaleEditor({ value, onChange }: RatingScaleEditorProps) {
     <div className="flex flex-col gap-4">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-2">
-          <Label className="text-sm font-semibold">Scale start</Label>
+          <Label className="text-sm font-semibold">{t("surveys", "scaleStart")}</Label>
           <Input
             type="number"
             value={value.min}
@@ -167,7 +178,7 @@ export function RatingScaleEditor({ value, onChange }: RatingScaleEditorProps) {
           />
         </div>
         <div className="flex flex-col gap-2">
-          <Label className="text-sm font-semibold">Scale end</Label>
+          <Label className="text-sm font-semibold">{t("surveys", "scaleEnd")}</Label>
           <Input
             type="number"
             value={value.max}
@@ -182,23 +193,23 @@ export function RatingScaleEditor({ value, onChange }: RatingScaleEditorProps) {
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-2">
-          <Label className="text-sm font-semibold">Start label</Label>
+          <Label className="text-sm font-semibold">{t("surveys", "startLabel")}</Label>
           <Input
             value={value.minLabel}
             onChange={(event) =>
               onChange({ ...value, minLabel: event.target.value })
             }
-            placeholder="Not important"
+            placeholder={t("surveys", "notImportant")}
           />
         </div>
         <div className="flex flex-col gap-2">
-          <Label className="text-sm font-semibold">End label</Label>
+          <Label className="text-sm font-semibold">{t("surveys", "endLabel")}</Label>
           <Input
             value={value.maxLabel}
             onChange={(event) =>
               onChange({ ...value, maxLabel: event.target.value })
             }
-            placeholder="Very important"
+            placeholder={t("surveys", "veryImportant")}
           />
         </div>
       </div>

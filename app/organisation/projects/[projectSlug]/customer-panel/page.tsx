@@ -31,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { AppLoadingState } from "@/components/ui/loading-state";
+import { useI18n } from "@/lib/i18n";
 
 const DEFAULT_CLIENT_PANEL_SETTINGS = {
   showShoppingList: false,
@@ -54,8 +55,8 @@ type ClientPanelSettings = typeof DEFAULT_CLIENT_PANEL_SETTINGS;
 type FeatureCardConfig = {
   key: keyof ClientPanelSettings;
   id: string;
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   icon: ReactNode;
 };
 
@@ -63,29 +64,29 @@ const PRIMARY_FEATURE_CARDS: FeatureCardConfig[] = [
   {
     key: "showLabor",
     id: "show-labor",
-    title: "Labor",
-    description: "Services list with pricing.",
+    titleKey: "labor",
+    descriptionKey: "laborDescription",
     icon: <Wrench className="h-5 w-5" />,
   },
   {
     key: "showContacts",
     id: "show-contacts",
-    title: "Contacts",
-    description: "Assigned project contacts.",
+    titleKey: "contacts",
+    descriptionKey: "contactsDescription",
     icon: <SquareUserRound className="h-5 w-5" />,
   },
   {
     key: "showBudget",
     id: "show-budget",
-    title: "Budget",
-    description: "Project budget overview.",
+    titleKey: "budget",
+    descriptionKey: "budgetDescription",
     icon: <ClipboardList className="h-5 w-5" />,
   },
   {
     key: "showPayments",
     id: "show-payments",
-    title: "Payments",
-    description: "Stripe installments and payment links.",
+    titleKey: "payments",
+    descriptionKey: "paymentsDescription",
     icon: <CreditCard className="h-5 w-5" />,
   },
 ];
@@ -93,8 +94,8 @@ const PRIMARY_FEATURE_CARDS: FeatureCardConfig[] = [
 const SHOPPING_LIST_FEATURE_CARD: FeatureCardConfig = {
   key: "showShoppingList",
   id: "show-shopping-list",
-  title: "Shopping List",
-  description: "Products, options, and alternative groups.",
+  titleKey: "shoppingList",
+  descriptionKey: "shoppingListDescription",
   icon: <ShoppingBag className="h-5 w-5" />,
 };
 
@@ -102,29 +103,29 @@ const SECONDARY_FEATURE_CARDS: FeatureCardConfig[] = [
   {
     key: "showFiles",
     id: "show-files",
-    title: "Files",
-    description: "Files marked for the client portal.",
+    titleKey: "files",
+    descriptionKey: "filesDescription",
     icon: <Files className="h-5 w-5" />,
   },
   {
     key: "showMoodboard",
     id: "show-moodboard",
-    title: "Moodboard",
-    description: "Saved visuals and references.",
+    titleKey: "moodboard",
+    descriptionKey: "moodboardDescription",
     icon: <ImageIcon className="h-5 w-5" />,
   },
   {
     key: "showSurveys",
     id: "show-surveys",
-    title: "Surveys",
-    description: "Forms customers can open and submit.",
+    titleKey: "surveys",
+    descriptionKey: "surveysDescription",
     icon: <FileText className="h-5 w-5" />,
   },
   {
     key: "showTasks",
     id: "show-tasks",
-    title: "Tasks",
-    description: "Project task list and statuses.",
+    titleKey: "tasks",
+    descriptionKey: "tasksDescription",
     icon: <ListTodo className="h-5 w-5" />,
   },
 ];
@@ -141,6 +142,7 @@ const PORTAL_SWITCH_CLASSNAME =
   "h-6 w-11 border-0 bg-muted/90 shadow-none data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted/90";
 
 export default function CustomerPanelPage() {
+  const { t } = useI18n();
   const { project, teamMember, isLoading } = useProject();
   const panelConfig = useQuery(
     apiAny.projects.getClientPanelConfiguration,
@@ -181,7 +183,7 @@ export default function CustomerPanelPage() {
         }
       } catch (error) {
         if (!cancelled) {
-          toast.error("Failed to prepare customer link", {
+          toast.error(t("customerPanelSetup", "failedToPrepareCustomerLink"), {
             description: toUserFacingErrorMessage(error),
           });
         }
@@ -197,7 +199,7 @@ export default function CustomerPanelPage() {
     return () => {
       cancelled = true;
     };
-  }, [canManageCustomerPanel, ensureClientPanelAccessToken, isLoading, project._id]);
+  }, [canManageCustomerPanel, ensureClientPanelAccessToken, isLoading, project._id, t]);
 
   useEffect(() => {
     if (!panelConfig) return;
@@ -241,9 +243,9 @@ export default function CustomerPanelPage() {
 
     try {
       await navigator.clipboard.writeText(panelUrlValue);
-      toast.success("Customer link copied");
+      toast.success(t("customerPanelSetup", "customerLinkCopied"));
     } catch {
-      toast.error("Failed to copy customer link");
+      toast.error(t("customerPanelSetup", "failedToCopyCustomerLink"));
     }
   };
 
@@ -252,9 +254,9 @@ export default function CustomerPanelPage() {
     try {
       const result = await regenerateClientPanelAccessToken({ projectId: project._id });
       setAccessToken(result.token);
-      toast.success("Customer link regenerated");
+      toast.success(t("customerPanelSetup", "customerLinkRegenerated"));
     } catch (error) {
-      toast.error("Failed to regenerate customer link", {
+      toast.error(t("customerPanelSetup", "failedToRegenerateCustomerLink"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -271,7 +273,7 @@ export default function CustomerPanelPage() {
   const handleSendLink = async () => {
     const normalizedEmail = recipientEmail.trim();
     if (!normalizedEmail) {
-      toast.error("Enter a customer email");
+      toast.error(t("customerPanelSetup", "enterCustomerEmail"));
       return;
     }
 
@@ -282,11 +284,13 @@ export default function CustomerPanelPage() {
         recipientEmail: normalizedEmail,
         baseUrl: typeof window !== "undefined" ? window.location.origin : undefined,
       });
-      toast.success("Client portal link sent", {
-        description: `Email sent to ${normalizedEmail}.`,
+      toast.success(t("customerPanelSetup", "clientPortalLinkSent"), {
+        description: t("customerPanelSetup", "emailSentTo", {
+          email: normalizedEmail,
+        }),
       });
     } catch (error) {
-      toast.error("Failed to send client portal link", {
+      toast.error(t("customerPanelSetup", "failedToSendClientPortalLink"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -301,12 +305,14 @@ export default function CustomerPanelPage() {
         projectId: project._id,
         settings: portalSettings,
       });
-      toast.success("Client portal updated", {
-        description: `Published portal version #${result.version}.`,
+      toast.success(t("customerPanelSetup", "clientPortalUpdated"), {
+        description: t("customerPanelSetup", "publishedPortalVersion", {
+          version: result.version,
+        }),
       });
       emitDemoProjectTourEvent("client-portal-published");
     } catch (error) {
-      toast.error("Failed to update client portal", {
+      toast.error(t("customerPanelSetup", "failedToUpdateClientPortal"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -318,8 +324,8 @@ export default function CustomerPanelPage() {
     return (
       <AppLoadingState
         variant="panel"
-        title="Loading portal"
-        description="Preparing client portal settings."
+        title={t("customerPanelSetup", "loadingPortal")}
+        description={t("customerPanelSetup", "loadingPortalDescription")}
       />
     );
   }
@@ -328,9 +334,9 @@ export default function CustomerPanelPage() {
     <ProjectPageLayout>
       <div className="mx-auto flex w-full max-w-[1080px] flex-col gap-5">
         <ProjectPageHeader
-          title="Client Portal"
+          title={t("customerPanelSetup", "clientPortal")}
           icon={<ExternalLink className="h-8 w-8 text-[var(--chart-2)]" />}
-          subtitle="Control what your client sees in the portal. Toggle sections, copy the link, and publish when ready."
+          subtitle={t("customerPanelSetup", "clientPortalSubtitle")}
           tags={
             <div className="flex flex-col items-start gap-4">
               <div className="flex flex-wrap items-center gap-3">
@@ -354,10 +360,10 @@ export default function CustomerPanelPage() {
                         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#4ade80] opacity-75" />
                         <span className="relative inline-flex size-2.5 rounded-full bg-[#22c55e]" />
                       </span>
-                      Live
+                      {t("customerPanelSetup", "live")}
                     </>
                   ) : (
-                    "Draft"
+                    t("customerPanelSetup", "draft")
                   )}
                 </Badge>
               </div>
@@ -367,26 +373,33 @@ export default function CustomerPanelPage() {
                 disabled={isPublishingPortal}
                 className={UPDATE_PORTAL_BUTTON_CLASSNAME}
               >
-                {isPublishingPortal ? "Updating..." : "Update portal"}
+                {isPublishingPortal
+                  ? t("customerPanelSetup", "updating")
+                  : t("customerPanelSetup", "updatePortal")}
               </Button>
             </div>
           }
         />
 
         <SectionBlock
-          title="Portal access"
-          description="Copy the link, open the portal, regenerate access, or send it by email from one compact row."
+          title={t("customerPanelSetup", "portalAccess")}
+          description={t("customerPanelSetup", "portalAccessDescription")}
         >
           <Card className="gap-0 rounded-2xl border-border/70 bg-card py-0 shadow-none backdrop-blur-[2px]">
             <CardContent className="grid gap-0 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]">
               <div className="flex flex-col gap-3 p-4 lg:border-r lg:border-border/70">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="customer-portal-url" className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                    Portal link
+                    {t("customerPanelSetup", "portalLink")}
                   </Label>
                   <Input
                     id="customer-portal-url"
-                    value={panelUrlValue || (isPreparingLink ? "Preparing link..." : "")}
+                    value={
+                      panelUrlValue ||
+                      (isPreparingLink
+                        ? t("customerPanelSetup", "preparingLink")
+                        : "")
+                    }
                     readOnly
                     className="h-9 rounded-full bg-secondary/70 text-sm"
                   />
@@ -401,7 +414,7 @@ export default function CustomerPanelPage() {
                     className={FLAT_PRIMARY_BUTTON_CLASSNAME}
                   >
                     <Copy className="h-4 w-4" />
-                    Copy link
+                    {t("customerPanelSetup", "copyLink")}
                   </Button>
                   <Button
                     type="button"
@@ -412,7 +425,7 @@ export default function CustomerPanelPage() {
                     className="rounded-full border-border/70 bg-card"
                   >
                     <ExternalLink className="h-4 w-4" />
-                    Open portal
+                    {t("customerPanelSetup", "openPortal")}
                   </Button>
                   <Button
                     type="button"
@@ -423,7 +436,9 @@ export default function CustomerPanelPage() {
                     className="rounded-full border-border/70 bg-card"
                   >
                     <RefreshCw className="h-4 w-4" />
-                    {isRegeneratingLink ? "Regenerating..." : "Regenerate"}
+                    {isRegeneratingLink
+                      ? t("customerPanelSetup", "regenerating")
+                      : t("customerPanelSetup", "regenerate")}
                   </Button>
                 </div>
               </div>
@@ -431,12 +446,12 @@ export default function CustomerPanelPage() {
               <div className="flex flex-col gap-3 p-4">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="customer-portal-email" className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                    Customer email
+                    {t("customerPanelSetup", "customerEmail")}
                   </Label>
                   <Input
                     id="customer-portal-email"
                     type="email"
-                    placeholder="client@example.com"
+                    placeholder={t("customerPanelSetup", "customerEmailPlaceholder")}
                     value={recipientEmail}
                     onChange={(event) => setRecipientEmail(event.target.value)}
                     disabled={isSendingEmail || isPreparingLink}
@@ -452,7 +467,9 @@ export default function CustomerPanelPage() {
                   className={FLAT_PRIMARY_BUTTON_CLASSNAME}
                 >
                   <Mail className="h-4 w-4" />
-                  {isSendingEmail ? "Sending..." : "Send link"}
+                  {isSendingEmail
+                    ? t("customerPanelSetup", "sending")
+                    : t("customerPanelSetup", "sendLink")}
                 </Button>
               </div>
             </CardContent>
@@ -461,16 +478,18 @@ export default function CustomerPanelPage() {
 
         <section className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-semibold text-foreground">Visible sections</h2>
+            <h2 className="text-lg font-semibold text-foreground">
+              {t("customerPanelSetup", "visibleSections")}
+            </h2>
             <p className="text-sm text-muted-foreground">
-              Choose what the client sees, then publish those changes to the live portal.
+              {t("customerPanelSetup", "visibleSectionsDescription")}
             </p>
           </div>
 
           <ShoppingListFeatureCard
             id={SHOPPING_LIST_FEATURE_CARD.id}
-            title={SHOPPING_LIST_FEATURE_CARD.title}
-            description={SHOPPING_LIST_FEATURE_CARD.description}
+            title={t("customerPanelSetup", SHOPPING_LIST_FEATURE_CARD.titleKey)}
+            description={t("customerPanelSetup", SHOPPING_LIST_FEATURE_CARD.descriptionKey)}
             icon={SHOPPING_LIST_FEATURE_CARD.icon}
             checked={portalSettings.showShoppingList}
             decisionsChecked={portalSettings.allowShoppingItemDecisions}
@@ -486,8 +505,8 @@ export default function CustomerPanelPage() {
               <FeatureCard
                 key={card.id}
                 id={card.id}
-                title={card.title}
-                description={card.description}
+                title={t("customerPanelSetup", card.titleKey)}
+                description={t("customerPanelSetup", card.descriptionKey)}
                 icon={card.icon}
                 checked={portalSettings[card.key]}
                 disabled={isPublishingPortal}
@@ -593,6 +612,7 @@ function ShoppingListFeatureCard({
   onDecisionsChange,
   onCommentsChange,
 }: ShoppingListFeatureCardProps) {
+  const { t } = useI18n();
   const detailDisabled = disabled || !checked;
 
   return (
@@ -624,16 +644,16 @@ function ShoppingListFeatureCard({
         <div className="grid gap-3 lg:grid-rows-2">
           <ShoppingListSettingCard
             id="allow-shopping-item-decisions"
-            title="Allow decisions"
-            description="Clients can approve or reject items."
+            title={t("customerPanelSetup", "allowDecisions")}
+            description={t("customerPanelSetup", "allowDecisionsDescription")}
             checked={decisionsChecked}
             onCheckedChange={onDecisionsChange}
             disabled={detailDisabled}
           />
           <ShoppingListSettingCard
             id="allow-shopping-item-comments"
-            title="Allow comments"
-            description="Clients can leave item comments."
+            title={t("customerPanelSetup", "allowComments")}
+            description={t("customerPanelSetup", "allowCommentsDescription")}
             checked={commentsChecked}
             onCheckedChange={onCommentsChange}
             disabled={detailDisabled}

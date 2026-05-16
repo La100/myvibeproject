@@ -27,6 +27,7 @@ import {
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { AppLoadingState } from "@/components/ui/loading-state";
+import { useI18n } from "@/lib/i18n";
 
 type QuestionType =
   | "text_short"
@@ -38,19 +39,22 @@ type QuestionType =
   | "number"
   | "file";
 
-const questionTypeLabels: Record<QuestionType, string> = {
-  text_short: "Short Text",
-  text_long: "Long Text",
-  multiple_choice: "Multiple Choice",
-  single_choice: "Single Choice",
-  rating: "Rating Scale",
-  yes_no: "Yes/No",
-  number: "Number",
-  file: "File Upload",
+const questionTypeLabelKeys: Record<QuestionType, string> = {
+  text_short: "shortText",
+  text_long: "longText",
+  multiple_choice: "multipleChoice",
+  single_choice: "singleChoice",
+  rating: "ratingScale",
+  yes_no: "yesNo",
+  number: "number",
+  file: "fileUpload",
 };
 
-function getQuestionTypeLabel(questionType: string) {
-  return questionTypeLabels[questionType as QuestionType] ?? "Question";
+function getQuestionTypeLabel(
+  questionType: string,
+  t: ReturnType<typeof useI18n>["t"],
+) {
+  return t("surveys", questionTypeLabelKeys[questionType as QuestionType] ?? "questionFallback");
 }
 
 function questionNeedsOptions(questionType: string) {
@@ -67,6 +71,7 @@ function getRatingValues(question: {
 
 export default function SurveyPreviewPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const params = useParams<{
     projectSlug: string;
     surveyId: string;
@@ -80,8 +85,8 @@ export default function SurveyPreviewPage() {
     return (
       <AppLoadingState
         variant="section"
-        title="Loading survey"
-        description="Preparing survey details."
+        title={t("surveys", "loadingSurvey")}
+        description={t("surveys", "preparingSurveyDetails")}
       />
     );
   }
@@ -97,19 +102,19 @@ export default function SurveyPreviewPage() {
         <ProjectPageHeader
           title={survey.title}
           icon={<Eye className="h-8 w-8 text-primary" />}
-          subtitle={survey.description || "Survey preview"}
+          subtitle={survey.description || t("surveys", "surveyPreview")}
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="outline" size="sm" onClick={() => router.back()}>
                 <ArrowLeft data-icon="inline-start" />
-                Back
+                {t("surveys", "back")}
               </Button>
               <Button asChild variant="outline" size="sm">
                 <Link
                   href={`/organisation/projects/${projectSlug}/surveys/${survey._id}/edit`}
                 >
                   <Edit data-icon="inline-start" />
-                  Edit
+                  {t("surveys", "editSurvey")}
                 </Link>
               </Button>
               <Button asChild variant="outline" size="sm">
@@ -117,7 +122,7 @@ export default function SurveyPreviewPage() {
                   href={`/organisation/projects/${projectSlug}/surveys/${survey._id}/responses`}
                 >
                   <BarChart3 data-icon="inline-start" />
-                  Responses
+                  {t("surveys", "responses")}
                 </Link>
               </Button>
             </div>
@@ -129,13 +134,18 @@ export default function SurveyPreviewPage() {
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <FileText className="h-5 w-5 text-foreground" />
-                Questions
+                {t("surveys", "questions")}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{questionCount}</div>
               <p className="text-sm text-muted-foreground">
-                {questionCount === 1 ? "Question" : "Questions"} in this survey
+                {t("surveys", "questionsInSurvey", {
+                  questionLabel:
+                    questionCount === 1
+                      ? t("surveys", "questionCountSingular")
+                      : t("surveys", "questionCountPlural"),
+                })}
               </p>
             </CardContent>
           </Card>
@@ -144,13 +154,13 @@ export default function SurveyPreviewPage() {
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <HelpCircle className="h-5 w-5 text-foreground" />
-                Required
+                {t("surveys", "required")}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{requiredQuestionCount}</div>
               <p className="text-sm text-muted-foreground">
-                Questions clients must answer
+                {t("surveys", "requiredQuestionsDescription")}
               </p>
             </CardContent>
           </Card>
@@ -159,15 +169,15 @@ export default function SurveyPreviewPage() {
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <BarChart3 className="h-5 w-5 text-foreground" />
-                Status
+                {t("surveys", "status")}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <Badge variant="outline" className="capitalize">
-                {survey.status}
+                {t("surveys", `status${survey.status.charAt(0).toUpperCase()}${survey.status.slice(1)}`)}
               </Badge>
               <p className="mt-3 text-sm text-muted-foreground">
-                Clients can submit another response whenever needed.
+                {t("surveys", "clientsCanSubmitAnother")}
               </p>
             </CardContent>
           </Card>
@@ -177,20 +187,20 @@ export default function SurveyPreviewPage() {
           <CardHeader className="border-b border-border/70">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <CardTitle>Survey Questions</CardTitle>
+                <CardTitle>{t("surveys", "surveyQuestions")}</CardTitle>
                 <CardDescription>
-                  Read-only preview of the structure clients will answer.
+                  {t("surveys", "readOnlyPreviewDescription")}
                 </CardDescription>
               </div>
               <Badge variant="secondary">
-                {requiredQuestionCount} required
+                {t("surveys", "requiredCount", { count: requiredQuestionCount })}
               </Badge>
             </div>
           </CardHeader>
           <CardContent className="p-0">
             {survey.questions.length === 0 ? (
               <div className="m-5 rounded-xl border border-border bg-secondary/60 p-6 text-sm text-muted-foreground">
-                This survey has no questions yet.
+                {t("surveys", "surveyHasNoQuestions")}
               </div>
             ) : (
               <div className="divide-y divide-border/70">
@@ -201,15 +211,15 @@ export default function SurveyPreviewPage() {
                   >
                     <div>
                       <Badge variant="outline" className="rounded-full">
-                        Question {index + 1}
+                        {t("surveys", "question", { number: index + 1 })}
                       </Badge>
                       <Badge variant="secondary" className="mt-2 block w-fit">
-                        {getQuestionTypeLabel(question.questionType)}
+                        {getQuestionTypeLabel(question.questionType, t)}
                       </Badge>
                       {question.isRequired ? (
                         <Badge variant="outline" className="mt-2 block w-fit">
                           <CheckCircle2 data-icon="inline-start" />
-                          Required
+                          {t("surveys", "required")}
                         </Badge>
                       ) : null}
                     </div>
@@ -234,7 +244,7 @@ export default function SurveyPreviewPage() {
                           </div>
                         ) : (
                           <p className="mt-4 text-sm text-muted-foreground">
-                            No options configured.
+                            {t("surveys", "noOptionsConfigured")}
                           </p>
                         )
                       ) : null}
@@ -273,7 +283,7 @@ export default function SurveyPreviewPage() {
                         <div className="mt-4 flex min-h-12 items-center justify-between rounded-xl border border-dashed border-border bg-secondary/60 px-4 py-3 text-sm text-muted-foreground">
                           <span className="flex items-center gap-2">
                             <Paperclip className="h-4 w-4" />
-                            File upload field
+                            {t("surveys", "fileUploadField")}
                           </span>
                         </div>
                       ) : null}

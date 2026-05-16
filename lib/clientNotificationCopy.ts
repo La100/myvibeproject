@@ -1,7 +1,10 @@
-export const getClientActorName = (value?: string | null) => {
+export const getClientActorName = (
+  value?: string | null,
+  fallback = "Client",
+) => {
   const trimmed = value?.trim();
   if (!trimmed || trimmed === "Client (portal)") {
-    return "Client";
+    return fallback;
   }
 
   return trimmed;

@@ -5,6 +5,7 @@ import { Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type OrganizationImagePickerProps = {
@@ -21,7 +22,7 @@ type OrganizationImagePickerProps = {
 };
 
 export function OrganizationImagePicker({
-  buttonLabel = "Upload image",
+  buttonLabel,
   currentImageUrl,
   description,
   disabled = false,
@@ -32,6 +33,10 @@ export function OrganizationImagePicker({
   previewClassName,
   statusLabel,
 }: OrganizationImagePickerProps) {
+  const { t } = useI18n();
+  const resolvedButtonLabel =
+    buttonLabel ?? t("organizationImagePicker", "uploadImage");
+
   return (
     <div
       className={cn(
@@ -52,13 +57,13 @@ export function OrganizationImagePicker({
         {currentImageUrl.trim() ? (
           <img
             src={currentImageUrl}
-            alt={name || "Organization"}
+            alt={name || t("organizationImagePicker", "organizationAlt")}
             className="h-full w-full object-cover"
           />
         ) : (
           <img
             src="/logo.svg"
-            alt="Myvibe Project"
+            alt={t("organizationImagePicker", "defaultLogoAlt")}
             className="h-full w-full object-contain p-2"
           />
         )}
@@ -70,7 +75,9 @@ export function OrganizationImagePicker({
         )}
       >
         <div className="flex flex-col gap-1">
-          <Label htmlFor={inputId}>Organization image</Label>
+          <Label htmlFor={inputId}>
+            {t("organizationImagePicker", "organizationImage")}
+          </Label>
           {statusLabel ? (
             <p className="text-xs font-medium text-foreground">{statusLabel}</p>
           ) : null}
@@ -83,7 +90,7 @@ export function OrganizationImagePicker({
             disabled={disabled}
           >
             <Upload data-icon="inline-start" />
-            {buttonLabel}
+            {resolvedButtonLabel}
           </Button>
         </div>
         {description ? (

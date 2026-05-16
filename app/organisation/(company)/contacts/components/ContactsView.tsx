@@ -35,8 +35,10 @@ import { ContactForm } from "./ContactForm";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useI18n } from "@/lib/i18n";
 
 export function ContactsView() {
+  const { t } = useI18n();
   const { organization } = useOrganization();
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -106,7 +108,7 @@ export function ContactsView() {
 
   const handleAssignToProject = async () => {
     if (!assigningContact || !selectedProjectId) {
-      toast.error("Select a project first");
+      toast.error(t("contacts", "selectProjectFirst"));
       return;
     }
 
@@ -115,10 +117,10 @@ export function ContactsView() {
         projectId: selectedProjectId,
         contactId: assigningContact._id,
       });
-      toast.success("Contact added to project");
+      toast.success(t("contacts", "contactAddedToProject"));
       closeAssignDialog();
     } catch (error) {
-      toast.error("Error adding contact to project", {
+      toast.error(t("contacts", "errorAddingToProject"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -127,10 +129,10 @@ export function ContactsView() {
 
   const getTypeLabel = (type: string) => {
     const labels = {
-      contractor: "Contractor",
-      supplier: "Supplier",
-      subcontractor: "Subcontractor",
-      other: "Other",
+      contractor: t("contacts", "typeContractor"),
+      supplier: t("contacts", "typeSupplier"),
+      subcontractor: t("contacts", "typeSubcontractor"),
+      other: t("contacts", "typeOther"),
     };
     return labels[type as keyof typeof labels] || type;
   };
@@ -171,7 +173,7 @@ export function ContactsView() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search contacts..."
+                placeholder={t("contacts", "searchContacts")}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 h-11"
@@ -179,28 +181,38 @@ export function ContactsView() {
             </div>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger className="w-full sm:w-[200px] h-11">
-                <SelectValue placeholder="Contact Type" />
+                <SelectValue placeholder={t("contacts", "contactType")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="contractor">Contractors</SelectItem>
-                <SelectItem value="supplier">Suppliers</SelectItem>
-                <SelectItem value="subcontractor">Subcontractors</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
+                <SelectItem value="all">
+                  {t("contacts", "allTypes")}
+                </SelectItem>
+                <SelectItem value="contractor">
+                  {t("contacts", "contractors")}
+                </SelectItem>
+                <SelectItem value="supplier">
+                  {t("contacts", "suppliers")}
+                </SelectItem>
+                <SelectItem value="subcontractor">
+                  {t("contacts", "subcontractors")}
+                </SelectItem>
+                <SelectItem value="other">
+                  {t("contacts", "other")}
+                </SelectItem>
               </SelectContent>
             </Select>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Contact
+                  {t("contacts", "addContact")}
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Add New Contact</DialogTitle>
+                  <DialogTitle>{t("contacts", "addNewContact")}</DialogTitle>
                   <DialogDescription>
-                    Fill in information about company or contractor
+                    {t("contacts", "addContactDescription")}
                   </DialogDescription>
                 </DialogHeader>
                 <ContactForm
@@ -280,7 +292,7 @@ export function ContactsView() {
                 }}
               >
                 <Plus data-icon="inline-start" />
-                Add to Project
+                {t("contacts", "addToProject")}
               </Button>
             </CardContent>
           </Card>
@@ -291,8 +303,8 @@ export function ContactsView() {
         <div className="text-center py-12">
           <p className="text-muted-foreground">
             {searchTerm || typeFilter !== "all"
-              ? "No contacts match your filters."
-              : "You don't have any contacts yet. Add your first contact to get started."}
+              ? t("contacts", "noContactsForFilters")
+              : t("contacts", "noContacts")}
           </p>
         </div>
       )}
@@ -304,8 +316,10 @@ export function ContactsView() {
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Edit Contact</DialogTitle>
-            <DialogDescription>Update contact information</DialogDescription>
+            <DialogTitle>{t("contacts", "editContact")}</DialogTitle>
+            <DialogDescription>
+              {t("contacts", "updateContactDescription")}
+            </DialogDescription>
           </DialogHeader>
           {editingContact && (
             <ContactForm
@@ -323,9 +337,11 @@ export function ContactsView() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Contact to Project</DialogTitle>
+            <DialogTitle>{t("contacts", "addContactToProject")}</DialogTitle>
             <DialogDescription>
-              Select a project for {assigningContact?.name}.
+              {t("contacts", "selectProjectForContact", {
+                name: assigningContact?.name ?? "",
+              })}
             </DialogDescription>
           </DialogHeader>
 
@@ -337,7 +353,7 @@ export function ContactsView() {
               }
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select project" />
+                <SelectValue placeholder={t("contacts", "selectProject")} />
               </SelectTrigger>
               <SelectContent>
                 {availableProjects.map((project) => (
@@ -350,7 +366,7 @@ export function ContactsView() {
 
             {projects && availableProjects.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                This contact is already assigned to every available project.
+                {t("contacts", "alreadyAssignedAllProjects")}
               </p>
             ) : null}
 
@@ -360,14 +376,14 @@ export function ContactsView() {
                 variant="outline"
                 onClick={closeAssignDialog}
               >
-                Cancel
+                {t("contacts", "cancel")}
               </Button>
               <Button
                 type="button"
                 onClick={handleAssignToProject}
                 disabled={!selectedProjectId}
               >
-                Add to Project
+                {t("contacts", "addToProject")}
               </Button>
             </div>
           </div>

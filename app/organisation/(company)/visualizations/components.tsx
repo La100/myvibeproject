@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Composer } from "@/components/ai/assistant/ui/Composer";
 import { usePromptInputController } from "@/components/ai/primitives/prompt-input";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 import {
   VISUALIZATION_MAX_FILES,
@@ -72,16 +73,18 @@ export const VisualizationHeader = memo(function VisualizationHeader({
   showHistory: boolean;
   onToggleHistory: () => void;
 }) {
+  const { t } = useI18n();
+
   return (
     <div className="flex items-center justify-between gap-3 border-b border-border/50 p-4">
       <div className="flex min-w-0 items-center gap-2">
         {currentSession && (
           <>
             <h2 className="max-w-[300px] truncate font-medium">
-              {currentSession.title || "New visualization"}
+              {currentSession.title || t("aiShell", "newVisualization")}
             </h2>
             <Badge variant="secondary" className="text-xs">
-              {currentSession.imageCount} image{currentSession.imageCount !== 1 ? "s" : ""}
+              {t("assistantUi", currentSession.imageCount === 1 ? "imageCountSingular" : "imageCountPlural", { count: currentSession.imageCount })}
             </Badge>
           </>
         )}
@@ -92,7 +95,7 @@ export const VisualizationHeader = memo(function VisualizationHeader({
         size="icon"
         onClick={onToggleHistory}
         className="h-8 w-8"
-        title={showHistory ? "Hide history" : "Show history"}
+        title={t("aiShell", showHistory ? "hideHistory" : "showHistory")}
       >
         <History className="h-4 w-4" />
       </Button>

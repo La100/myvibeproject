@@ -7,8 +7,10 @@ import { MessageSquareText, X } from "lucide-react";
 import HostedChatKit from "@/components/ai/chatkit/HostedChatKit";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n";
 
 export function FloatingChatKitLauncher() {
+  const { t } = useI18n();
   const pathname = usePathname();
   const { project } = useProject();
   const [isOpen, setIsOpen] = useState(false);
@@ -44,14 +46,18 @@ export function FloatingChatKitLauncher() {
           onClick={() => setIsOpen((current) => !current)}
           className="h-12 rounded-full px-4 text-sm shadow-lg"
           aria-expanded={isOpen}
-          aria-label={isOpen ? "Close AI assistant" : "Open AI assistant"}
+          aria-label={
+            isOpen ? t("aiShell", "closeAssistant") : t("aiShell", "openAssistant")
+          }
         >
           {isOpen ? (
             <X className="size-[18px]" />
           ) : (
             <MessageSquareText className="size-[18px]" />
           )}
-          <span>{isOpen ? "Close Vibe" : "Ask Vibe"}</span>
+          <span>
+            {isOpen ? t("aiShell", "closeVibe") : t("aiShell", "askVibe")}
+          </span>
         </Button>
       </div>
     </div>

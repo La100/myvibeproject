@@ -1,6 +1,7 @@
 "use client"
 
 import { formatDistanceToNow } from "date-fns"
+import { enUS, pl } from "date-fns/locale"
 import { useQuery } from "convex/react"
 import {
   CheckCircle2,
@@ -27,6 +28,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { apiAny } from "@/lib/convexApiAny"
 import { Id } from "@/convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
+import { useI18n } from "@/lib/i18n"
 
 interface ActivityLogProps {
   taskId: Id<"tasks">
@@ -97,38 +99,42 @@ const statusBadgeVariant = (status: string) => {
   }
 }
 
-const getStatusLabel = (status: string) => {
+const getStatusLabel = (status: string, t: ReturnType<typeof useI18n>["t"]) => {
   switch (status) {
     case "todo":
-      return "To do"
+      return t("activity", "statusTodo")
     case "in_progress":
-      return "In progress"
+      return t("activity", "statusInProgress")
     case "review":
-      return "In review"
+      return t("activity", "statusReview")
     case "done":
-      return "Done"
+      return t("activity", "statusDone")
     default:
       return status
   }
 }
 
-const getTaskTitle = (details: Record<string, unknown>) => {
+const getTaskTitle = (
+  details: Record<string, unknown>,
+  t: ReturnType<typeof useI18n>["t"],
+) => {
   const title = details.title ?? details.taskTitle
   if (typeof title === "string" && title.trim()) {
     return title
   }
-  return "Untitled task"
+  return t("activity", "untitledTask")
 }
 
 const getActivityDescription = (
   actionType: string,
-  details: Record<string, unknown>
+  details: Record<string, unknown>,
+  t: ReturnType<typeof useI18n>["t"],
 ) => {
-  const taskTitle = getTaskTitle(details)
+  const taskTitle = getTaskTitle(details, t)
 
   switch (actionType) {
     case "task.create":
-      return `created the task "${taskTitle}"`
+      return t("activity", "taskCreated", { title: taskTitle })
     case "task.update": {
       const updatedFields = Array.isArray(details.updatedFields)
         ? details.updatedFields
@@ -139,24 +145,24 @@ const getActivityDescription = (
             case "updatedAt":
               return null
             case "title":
-              return "title"
+              return t("activity", "fieldTitle")
             case "description":
-              return "description"
+              return t("activity", "fieldDescription")
             case "status":
-              return "status"
+              return t("activity", "fieldStatus")
             case "priority":
-              return "priority"
+              return t("activity", "fieldPriority")
             case "assignedTo":
-              return "assignee"
+              return t("activity", "fieldAssignee")
             case "startDate":
-              return "start date"
+              return t("activity", "fieldStartDate")
             case "endDate":
             case "dueDate":
-              return "due date"
+              return t("activity", "fieldDueDate")
             case "tags":
-              return "tags"
+              return t("activity", "fieldTags")
             case "content":
-              return "content"
+              return t("activity", "fieldContent")
             default:
               return field
           }
@@ -164,9 +170,12 @@ const getActivityDescription = (
         .filter(Boolean)
 
       if (friendlyFields.length === 0) {
-        return `updated task "${taskTitle}"`
+        return t("activity", "taskUpdated", { title: taskTitle })
       }
-      return `updated ${friendlyFields.join(", ")} in task "${taskTitle}"`
+      return t("activity", "taskUpdatedFields", {
+        fields: friendlyFields.join(", "),
+        title: taskTitle,
+      })
     }
     case "task.status.change":
     case "task.status_change": {
@@ -174,33 +183,43 @@ const getActivityDescription = (
       const toStatus = (details.toStatus || details.to) as string | undefined
 
       if (toStatus === "done") {
-        return `marked task "${taskTitle}" as done`
+        return t("activity", "taskMarkedDone", { title: taskTitle })
       }
 
       if (fromStatus && toStatus && fromStatus !== toStatus) {
-        return `moved task "${taskTitle}" from ${getStatusLabel(fromStatus)} to ${getStatusLabel(toStatus)}`
+        return t("activity", "taskMovedFromTo", {
+          title: taskTitle,
+          from: getStatusLabel(fromStatus, t),
+          to: getStatusLabel(toStatus, t),
+        })
       }
 
       if (toStatus) {
-        return `changed task "${taskTitle}" status to ${getStatusLabel(toStatus)}`
+        return t("activity", "taskStatusChangedTo", {
+          title: taskTitle,
+          to: getStatusLabel(toStatus, t),
+        })
       }
 
-      return `updated task "${taskTitle}" status`
+      return t("activity", "taskStatusUpdated", { title: taskTitle })
     }
     case "task.assign":
-      return `updated assignee in task "${taskTitle}"`
+      return t("activity", "taskAssigneeUpdated", { title: taskTitle })
     case "task.comment.add":
-      return `added a comment to task "${taskTitle}"`
+      return t("activity", "taskCommentAddedToTask", { title: taskTitle })
     case "task.file.add":
       return details.fileName
-        ? `uploaded file "${String(details.fileName)}" to task "${taskTitle}"`
-        : `uploaded a file to task "${taskTitle}"`
+        ? t("activity", "taskFileUploaded", {
+            fileName: String(details.fileName),
+            title: taskTitle,
+          })
+        : t("activity", "taskFileUploadedGeneric", { title: taskTitle })
     case "task.content.update":
-      return `updated task "${taskTitle}" description`
+      return t("activity", "taskContentUpdated", { title: taskTitle })
     case "task.delete":
-      return `deleted the task "${taskTitle}"`
+      return t("activity", "taskDeleted", { title: taskTitle })
     default:
-      return "performed an action"
+      return t("activity", "performedAction")
   }
 }
 
@@ -209,6 +228,7 @@ function ActivityLogLoading() {
 }
 
 export default function ActivityLog({ taskId }: ActivityLogProps) {
+  const { locale, t } = useI18n()
   const activities = useQuery(apiAny.activityLog.getForTask, { taskId })
 
   if (!activities) {
@@ -222,9 +242,9 @@ export default function ActivityLog({ taskId }: ActivityLogProps) {
           <EmptyMedia variant="icon">
             <Clock />
           </EmptyMedia>
-          <EmptyTitle>No activity yet</EmptyTitle>
+          <EmptyTitle>{t("activity", "noActivityYet")}</EmptyTitle>
           <EmptyDescription>
-            Changes to this task will appear here.
+            {t("activity", "taskActivityEmpty")}
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -254,19 +274,19 @@ export default function ActivityLog({ taskId }: ActivityLogProps) {
             </div>
 
             <Avatar className="size-8 shrink-0">
-              <AvatarImage src={activity.userImageUrl} alt={activity.userName || "User"} />
+              <AvatarImage src={activity.userImageUrl} alt={activity.userName || t("activity", "user")} />
               <AvatarFallback className="text-xs">
-                {activity.userName?.charAt(0) || "U"}
+                {activity.userName?.charAt(0) || t("activity", "userInitial")}
               </AvatarFallback>
             </Avatar>
 
             <div className="min-w-0 flex-1">
               <div className="text-sm">
                 <span className="font-medium text-foreground">
-                  {activity.userName || "Unknown user"}
+                  {activity.userName || t("activity", "unknownUser")}
                 </span>
                 <span className="ml-1 text-muted-foreground">
-                  {getActivityDescription(activity.actionType, activity.details)}
+                  {getActivityDescription(activity.actionType, activity.details, t)}
                 </span>
               </div>
 
@@ -282,11 +302,11 @@ export default function ActivityLog({ taskId }: ActivityLogProps) {
                   return (
                     <div className="mt-2 flex items-center gap-2">
                       <Badge variant={statusBadgeVariant(fromStatus)}>
-                        {getStatusLabel(fromStatus)}
+                        {getStatusLabel(fromStatus, t)}
                       </Badge>
                       <span className="text-muted-foreground">→</span>
                       <Badge variant={statusBadgeVariant(toStatus)}>
-                        {getStatusLabel(toStatus)}
+                        {getStatusLabel(toStatus, t)}
                       </Badge>
                     </div>
                   )
@@ -302,7 +322,11 @@ export default function ActivityLog({ taskId }: ActivityLogProps) {
               {activity.actionType === "task.file.add" && (
                 <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                   <FileText className="size-4" />
-                  <span>{activity.details.fileType} file</span>
+                  <span>
+                    {t("activity", "fileTypeLabel", {
+                      fileType: String(activity.details.fileType ?? t("activity", "file")),
+                    })}
+                  </span>
                 </div>
               )}
 
@@ -310,6 +334,7 @@ export default function ActivityLog({ taskId }: ActivityLogProps) {
                 <span>
                   {formatDistanceToNow(new Date(activity._creationTime), {
                     addSuffix: true,
+                    locale: locale === "pl" ? pl : enUS,
                   })}
                 </span>
                 <span>•</span>

@@ -12,12 +12,14 @@ import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { postAuthResolverUrl } from "@/lib/authRedirects";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 export default function CompanyLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
@@ -43,39 +45,39 @@ export default function CompanyLayout({
 
   const breadcrumbs = useMemo(() => {
     const routeLabels: Record<string, string> = {
-      "/organisation": "Projects",
-      "/organisation/notifications": "Notifications",
-      "/organisation/calendar": "Calendar",
-      "/organisation/projects/new": "New Project",
-      "/organisation/contacts": "Contacts",
-      "/organisation/tax": "Tax",
-      "/organisation/settings": "Settings",
-      "/organisation/subscription": "Subscription",
-      "/organisation/team": "Team",
-      "/organisation/reports": "Reports",
-      "/organisation/libraries": "Libraries",
-      "/organisation/product-library": "Product Library",
-      "/organisation/product-library/new": "Add Product",
-      "/organisation/survey-library": "Survey Library",
-      "/organisation/survey-library/new": "New Survey Template",
-      "/organisation/visualizations": "Visualizations",
+      "/organisation": t("navigation", "projects"),
+      "/organisation/notifications": t("navigation", "notifications"),
+      "/organisation/calendar": t("navigation", "calendar"),
+      "/organisation/projects/new": t("navigation", "newProject"),
+      "/organisation/contacts": t("navigation", "contacts"),
+      "/organisation/tax": t("navigation", "tax"),
+      "/organisation/settings": t("navigation", "settings"),
+      "/organisation/subscription": t("navigation", "subscription"),
+      "/organisation/team": t("navigation", "team"),
+      "/organisation/reports": t("navigation", "reports"),
+      "/organisation/libraries": t("navigation", "libraries"),
+      "/organisation/product-library": t("navigation", "productLibrary"),
+      "/organisation/product-library/new": t("navigation", "addProduct"),
+      "/organisation/survey-library": t("navigation", "surveyLibrary"),
+      "/organisation/survey-library/new": t("navigation", "newSurveyTemplate"),
+      "/organisation/visualizations": t("navigation", "visualizations"),
     };
 
     const routeBreadcrumbs: Record<string, { label: string; href: string }[]> = {
       "/organisation/team": [
-        { label: "Team", href: "/organisation/team" },
+        { label: t("navigation", "team"), href: "/organisation/team" },
       ],
       "/organisation/product-library/new": [
-        { label: "Projects", href: "/organisation" },
-        { label: "Libraries", href: "/organisation/libraries" },
-        { label: "Product Library", href: "/organisation/product-library" },
-        { label: "Add Product", href: "/organisation/product-library/new" },
+        { label: t("navigation", "projects"), href: "/organisation" },
+        { label: t("navigation", "libraries"), href: "/organisation/libraries" },
+        { label: t("navigation", "productLibrary"), href: "/organisation/product-library" },
+        { label: t("navigation", "addProduct"), href: "/organisation/product-library/new" },
       ],
       "/organisation/survey-library/new": [
-        { label: "Projects", href: "/organisation" },
-        { label: "Libraries", href: "/organisation/libraries" },
-        { label: "Survey Library", href: "/organisation/survey-library" },
-        { label: "New Survey Template", href: "/organisation/survey-library/new" },
+        { label: t("navigation", "projects"), href: "/organisation" },
+        { label: t("navigation", "libraries"), href: "/organisation/libraries" },
+        { label: t("navigation", "surveyLibrary"), href: "/organisation/survey-library" },
+        { label: t("navigation", "newSurveyTemplate"), href: "/organisation/survey-library/new" },
       ],
     };
 
@@ -86,8 +88,8 @@ export default function CompanyLayout({
 
     const crumbs: { label: string; href: string }[] = [];
 
-    // Always start with Projects as home
-    crumbs.push({ label: "Projects", href: "/organisation" });
+    // Always start with Projects as home.
+    crumbs.push({ label: t("navigation", "projects"), href: "/organisation" });
 
     if (pathname !== "/organisation") {
       // Check for exact match first
@@ -107,7 +109,7 @@ export default function CompanyLayout({
     }
 
     return crumbs;
-  }, [pathname]);
+  }, [pathname, t]);
   const isFullBleedRoute = pathname === "/organisation/visualizations";
   const isCompanyOverviewRoute = pathname === "/organisation";
 
@@ -122,8 +124,8 @@ export default function CompanyLayout({
     return (
       <AppLoadingState
         variant="section"
-        title="Preparing workspace"
-        description="Loading organization settings and access."
+        title={t("common", "loadingWorkspace")}
+        description={t("common", "loadingWorkspaceDescription")}
         showBrand
       />
     );
@@ -136,7 +138,7 @@ export default function CompanyLayout({
         <SidebarInset className="xl:overflow-hidden">
           <header className="xl:hidden sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-border/70 bg-[rgba(253,251,247,0.92)] px-4 backdrop-blur-md">
             <SidebarTrigger className="-ml-1 [&.hidden]:flex" />
-            <span className="text-lg font-medium text-foreground">Workspace</span>
+            <span className="text-lg font-medium text-foreground">{t("common", "workspace")}</span>
           </header>
           <main className="flex-1 min-h-0 overflow-auto">
             {isFullBleedRoute ? (

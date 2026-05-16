@@ -16,6 +16,7 @@ import { type MeasurementSystem } from './laborUnits';
 import { cn } from '@/lib/utils';
 import type { TeamTaxRate } from '@/lib/organizationTax';
 import { formatPriceTaxBreakdown } from '@/lib/priceTax';
+import { useI18n } from '@/lib/i18n';
 
 type LaborItem = Doc<'laborItems'>;
 
@@ -66,8 +67,6 @@ interface LaborListSectionProps {
   measurementSystem?: MeasurementSystem;
 }
 
-const formatItemCountLabel = (count: number) => `${count} ${count === 1 ? 'item' : 'items'}`;
-
 export function LaborListSection({
   projectId,
   sectionName,
@@ -83,10 +82,12 @@ export function LaborListSection({
   isPending,
   measurementSystem = 'metric',
 }: LaborListSectionProps) {
+  const { t } = useI18n();
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
 
   const sectionTotal = items.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+  const formatItemCountLabel = (count: number) => `${count} ${count === 1 ? t('labor', 'item') : t('labor', 'items')}`;
 
   const handleStartEdit = (item: LaborItem) => {
     setEditingItemId(String(item._id));
@@ -113,8 +114,8 @@ export function LaborListSection({
   };
 
   const getCustomerDecisionLabel = (decision: LaborItem['customerDecision'] | undefined) => {
-    if (decision === 'accepted') return 'Accepted';
-    if (decision === 'rejected') return 'Rejected';
+    if (decision === 'accepted') return t('labor', 'accepted');
+    if (decision === 'rejected') return t('labor', 'rejected');
     return null;
   };
 
@@ -172,7 +173,7 @@ export function LaborListSection({
           startDate: item.startDate,
           endDate: item.endDate,
         }}
-        submitLabel="Save"
+        submitLabel={t('labor', 'save')}
         taxRates={taxRates}
         onSubmitted={handleCancelEdit}
       />
@@ -233,22 +234,22 @@ export function LaborListSection({
 
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                 <span className="font-medium text-foreground/75">
-                  Qty {item.quantity} {item.unit}
+                  {t('labor', 'qty')} {item.quantity} {item.unit}
                 </span>
                 <span>
-                  Unit: {item.unitPrice ? `${item.unitPrice.toFixed(2)} ${currencySymbol}` : '-'}
+                  {t('labor', 'unitLabel', { value: item.unitPrice ? `${item.unitPrice.toFixed(2)} ${currencySymbol}` : '-' })}
                 </span>
                 <span className="font-medium text-foreground">
-                  Total: {item.totalPrice ? `${item.totalPrice.toFixed(2)} ${currencySymbol}` : '-'}
+                  {t('labor', 'totalLabel', { total: item.totalPrice ? `${item.totalPrice.toFixed(2)} ${currencySymbol}` : '-' })}
                 </span>
                 {unitTaxSummary ? (
-                  <span className="text-xs">Unit tax: {unitTaxSummary}</span>
+                  <span className="text-xs">{t('labor', 'unitTax', { summary: unitTaxSummary })}</span>
                 ) : null}
                 {totalTaxSummary ? (
-                  <span className="text-xs">Total tax: {totalTaxSummary}</span>
+                  <span className="text-xs">{t('labor', 'totalTax', { summary: totalTaxSummary })}</span>
                 ) : null}
                 {formatSchedule(item.startDate, item.endDate) ? (
-                  <span>Schedule: {formatSchedule(item.startDate, item.endDate)}</span>
+                  <span>{t('labor', 'schedule')}: {formatSchedule(item.startDate, item.endDate)}</span>
                 ) : null}
               </div>
 
@@ -265,17 +266,17 @@ export function LaborListSection({
                     className="inline-flex items-center gap-1 text-primary hover:underline"
                   >
                     <ExternalLinkIcon className="h-3 w-3" />
-                    Reference link
+                    {t('labor', 'referenceLink')}
                   </a>
                 ) : null}
                 {item.attachmentFileId ? (
                   <span className="inline-flex items-center gap-1">
                     <PaperclipIcon className="h-3 w-3" />
-                    Attachment saved in Files/labor
+                    {t('labor', 'attachmentSaved')}
                   </span>
                 ) : null}
                 {item.customerDecisionComment ? (
-                  <span>Client: {item.customerDecisionComment}</span>
+                  <span>{t('labor', 'clientComment', { comment: item.customerDecisionComment })}</span>
                 ) : null}
               </div>
             </div>
@@ -313,7 +314,7 @@ export function LaborListSection({
             {formatItemCountLabel(items.length)}
           </span>
           <span className="inline-flex items-center justify-center rounded-full border border-border/60 bg-secondary/70 px-3 py-1 text-xs font-medium text-foreground">
-            Total: {sectionTotal.toFixed(2)} {currencySymbol}
+            {t('labor', 'totalLabel', { total: `${sectionTotal.toFixed(2)} ${currencySymbol}` })}
           </span>
         </div>
         <Button
@@ -357,7 +358,7 @@ export function LaborListSection({
 
       {items.length === 0 && !showAddForm ? (
         <div className="vibe-surface border-dashed px-8 py-12 text-center">
-          <p className="text-sm font-medium text-foreground">No labor items in this section yet</p>
+          <p className="text-sm font-medium text-foreground">{t('labor', 'noLaborItemsInSection')}</p>
           <Button
             variant="outline"
             size="sm"
@@ -365,7 +366,7 @@ export function LaborListSection({
             onClick={() => setShowAddForm(true)}
           >
             <PlusIcon className="mr-2 h-4 w-4" />
-            Add first item
+            {t('labor', 'addFirstItem')}
           </Button>
         </div>
       ) : null}

@@ -1,20 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, Sparkles } from "lucide-react";
+import { Languages, Menu, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import Logo from "../Logo";
+import { useI18n } from "@/lib/i18n";
 
 const navLinks = [
-  { label: "Product", href: "/#product" },
-  { label: "Workflow", href: "/#workflow" },
-  { label: "Web Clipper", href: "/#web-clipper" },
-  { label: "Resources", href: "/#resources" },
-  { label: "Pricing", href: "/#pricing" },
-  { label: "Contact", href: "/contact" },
-];
+  { labelKey: "product", href: "/#product" },
+  { labelKey: "workflow", href: "/#workflow" },
+  { labelKey: "webClipper", href: "/#web-clipper" },
+  { labelKey: "resources", href: "/#resources" },
+  { labelKey: "pricing", href: "/#pricing" },
+  { labelKey: "contact", href: "/contact" },
+] as const;
 
 const userButtonAppearance = {
   elements: {
@@ -25,7 +26,21 @@ const userButtonAppearance = {
 } as const;
 
 export function Navbar() {
+  const { locale, setLocale, t } = useI18n();
   const { isSignedIn } = useUser();
+  const toggleLocale = () => setLocale(locale === "pl" ? "en" : "pl");
+  const languageButton = (
+    <Button
+      type="button"
+      variant="outline"
+      className="h-9 rounded-full px-3 text-sm font-medium"
+      aria-label={t("landingNav", "switchLanguage")}
+      onClick={toggleLocale}
+    >
+      <Languages className="mr-2 h-4 w-4" />
+      {locale === "pl" ? "EN" : "PL"}
+    </Button>
+  );
 
   return (
     <header className="relative z-30">
@@ -39,16 +54,17 @@ export function Navbar() {
         <nav className="hidden items-center gap-10 md:flex">
           {navLinks.map((link) => (
             <Link
-              key={link.label}
+              key={link.labelKey}
               href={link.href}
               className="text-[15px] text-foreground/90 transition-colors hover:text-foreground"
             >
-              {link.label}
+              {t("landingNav", link.labelKey)}
             </Link>
           ))}
         </nav>
 
         <div className="hidden items-center gap-2.5 md:flex">
+          {languageButton}
           {isSignedIn ? (
             <>
               <Button
@@ -57,7 +73,7 @@ export function Navbar() {
               >
                 <Link href="/organisation">
                   <Sparkles className="mr-2 h-4 w-4" />
-                  Dashboard
+                  {t("landingNav", "dashboard")}
                 </Link>
               </Button>
               <UserButton
@@ -71,40 +87,41 @@ export function Navbar() {
                 variant="ghost"
                 className="h-9 rounded-full px-4 text-sm font-medium text-foreground hover:bg-muted"
               >
-                <Link href="/sign-in">Sign in</Link>
+                <Link href="/sign-in">{t("landingNav", "signIn")}</Link>
               </Button>
               <Button
                 asChild
                 className="h-9 rounded-full bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/90"
               >
-                <Link href="/sign-up">Start free</Link>
+                <Link href="/sign-up">{t("landingNav", "startFree")}</Link>
               </Button>
             </>
           )}
         </div>
 
         <div className="flex items-center gap-2 md:hidden">
+          {languageButton}
           <Sheet>
             <SheetTrigger asChild>
               <button
                 type="button"
-                aria-label="Open navigation"
+                aria-label={t("landingNav", "openNavigation")}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-background text-foreground"
               >
                 <Menu className="h-5 w-5" />
               </button>
             </SheetTrigger>
             <SheetContent side="top" className="border-none bg-background px-6 pb-8 pt-12">
-              <SheetTitle className="sr-only">Main navigation</SheetTitle>
+              <SheetTitle className="sr-only">{t("landingNav", "mainNavigation")}</SheetTitle>
               <div className="mx-auto flex w-full max-w-md flex-col gap-6">
                 <div className="flex flex-col gap-2">
                   {navLinks.map((link) => (
-                    <SheetClose asChild key={link.label}>
+                    <SheetClose asChild key={link.labelKey}>
                       <Link
                         href={link.href}
                         className="rounded-2xl border border-border/60 px-5 py-4 text-base text-foreground"
                       >
-                        {link.label}
+                        {t("landingNav", link.labelKey)}
                       </Link>
                     </SheetClose>
                   ))}
@@ -119,7 +136,7 @@ export function Navbar() {
                       >
                         <Link href="/organisation">
                           <Sparkles className="mr-2 h-4 w-4" />
-                          Dashboard
+                          {t("landingNav", "dashboard")}
                         </Link>
                       </Button>
                     </SheetClose>
@@ -133,12 +150,12 @@ export function Navbar() {
                   <div className="flex flex-col gap-3">
                     <SheetClose asChild>
                       <Button asChild className="h-11 rounded-full">
-                        <Link href="/sign-up">Start free</Link>
+                        <Link href="/sign-up">{t("landingNav", "startFree")}</Link>
                       </Button>
                     </SheetClose>
                     <SheetClose asChild>
                       <Button asChild variant="outline" className="h-11 rounded-full">
-                        <Link href="/sign-in">Sign in</Link>
+                        <Link href="/sign-in">{t("landingNav", "signIn")}</Link>
                       </Button>
                     </SheetClose>
                   </div>

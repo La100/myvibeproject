@@ -50,6 +50,7 @@ import {
   usesChoiceOptions,
   usesRatingScale,
 } from "@/components/surveys/QuestionBuilderFields";
+import { useI18n } from "@/lib/i18n";
 
 interface Question {
   id: string;
@@ -68,6 +69,7 @@ interface SurveyFormProps {
 }
 
 export function SurveyForm({ projectSlug }: SurveyFormProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const { project } = useProject();
   const [title, setTitle] = useState("");
@@ -107,7 +109,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
       question.questionText.trim(),
     );
     if (validQuestions.length === 0) {
-      toast.error("Add at least one question before creating the survey");
+      toast.error(t("surveys", "addAtLeastOneBeforeCreating"));
       return;
     }
 
@@ -118,7 +120,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
     );
 
     if (invalidChoiceQuestion) {
-      toast.error("Choice questions need at least two options");
+      toast.error(t("surveys", "choiceNeedsTwoOptions"));
       return;
     }
 
@@ -157,10 +159,10 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
         });
       }
 
-      toast.success("Survey has been created!");
+      toast.success(t("surveys", "surveyCreated"));
       router.push(`/organisation/projects/${projectSlug}/surveys`);
     } catch (error) {
-      toast.error("Error creating survey", {
+      toast.error(t("surveys", "unableCreateSurvey"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -186,35 +188,35 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
   const getQuestionTypeLabel = (type: string) => {
     switch (type) {
       case "text_long":
-        return "Text";
+        return t("surveys", "text");
       case "yes_no":
-        return "Yes/No";
+        return t("surveys", "yesNo");
       case "single_choice":
-        return "Single Choice";
+        return t("surveys", "singleChoice");
       case "multiple_choice":
-        return "Multiple Choice";
+        return t("surveys", "multipleChoice");
       case "text_short":
-        return "Short Text";
+        return t("surveys", "shortText");
       case "rating":
-        return "Rating Scale";
+        return t("surveys", "ratingScale");
       case "number":
-        return "Number";
+        return t("surveys", "number");
       case "file":
-        return "File Upload";
+        return t("surveys", "fileUpload");
       default:
-        return "Text";
+        return t("surveys", "text");
     }
   };
 
   return (
     <div className="flex flex-col gap-8">
       <ProjectPageHeader
-        title="New Survey"
+        title={t("surveys", "newSurvey")}
         icon={<FileText className="h-8 w-8 text-primary" />}
         actions={
           <Button variant="outline" size="sm" onClick={() => router.back()}>
             <ArrowLeft data-icon="inline-start" />
-            Back
+            {t("surveys", "back")}
           </Button>
         }
       />
@@ -227,9 +229,9 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
               <div className="flex items-center gap-3">
                 <FileText className="h-5 w-5 text-foreground" />
                 <div className="flex flex-col gap-1">
-                  <CardTitle className="text-xl">Basic Information</CardTitle>
+                  <CardTitle className="text-xl">{t("surveys", "basicInformation")}</CardTitle>
                   <CardDescription>
-                    Provide basic information about the survey
+                    {t("surveys", "provideBasicInformation")}
                   </CardDescription>
                 </div>
               </div>
@@ -237,13 +239,13 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
             <CardContent className="flex flex-col gap-6">
               <div className="flex flex-col gap-3">
                 <Label htmlFor="title" className="text-sm font-semibold">
-                  Survey Title *
+                  {t("surveys", "surveyTitle")}
                 </Label>
                 <Input
                   id="title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Enter survey title"
+                  placeholder={t("surveys", "enterSurveyTitle")}
                   required
                   className="h-11 text-base"
                 />
@@ -251,13 +253,13 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
 
               <div className="flex flex-col gap-3">
                 <Label htmlFor="description" className="text-sm font-semibold">
-                  Description (optional)
+                  {t("surveys", "descriptionOptional")}
                 </Label>
                 <Textarea
                   id="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Enter survey description"
+                  placeholder={t("surveys", "enterSurveyDescription")}
                   rows={4}
                   className="resize-none text-base"
                 />
@@ -272,15 +274,15 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                 <div className="flex items-center gap-3">
                   <HelpCircle className="h-5 w-5 text-foreground" />
                   <div className="flex flex-col gap-1">
-                    <CardTitle className="text-xl">Questions</CardTitle>
+                    <CardTitle className="text-xl">{t("surveys", "questions")}</CardTitle>
                     <CardDescription>
-                      Add questions to your survey
+                      {t("surveys", "questions")}
                     </CardDescription>
                   </div>
                 </div>
                 <Button type="button" onClick={addNewQuestion}>
                   <Plus data-icon="inline-start" />
-                  Add Question
+                  {t("surveys", "addQuestion")}
                 </Button>
               </div>
             </CardHeader>
@@ -289,10 +291,10 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                 <EmptyState
                   className="border border-border bg-card"
                   icon={HelpCircle}
-                  title="You don't have any questions yet"
-                  description='Click "Add Question" to start creating your survey.'
+                  title={t("surveys", "noQuestions")}
+                  description={t("surveys", "noQuestionsSurveyDescription")}
                   action={{
-                    label: "Add First Question",
+                    label: t("surveys", "addFirstQuestion"),
                     onClick: addNewQuestion,
                     icon: Plus,
                   }}
@@ -314,7 +316,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                               <div className="flex items-center gap-3">
                                 <GripVertical className="h-4 w-4 text-muted-foreground" />
                                 <Badge variant="outline">
-                                  Question {index + 1}
+                                  {t("surveys", "question").replace("{number}", String(index + 1))}
                                 </Badge>
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                   {getQuestionTypeIcon(question.questionType)}
@@ -341,7 +343,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                               <div className="flex flex-col gap-3">
                                 <Label className="text-sm font-semibold">
-                                  Question Content *
+                                  {t("surveys", "questionContent")}
                                 </Label>
                                 <Textarea
                                   value={question.questionText}
@@ -350,7 +352,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                                       questionText: e.target.value,
                                     })
                                   }
-                                  placeholder="Enter question content"
+                                  placeholder={t("surveys", "enterQuestionContent")}
                                   required
                                   rows={3}
                                   className="resize-none text-base"
@@ -359,7 +361,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
 
                               <div className="flex flex-col gap-3">
                                 <Label className="text-sm font-semibold">
-                                  Question Type
+                                  {t("surveys", "questionType")}
                                 </Label>
                                 <Select
                                   value={question.questionType}
@@ -370,7 +372,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                                   }
                                 >
                                   <SelectTrigger className="h-11">
-                                    <SelectValue placeholder="Select question type" />
+                                    <SelectValue placeholder={t("surveys", "selectQuestionType")} />
                                   </SelectTrigger>
                                   <SelectContent>
                                     {surveyQuestionTypes.map((type) => (
@@ -378,7 +380,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                                         key={type.value}
                                         value={type.value}
                                       >
-                                        {type.label}
+                                        {t("surveys", type.labelKey)}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
@@ -427,11 +429,10 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
                                 />
                                 <div className="flex flex-col gap-1">
                                   <Label className="text-sm font-medium">
-                                    Required Question
+                                    {t("surveys", "requiredQuestion")}
                                   </Label>
                                   <p className="text-xs text-muted-foreground">
-                                    Respondents will have to answer this
-                                    question
+                                    {t("surveys", "requiredQuestionDescriptionAlt")}
                                   </p>
                                 </div>
                               </div>
@@ -454,7 +455,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
               onClick={() => router.back()}
               className="min-w-[120px]"
             >
-              Cancel
+              {t("surveys", "cancel")}
             </Button>
             <Button
               type="submit"
@@ -462,7 +463,7 @@ export function SurveyForm({ projectSlug }: SurveyFormProps) {
               className="min-w-[160px]"
             >
               <Save data-icon="inline-start" />
-              {isSubmitting ? "Creating..." : "Create Survey"}
+              {isSubmitting ? t("surveys", "creating") : t("surveys", "createSurvey")}
             </Button>
           </div>
         </form>

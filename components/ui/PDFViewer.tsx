@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 // Dynamically import react-pdf to avoid SSR issues with pdfjs-dist
 const Document = dynamic(
@@ -26,6 +27,7 @@ interface PDFViewerProps {
 }
 
 export default function PDFViewer({ url, fileName }: PDFViewerProps) {
+  const { t } = useI18n();
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [loading, setLoading] = useState(true);
@@ -75,10 +77,10 @@ export default function PDFViewer({ url, fileName }: PDFViewerProps) {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-64 space-y-4">
-        <p className="text-red-600">Failed to load PDF</p>
+        <p className="text-red-600">{t("pdfViewer", "failedToLoad")}</p>
         <Button onClick={downloadPDF} variant="outline">
           <Download className="h-4 w-4 mr-2" />
-          Download PDF
+          {t("pdfViewer", "downloadPdf")}
         </Button>
       </div>
     );
@@ -99,7 +101,7 @@ export default function PDFViewer({ url, fileName }: PDFViewerProps) {
           </Button>
           
           <span className="text-sm text-gray-600">
-            Page {pageNumber} of {numPages || '...'}
+            {t("pdfViewer", "pageOf", { page: pageNumber, total: numPages || '...' })}
           </span>
           
           <Button
@@ -114,7 +116,7 @@ export default function PDFViewer({ url, fileName }: PDFViewerProps) {
         
         <Button onClick={downloadPDF} variant="outline" size="sm">
           <Download className="h-4 w-4 mr-2" />
-          Download
+          {t("pdfViewer", "download")}
         </Button>
       </div>
 
@@ -134,7 +136,7 @@ export default function PDFViewer({ url, fileName }: PDFViewerProps) {
             loading=""
             error=""
           >
-            <Page 
+            <Page
               pageNumber={pageNumber}
               width={containerWidth}
               loading=""
@@ -148,4 +150,4 @@ export default function PDFViewer({ url, fileName }: PDFViewerProps) {
       </div>
     </div>
   );
-} 
+}

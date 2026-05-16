@@ -7,8 +7,10 @@ import { Id } from "@/convex/_generated/dataModel";
 import { EditSurveyForm } from "@/components/surveys/EditSurveyForm";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { AppLoadingState } from "@/components/ui/loading-state";
+import { useI18n } from "@/lib/i18n";
 
 export default function EditSurveyPage() {
+  const { t } = useI18n();
   const params = useParams();
   const surveyId = params.surveyId as Id<"surveys">;
 
@@ -18,8 +20,8 @@ export default function EditSurveyPage() {
     return (
       <AppLoadingState
         variant="section"
-        title="Loading survey"
-        description="Preparing the editor."
+        title={t("surveyPages", "loadingSurvey")}
+        description={t("surveyPages", "preparingEditor")}
       />
     );
   }

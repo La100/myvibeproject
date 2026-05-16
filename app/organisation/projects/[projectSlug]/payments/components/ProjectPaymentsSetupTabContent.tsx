@@ -9,6 +9,7 @@ import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from "@
 import { Input } from "@/components/ui/input";
 import { TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useI18n } from "@/lib/i18n";
 import { Banknote, Building2, RefreshCw, X } from "lucide-react";
 
 type BillingProfile = {
@@ -131,7 +132,7 @@ function SetupField({
   );
 }
 
-function renderHideFieldAction(label: string, onClick: () => void, disabled: boolean) {
+function renderHideFieldAction(label: string, onClick: () => void, disabled: boolean, ariaLabel: string) {
   return (
     <Button
       type="button"
@@ -140,8 +141,8 @@ function renderHideFieldAction(label: string, onClick: () => void, disabled: boo
       className="size-5 rounded-full text-muted-foreground hover:text-foreground"
       onClick={onClick}
       disabled={disabled}
-      aria-label={`Hide ${label}`}
-      title={`Hide ${label}`}
+      aria-label={ariaLabel}
+      title={ariaLabel}
     >
       <X className="h-3 w-3" />
     </Button>
@@ -159,6 +160,8 @@ function FieldToggleList<T extends string>({
   onShow: (key: T) => void;
   disabled: boolean;
 }) {
+  const { t } = useI18n();
+
   if (options.length === 0) return null;
 
   return (
@@ -174,7 +177,7 @@ function FieldToggleList<T extends string>({
             onClick={() => onShow(option.key)}
             disabled={disabled}
           >
-            Show {option.label}
+            {t("projectPayments", "showField", { field: option.label })}
           </Button>
         ))}
       </div>
@@ -201,6 +204,9 @@ export function ProjectPaymentsSetupTabContent({
   onBillingProfileChange,
   onCustomerChange,
 }: ProjectPaymentsSetupTabContentProps) {
+  const { t } = useI18n();
+  const hideField = (label: string) => t("projectPayments", "hideField", { field: label });
+
   const paymentRouteBadgeClassName =
     paymentRouteStatus === "missing"
       ? "border-destructive/35 bg-destructive/12 text-destructive"
@@ -216,30 +222,30 @@ export function ProjectPaymentsSetupTabContent({
             <div className="flex flex-col gap-1.5">
               <CardTitle className="flex items-center gap-2">
                 <Banknote />
-                Organization Billing Profile
+                {t("projectPayments", "organizationBillingProfile")}
               </CardTitle>
               <CardDescription>
-                Seller data is shared across this organization and is also available in{" "}
+                {t("projectPayments", "sellerDataShared")}{" "}
                 <Link href="/organisation/settings#organization-billing-profile" target="_blank" rel="noopener noreferrer">
-                  organization settings
+                  {t("projectPayments", "organizationSettings")}
                 </Link>
                 .
               </CardDescription>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <span className="text-xs text-muted-foreground">Payment route</span>
+              <span className="text-xs text-muted-foreground">{t("projectPayments", "paymentRoute")}</span>
               <Badge variant="outline" className={paymentRouteBadgeClassName}>
                 {paymentRouteStatus === "stripe"
                   ? "Stripe"
                   : paymentRouteStatus === "bank"
-                    ? "Bank transfer"
-                    : "Missing"}
+                    ? t("projectPayments", "bankTransfer")
+                    : t("projectPayments", "missing")}
               </Badge>
             </div>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
             <FieldToggleList
-              title="Hidden seller fields"
+              title={t("projectPayments", "hiddenSellerFields")}
               options={hiddenSellerFieldOptions}
               onShow={(key) => onSetSellerFieldVisibility(key, true)}
               disabled={isSavingVisibility}
@@ -248,12 +254,13 @@ export function ProjectPaymentsSetupTabContent({
             <FieldGroup className="grid gap-4 md:grid-cols-2">
               {invoiceFieldRequirements.seller.sellerName ? (
                 <SetupField
-                  label="Seller name"
+                  label={t("projectPayments", "sellerName")}
                   htmlFor="seller-name"
                   action={renderHideFieldAction(
-                    "Seller name",
+                    t("projectPayments", "sellerName"),
                     () => onSetSellerFieldVisibility("sellerName", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "sellerName")),
                   )}
                 >
                   <Input
@@ -265,12 +272,13 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.seller.sellerTaxId ? (
                 <SetupField
-                  label="Tax ID / VAT ID"
+                  label={t("projectPayments", "taxIdVatId")}
                   htmlFor="seller-tax-id"
                   action={renderHideFieldAction(
-                    "Tax ID / VAT ID",
+                    t("projectPayments", "taxIdVatId"),
                     () => onSetSellerFieldVisibility("sellerTaxId", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "taxIdVatId")),
                   )}
                 >
                   <Input
@@ -282,12 +290,13 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.seller.sellerEmail ? (
                 <SetupField
-                  label="Billing email"
+                  label={t("projectPayments", "billingEmail")}
                   htmlFor="seller-email"
                   action={renderHideFieldAction(
-                    "Billing email",
+                    t("projectPayments", "billingEmail"),
                     () => onSetSellerFieldVisibility("sellerEmail", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "billingEmail")),
                   )}
                 >
                   <Input
@@ -300,12 +309,13 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.seller.sellerPhone ? (
                 <SetupField
-                  label="Phone"
+                  label={t("projectPayments", "phone")}
                   htmlFor="seller-phone"
                   action={renderHideFieldAction(
-                    "Phone",
+                    t("projectPayments", "phone"),
                     () => onSetSellerFieldVisibility("sellerPhone", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "phone")),
                   )}
                 >
                   <Input
@@ -317,13 +327,14 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.seller.sellerAddressLine1 ? (
                 <SetupField
-                  label="Address line 1"
+                  label={t("projectPayments", "addressLine1")}
                   htmlFor="seller-address-1"
                   className="md:col-span-2"
                   action={renderHideFieldAction(
-                    "Address line 1",
+                    t("projectPayments", "addressLine1"),
                     () => onSetSellerFieldVisibility("sellerAddressLine1", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "addressLine1")),
                   )}
                 >
                   <Input
@@ -335,13 +346,14 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.seller.sellerAddressLine2 ? (
                 <SetupField
-                  label="Address line 2"
+                  label={t("projectPayments", "addressLine2")}
                   htmlFor="seller-address-2"
                   className="md:col-span-2"
                   action={renderHideFieldAction(
-                    "Address line 2",
+                    t("projectPayments", "addressLine2"),
                     () => onSetSellerFieldVisibility("sellerAddressLine2", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "addressLine2")),
                   )}
                 >
                   <Input
@@ -353,12 +365,13 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.seller.sellerPostalCode ? (
                 <SetupField
-                  label="Postal code"
+                  label={t("projectPayments", "postalCode")}
                   htmlFor="seller-postal-code"
                   action={renderHideFieldAction(
-                    "Postal code",
+                    t("projectPayments", "postalCode"),
                     () => onSetSellerFieldVisibility("sellerPostalCode", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "postalCode")),
                   )}
                 >
                   <Input
@@ -370,12 +383,13 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.seller.sellerCity ? (
                 <SetupField
-                  label="City"
+                  label={t("projectPayments", "city")}
                   htmlFor="seller-city"
                   action={renderHideFieldAction(
-                    "City",
+                    t("projectPayments", "city"),
                     () => onSetSellerFieldVisibility("sellerCity", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "city")),
                   )}
                 >
                   <Input
@@ -387,13 +401,14 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.seller.sellerCountry ? (
                 <SetupField
-                  label="Country"
+                  label={t("projectPayments", "country")}
                   htmlFor="seller-country"
                   className="md:col-span-2"
                   action={renderHideFieldAction(
-                    "Country",
+                    t("projectPayments", "country"),
                     () => onSetSellerFieldVisibility("sellerCountry", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "country")),
                   )}
                 >
                   <Input
@@ -408,12 +423,13 @@ export function ProjectPaymentsSetupTabContent({
             <FieldGroup className="grid gap-4 md:grid-cols-2">
               {invoiceFieldRequirements.seller.bankAccountHolder ? (
                 <SetupField
-                  label="Account holder"
+                  label={t("projectPayments", "accountHolder")}
                   htmlFor="bank-account-holder"
                   action={renderHideFieldAction(
-                    "Account holder",
+                    t("projectPayments", "accountHolder"),
                     () => onSetSellerFieldVisibility("bankAccountHolder", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "accountHolder")),
                   )}
                 >
                   <Input
@@ -425,12 +441,13 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.seller.bankName ? (
                 <SetupField
-                  label="Bank name"
+                  label={t("projectPayments", "bankName")}
                   htmlFor="bank-name"
                   action={renderHideFieldAction(
-                    "Bank name",
+                    t("projectPayments", "bankName"),
                     () => onSetSellerFieldVisibility("bankName", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "bankName")),
                   )}
                 >
                   <Input
@@ -442,12 +459,13 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.seller.bankAccountNumber ? (
                 <SetupField
-                  label="Bank account number / IBAN"
+                  label={t("projectPayments", "bankAccountNumberIban")}
                   htmlFor="bank-account-number"
                   action={renderHideFieldAction(
-                    "Bank account number / IBAN",
+                    t("projectPayments", "bankAccountNumberIban"),
                     () => onSetSellerFieldVisibility("bankAccountNumber", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "bankAccountNumberIban")),
                   )}
                 >
                   <Input
@@ -459,12 +477,13 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.seller.bankSwift ? (
                 <SetupField
-                  label="SWIFT"
+                  label={t("projectPayments", "swift")}
                   htmlFor="bank-swift"
                   action={renderHideFieldAction(
-                    "SWIFT",
+                    t("projectPayments", "swift"),
                     () => onSetSellerFieldVisibility("bankSwift", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "swift")),
                   )}
                 >
                   <Input
@@ -476,12 +495,13 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.seller.defaultPaymentTermDays ? (
                 <SetupField
-                  label="Default due days"
+                  label={t("projectPayments", "defaultDueDays")}
                   htmlFor="default-due-days"
                   action={renderHideFieldAction(
-                    "Default due days",
+                    t("projectPayments", "defaultDueDays"),
                     () => onSetSellerFieldVisibility("defaultPaymentTermDays", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "defaultDueDays")),
                   )}
                 >
                   <Input
@@ -495,13 +515,14 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.seller.paymentInstructions ? (
                 <SetupField
-                  label="Payment instructions"
+                  label={t("projectPayments", "paymentInstructions")}
                   htmlFor="payment-instructions"
                   className="md:col-span-2"
                   action={renderHideFieldAction(
-                    "Payment instructions",
+                    t("projectPayments", "paymentInstructions"),
                     () => onSetSellerFieldVisibility("paymentInstructions", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "paymentInstructions")),
                   )}
                 >
                   <Textarea
@@ -516,7 +537,7 @@ export function ProjectPaymentsSetupTabContent({
 
             <div className="flex justify-end">
               <Button type="button" onClick={onSaveBillingDetails} disabled={isSavingBillingProfile}>
-                {isSavingBillingProfile ? "Saving..." : "Save billing profile"}
+                {isSavingBillingProfile ? t("projectPayments", "saving") : t("projectPayments", "saveBillingProfile")}
               </Button>
             </div>
           </CardContent>
@@ -526,20 +547,20 @@ export function ProjectPaymentsSetupTabContent({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 />
-              Bill-To Customer
+              {t("projectPayments", "billToCustomer")}
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" onClick={onApplyProjectClientDetails}>
                 <RefreshCw data-icon="inline-start" />
-                Use project client details
+                {t("projectPayments", "useProjectClientDetails")}
               </Button>
               {projectClientDefaults.name ? <Badge variant="outline">{projectClientDefaults.name}</Badge> : null}
             </div>
 
             <FieldToggleList
-              title="Hidden customer fields"
+              title={t("projectPayments", "hiddenCustomerFields")}
               options={hiddenCustomerFieldOptions}
               onShow={(key) => onSetCustomerFieldVisibility(key, true)}
               disabled={isSavingVisibility}
@@ -548,12 +569,13 @@ export function ProjectPaymentsSetupTabContent({
             <FieldGroup className="grid gap-4 md:grid-cols-2">
               {invoiceFieldRequirements.customer.companyName ? (
                 <SetupField
-                  label="Company name"
+                  label={t("projectPayments", "companyName")}
                   htmlFor="customer-company-name"
                   action={renderHideFieldAction(
-                    "Company name",
+                    t("projectPayments", "companyName"),
                     () => onSetCustomerFieldVisibility("companyName", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "companyName")),
                   )}
                 >
                   <Input
@@ -565,12 +587,13 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.customer.name ? (
                 <SetupField
-                  label="Contact / buyer name"
+                  label={t("projectPayments", "contactBuyerName")}
                   htmlFor="customer-name"
                   action={renderHideFieldAction(
-                    "Contact / buyer name",
+                    t("projectPayments", "contactBuyerName"),
                     () => onSetCustomerFieldVisibility("name", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "contactBuyerName")),
                   )}
                 >
                   <Input
@@ -582,12 +605,13 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.customer.email ? (
                 <SetupField
-                  label="Billing email"
+                  label={t("projectPayments", "billingEmail")}
                   htmlFor="customer-email"
                   action={renderHideFieldAction(
-                    "Billing email",
+                    t("projectPayments", "billingEmail"),
                     () => onSetCustomerFieldVisibility("email", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "billingEmail")),
                   )}
                 >
                   <Input
@@ -600,12 +624,13 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.customer.phone ? (
                 <SetupField
-                  label="Phone"
+                  label={t("projectPayments", "phone")}
                   htmlFor="customer-phone"
                   action={renderHideFieldAction(
-                    "Phone",
+                    t("projectPayments", "phone"),
                     () => onSetCustomerFieldVisibility("phone", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "phone")),
                   )}
                 >
                   <Input
@@ -617,13 +642,14 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.customer.taxId ? (
                 <SetupField
-                  label="Tax ID / VAT ID"
+                  label={t("projectPayments", "taxIdVatId")}
                   htmlFor="customer-tax-id"
                   className="md:col-span-2"
                   action={renderHideFieldAction(
-                    "Tax ID / VAT ID",
+                    t("projectPayments", "taxIdVatId"),
                     () => onSetCustomerFieldVisibility("taxId", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "taxIdVatId")),
                   )}
                 >
                   <Input
@@ -635,13 +661,14 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.customer.addressLine1 ? (
                 <SetupField
-                  label="Address line 1"
+                  label={t("projectPayments", "addressLine1")}
                   htmlFor="customer-address-1"
                   className="md:col-span-2"
                   action={renderHideFieldAction(
-                    "Address line 1",
+                    t("projectPayments", "addressLine1"),
                     () => onSetCustomerFieldVisibility("addressLine1", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "addressLine1")),
                   )}
                 >
                   <Input
@@ -653,13 +680,14 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.customer.addressLine2 ? (
                 <SetupField
-                  label="Address line 2"
+                  label={t("projectPayments", "addressLine2")}
                   htmlFor="customer-address-2"
                   className="md:col-span-2"
                   action={renderHideFieldAction(
-                    "Address line 2",
+                    t("projectPayments", "addressLine2"),
                     () => onSetCustomerFieldVisibility("addressLine2", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "addressLine2")),
                   )}
                 >
                   <Input
@@ -671,12 +699,13 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.customer.postalCode ? (
                 <SetupField
-                  label="Postal code"
+                  label={t("projectPayments", "postalCode")}
                   htmlFor="customer-postal-code"
                   action={renderHideFieldAction(
-                    "Postal code",
+                    t("projectPayments", "postalCode"),
                     () => onSetCustomerFieldVisibility("postalCode", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "postalCode")),
                   )}
                 >
                   <Input
@@ -688,12 +717,13 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.customer.city ? (
                 <SetupField
-                  label="City"
+                  label={t("projectPayments", "city")}
                   htmlFor="customer-city"
                   action={renderHideFieldAction(
-                    "City",
+                    t("projectPayments", "city"),
                     () => onSetCustomerFieldVisibility("city", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "city")),
                   )}
                 >
                   <Input
@@ -705,13 +735,14 @@ export function ProjectPaymentsSetupTabContent({
               ) : null}
               {invoiceFieldRequirements.customer.country ? (
                 <SetupField
-                  label="Country"
+                  label={t("projectPayments", "country")}
                   htmlFor="customer-country"
                   className="md:col-span-2"
                   action={renderHideFieldAction(
-                    "Country",
+                    t("projectPayments", "country"),
                     () => onSetCustomerFieldVisibility("country", false),
                     isSavingVisibility,
+                    hideField(t("projectPayments", "country")),
                   )}
                 >
                   <Input
@@ -725,7 +756,7 @@ export function ProjectPaymentsSetupTabContent({
 
             <div className="flex justify-end">
               <Button type="button" onClick={onSaveCustomerDetails} disabled={isSavingCustomer}>
-                {isSavingCustomer ? "Saving..." : "Save customer details"}
+                {isSavingCustomer ? t("projectPayments", "saving") : t("projectPayments", "saveCustomerDetails")}
               </Button>
             </div>
           </CardContent>

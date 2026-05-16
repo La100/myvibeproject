@@ -6,16 +6,25 @@ import { useRouter } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { formatDistanceToNow } from "date-fns";
+import { enUS, pl } from "date-fns/locale";
 import { motion } from "framer-motion";
 import { apiAny } from "@/lib/convexApiAny";
 import {
   Plus,
   FolderOpen,
+  ExternalLink,
   MoreHorizontal,
   Search,
+  Settings2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Empty,
   EmptyContent,
@@ -31,6 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useI18n, type Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type ProjectStatus = "active" | "planning" | "on_hold" | "completed" | "cancelled";
@@ -40,6 +50,7 @@ type ProjectSort = "recent_activity" | "date_created";
 export default function CompanyProjects() {
   const router = useRouter();
   const { organization } = useOrganization();
+  const { locale, t } = useI18n();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<ProjectSort>("recent_activity");
 
@@ -85,12 +96,16 @@ export default function CompanyProjects() {
     <div className="flex min-h-[calc(100dvh-10rem)] flex-col gap-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="clean-title text-3xl font-medium tracking-tight">Projects</h2>
+          <h2 className="clean-title text-3xl font-medium tracking-tight">
+            {t("companyProjects", "title")}
+          </h2>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 md:justify-end">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Sort by</span>
+            <span className="text-sm text-muted-foreground">
+              {t("companyProjects", "sortBy")}
+            </span>
             <Select
               value={sortBy}
               onValueChange={(value) => setSortBy(value as ProjectSort)}
@@ -99,15 +114,19 @@ export default function CompanyProjects() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-popover">
-                <SelectItem value="recent_activity">Last activity</SelectItem>
-                <SelectItem value="date_created">Date created</SelectItem>
+                <SelectItem value="recent_activity">
+                  {t("companyProjects", "sortRecentActivity")}
+                </SelectItem>
+                <SelectItem value="date_created">
+                  {t("companyProjects", "sortDateCreated")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search projects"
+              placeholder={t("companyProjects", "searchPlaceholder")}
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               className="h-9 w-52 rounded-xl pl-9 text-sm md:w-64"
@@ -117,7 +136,7 @@ export default function CompanyProjects() {
             onClick={() => router.push("/organisation/projects/new")}
             className="h-9 rounded-xl px-4"
           >
-            Create Project
+            {t("companyProjects", "createProject")}
           </Button>
         </div>
       </div>
@@ -137,6 +156,7 @@ export default function CompanyProjects() {
                   name: project.name,
                   description: project.description,
                   coverImageUrl: project.coverImageDisplayUrl || project.coverImageUrl,
+                  slug: project.slug,
                   customer: project.customer,
                   location: project.location,
                   budget: project.budget,
@@ -151,6 +171,7 @@ export default function CompanyProjects() {
                   taskCount: project.taskCount || 0,
                   completedTasks: project.completedTasks || 0,
                 }}
+                locale={locale}
                 onClick={() => router.push(`/organisation/projects/${project.slug}`)}
                 onHover={() => router.prefetch(`/organisation/projects/${project.slug}`)}
               />
@@ -168,12 +189,14 @@ export default function CompanyProjects() {
                 <FolderOpen strokeWidth={1.5} />
               </EmptyMedia>
               <EmptyTitle className="text-2xl font-semibold tracking-tight md:text-3xl">
-                {searchQuery ? "No matching projects" : "No projects yet"}
+                {searchQuery
+                  ? t("companyProjects", "noMatchingProjects")
+                  : t("companyProjects", "noProjectsYet")}
               </EmptyTitle>
               <EmptyDescription className="max-w-lg text-base/relaxed md:text-lg/relaxed">
                 {searchQuery
-                  ? "Try a different search phrase or create a new project."
-                  : "Create your first live project and start running execution from one place."}
+                  ? t("companyProjects", "noMatchingProjectsDescription")
+                  : t("companyProjects", "noProjectsYetDescription")}
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent className="flex-row flex-wrap justify-center gap-3 text-base">
@@ -183,7 +206,7 @@ export default function CompanyProjects() {
                 className="h-12 rounded-xl px-6 text-base"
               >
                 <Plus className="h-5 w-5" />
-                Create Project
+                {t("companyProjects", "createProject")}
               </Button>
               {searchQuery ? (
                 <Button
@@ -192,7 +215,7 @@ export default function CompanyProjects() {
                   size="lg"
                   className="h-12 rounded-xl px-6 text-base"
                 >
-                  Clear search
+                  {t("companyProjects", "clearSearch")}
                 </Button>
               ) : null}
             </EmptyContent>
@@ -208,11 +231,13 @@ function ProjectCard({
   project,
   onClick,
   onHover,
+  locale,
 }: {
   project: {
     name: string;
     description?: string;
     coverImageUrl?: string;
+    slug: string;
     customer?: string;
     location?: string;
     budget?: number;
@@ -226,7 +251,10 @@ function ProjectCard({
   };
   onClick: () => void;
   onHover: () => void;
+  locale: Locale;
 }) {
+  const router = useRouter();
+  const { t } = useI18n();
   const hasCoverImage = Boolean(project.coverImageUrl?.trim());
   const statusMeta: Record<
     ProjectStatus,
@@ -238,11 +266,11 @@ function ProjectCard({
     },
     planning: {
       dotClassName: "bg-accent",
-      textClassName: "text-accent-foreground",
+      textClassName: "text-accent",
     },
     on_hold: {
       dotClassName: "bg-accent",
-      textClassName: "text-accent-foreground",
+      textClassName: "text-accent",
     },
     completed: {
       dotClassName: "bg-primary",
@@ -257,23 +285,29 @@ function ProjectCard({
   const getStatusLabel = (status: ProjectStatus) => {
     switch (status) {
       case "active":
-        return "Active";
+        return t("companyProjects", "statusActive");
       case "planning":
-        return "Planned";
+        return t("companyProjects", "statusPlanning");
       case "on_hold":
-        return "On Hold";
+        return t("companyProjects", "statusOnHold");
       case "completed":
-        return "Completed";
+        return t("companyProjects", "statusCompleted");
       case "cancelled":
-        return "Cancelled";
+        return t("companyProjects", "statusCancelled");
       default:
-        return "Unknown";
+        return t("companyProjects", "statusUnknown");
     }
   };
   const lastEditedAt = project.recentActivityAt ?? project.updatedAt ?? project.createdAt;
   const editedLabel = lastEditedAt
-    ? `Edited ${formatDistanceToNow(new Date(lastEditedAt), { addSuffix: true })}`
+    ? t("companyProjects", "editedDistance", {
+        distance: formatDistanceToNow(new Date(lastEditedAt), {
+          addSuffix: true,
+          locale: locale === "pl" ? pl : enUS,
+        }),
+      })
     : null;
+  const projectBasePath = `/organisation/projects/${project.slug}`;
 
   return (
     <div
@@ -287,7 +321,9 @@ function ProjectCard({
             <>
               <img
                 src={project.coverImageUrl!}
-                alt={`${project.name} cover image`}
+                alt={t("companyProjects", "coverImageAlt", {
+                  name: project.name,
+                })}
                 className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
@@ -341,7 +377,37 @@ function ProjectCard({
             </div>
           </div>
           <div className="flex shrink-0 items-start pt-0.5 text-muted-foreground">
-            <MoreHorizontal className="h-5 w-5" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t("companyProjects", "projectActions")}
+                  className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <MoreHorizontal className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-56 rounded-xl border-border/80 bg-popover"
+              >
+                <DropdownMenuItem onSelect={() => router.push(projectBasePath)}>
+                  <FolderOpen className="mr-2 h-4 w-4" />
+                  {t("companyProjects", "openProject")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => router.push(`${projectBasePath}/settings`)}>
+                  <Settings2 className="mr-2 h-4 w-4" />
+                  {t("companyProjects", "projectSettings")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => router.push(`${projectBasePath}/customer-panel`)}>
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  {t("companyProjects", "clientPanel")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </article>

@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import { VISUALIZATION_SUGGESTIONS } from "@/app/organisation/(company)/visualizations/constants";
 import { apiAny } from "@/lib/convexApiAny";
+import { useI18n } from "@/lib/i18n";
 
 const DEFAULT_VISUALIZATION_CHATKIT_URL = "/api/chatkit/visualizations";
 const CLIENT_TOOL_TIMEOUT_MS = 115_000;
@@ -67,6 +68,7 @@ const asReferenceImages = (value: unknown) => {
 };
 
 export default function VisualizationChatKit() {
+  const { t, locale } = useI18n();
   const { userId, getToken, isLoaded: isAuthLoaded } = useAuth();
   const { organization, isLoaded: isOrganizationLoaded } = useOrganization();
   const team = useQuery(
@@ -93,7 +95,7 @@ export default function VisualizationChatKit() {
     process.env.NEXT_PUBLIC_CHATKIT_VISUALIZATIONS_DOMAIN_KEY?.trim() || null;
   const configurationError = domainKey
     ? null
-    : "Missing NEXT_PUBLIC_CHATKIT_VISUALIZATIONS_DOMAIN_KEY for the visualizations ChatKit.";
+    : t("aiShell", "visualizationMissingDomainKey");
 
   const onClientTool = useMemo(
     () => async (call: ToolCall) => {
@@ -105,7 +107,9 @@ export default function VisualizationChatKit() {
           resolve({
             ok: false,
             tool: toolName,
-            error: `Client tool timed out after ${Math.round(CLIENT_TOOL_TIMEOUT_MS / 1000)} seconds.`,
+            error: t("aiShell", "visualizationClientToolTimeout", {
+              seconds: Math.round(CLIENT_TOOL_TIMEOUT_MS / 1000),
+            }),
             timedOut: true,
           });
         }, CLIENT_TOOL_TIMEOUT_MS);
@@ -116,7 +120,9 @@ export default function VisualizationChatKit() {
           return {
             ok: false,
             tool: toolName,
-            error: `Unknown visualization client tool: ${toolName}`,
+            error: t("aiShell", "unknownVisualizationTool", {
+              tool: toolName,
+            }),
           };
         }
 
@@ -124,7 +130,7 @@ export default function VisualizationChatKit() {
           return {
             ok: false,
             tool: toolName,
-            error: "No active team is available for image generation.",
+            error: t("aiShell", "noActiveTeamForImage"),
           };
         }
 
@@ -134,7 +140,7 @@ export default function VisualizationChatKit() {
           return {
             ok: false,
             tool: toolName,
-            error: "Missing required `prompt`.",
+            error: t("aiShell", "missingPrompt"),
           };
         }
 
@@ -152,7 +158,9 @@ export default function VisualizationChatKit() {
           imageStorageKey: result.imageStorageKey,
           mimeType: result.mimeType,
           generationId: result.generationId,
-          markdown: result.fileUrl ? `![Generated visualization](${result.fileUrl})` : undefined,
+          markdown: result.fileUrl
+            ? `![${t("aiShell", "generatedVisualizationAlt")}](${result.fileUrl})`
+            : undefined,
           error: result.error,
         };
       };
@@ -168,12 +176,17 @@ export default function VisualizationChatKit() {
       });
 
       if ((result as Record<string, unknown>).ok === false) {
-        toast.error(String((result as Record<string, unknown>).error || "Visualization tool failed"));
+        toast.error(
+          String(
+            (result as Record<string, unknown>).error ||
+              t("aiShell", "visualizationToolFailed"),
+          ),
+        );
       }
 
       return result;
     },
-    [generateVisualization, team?._id],
+    [generateVisualization, t, team?._id],
   );
 
   const chatkitFetch = useMemo(
@@ -226,8 +239,8 @@ export default function VisualizationChatKit() {
       uploadStrategy: { type: "two_phase" },
     },
     onClientTool,
-    locale: "en",
-    frameTitle: "Visualization assistant",
+    locale,
+    frameTitle: t("aiShell", "visualizationFrameTitle"),
     header: {
       enabled: true,
       title: {
@@ -240,10 +253,10 @@ export default function VisualizationChatKit() {
       showRename: true,
     },
     startScreen: {
-      greeting: "Describe the visual direction. Attach references when useful.",
+      greeting: t("aiShell", "visualizationGreeting"),
     },
     composer: {
-      placeholder: "Describe the visualization...",
+      placeholder: t("aiShell", "visualizationPlaceholder"),
       attachments: {
         enabled: true,
         maxSize: MAX_IMAGE_ATTACHMENT_BYTES,
@@ -270,11 +283,12 @@ export default function VisualizationChatKit() {
       setAssistantActivity("idle");
     },
     disclaimer: {
-      text: "Generated images can be imperfect. Verify details before client delivery.",
+      text: t("aiShell", "visualizationDisclaimer"),
     },
     onError: ({ error }) => {
       console.error("Visualization ChatKit error", error);
-      const message = error?.message || "Visualization ChatKit error";
+      const message =
+        error?.message || t("aiShell", "visualizationChatkitError");
       setBootError(message);
       toast.error(message);
     },
@@ -287,16 +301,16 @@ export default function VisualizationChatKit() {
         await chatkit.focusComposer();
       } catch (error) {
         console.error("Failed to set visualization prompt", error);
-        toast.error("Could not load the prompt into ChatKit.");
+        toast.error(t("aiShell", "promptLoadFailed"));
       }
     })();
   };
 
   const assistantActivityLabel =
     assistantActivity === "responding"
-      ? "Generating..."
+      ? t("aiShell", "generating")
       : assistantActivity === "loading_thread"
-        ? "Loading visualization thread..."
+        ? t("aiShell", "loadingVisualizationThread")
         : null;
 
   const isLoading =
@@ -309,7 +323,10 @@ export default function VisualizationChatKit() {
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Loading" />
+        <Loader2
+          className="h-8 w-8 animate-spin text-primary"
+          aria-label={t("aiShell", "loading")}
+        />
       </div>
     );
   }
@@ -347,10 +364,9 @@ export default function VisualizationChatKit() {
         />
         <Card className="w-full max-w-xl rounded-3xl border-border/70 bg-background/95">
           <CardHeader>
-            <CardTitle>Visualization ChatKit error</CardTitle>
+            <CardTitle>{t("aiShell", "visualizationErrorTitle")}</CardTitle>
             <CardDescription>
-              The visualizations page is wired to a dedicated ChatKit surface,
-              but the integration could not be initialized.
+              {t("aiShell", "visualizationErrorDescription")}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -364,7 +380,7 @@ export default function VisualizationChatKit() {
               }}
             >
               <RefreshCw className="size-4" />
-              Retry
+              {t("aiShell", "retry")}
             </Button>
           </CardContent>
         </Card>
@@ -395,11 +411,16 @@ export default function VisualizationChatKit() {
         />
       </div>
 
-      <section className="mx-auto w-full max-w-[1220px]" aria-label="Example visualization prompts">
+      <section
+        className="mx-auto w-full max-w-[1220px]"
+        aria-label={t("aiShell", "examplePromptsLabel")}
+      >
         <div className="mb-2 flex items-center justify-between gap-3">
-          <p className="text-sm font-semibold text-foreground">Example prompts</p>
+          <p className="text-sm font-semibold text-foreground">
+            {t("aiShell", "examplePromptsTitle")}
+          </p>
           <p className="hidden text-xs text-muted-foreground sm:block">
-            Click one to load it into the composer.
+            {t("aiShell", "examplePromptsHint")}
           </p>
         </div>
         <div className="flex gap-4 overflow-x-auto pb-1">

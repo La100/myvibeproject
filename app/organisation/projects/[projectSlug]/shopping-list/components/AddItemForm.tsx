@@ -28,6 +28,7 @@ import {
   type PriceTaxMode,
   type PriceTaxRateSnapshot,
 } from "@/lib/priceTax";
+import { useI18n } from "@/lib/i18n";
 
 interface AddItemFormProps {
   projectId: Id<"projects">;
@@ -89,8 +90,10 @@ export function AddItemForm({
   defaultSetId,
   hideSectionField = false,
   hideAlternativeControls = false,
-  submitLabel = "Add Product",
+  submitLabel,
 }: AddItemFormProps) {
+  const { t } = useI18n();
+  const resolvedSubmitLabel = submitLabel ?? t("shoppingList", "addProduct");
   const [newItemName, setNewItemName] = useState("");
   const [newItemSupplier, setNewItemSupplier] = useState("");
   const [newItemCategory, setNewItemCategory] = useState("");
@@ -147,7 +150,7 @@ export function AddItemForm({
     try {
       normalizedUrl = normalizeProductUrl(rawUrl);
     } catch {
-      toast.error("Invalid product URL");
+      toast.error(t("shoppingList", "invalidProductUrl"));
       return;
     }
 
@@ -171,7 +174,7 @@ export function AddItemForm({
       };
 
       if (!response.ok) {
-        throw new Error(payload.message || "Failed to scrape product details");
+        throw new Error(payload.message || t("shoppingList", "failedToScrapeProductDetails"));
       }
 
       if (payload.name) setNewItemName(payload.name);
@@ -188,9 +191,9 @@ export function AddItemForm({
       if (payload.imageUrl) setNewItemImageUrl(payload.imageUrl);
       if (payload.productLink) setNewItemProductLink(payload.productLink);
 
-      toast.success("Product details imported from URL");
+      toast.success(t("shoppingList", "productDetailsImported"));
     } catch (error) {
-      toast.error("Could not import product details", {
+      toast.error(t("shoppingList", "couldNotImportProductDetails"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -206,7 +209,7 @@ export function AddItemForm({
       try {
         normalizedProductLink = normalizeProductUrl(newItemProductLink);
       } catch {
-        toast.error("Invalid product URL");
+        toast.error(t("shoppingList", "invalidProductUrl"));
         return;
       }
     }
@@ -227,7 +230,7 @@ export function AddItemForm({
       (normalizedPriceTaxMode === "net" || normalizedPriceTaxMode === "gross") &&
       !taxRateSnapshot
     ) {
-      toast.error("Select a tax rate or leave tax as not specified");
+      toast.error(t("shoppingList", "selectTaxRateOrLeaveUnspecified"));
       return;
     }
 
@@ -293,7 +296,7 @@ export function AddItemForm({
       setNewItemHasAlternatives(false);
     } catch (error) {
       console.error("Error creating item:", error);
-      toast.error("Failed to add shopping list item", {
+      toast.error(t("shoppingList", "failedToAddItem"), {
         description: toUserFacingErrorMessage(error),
       });
     }
@@ -319,23 +322,23 @@ export function AddItemForm({
     <div className="flex flex-col gap-4">
       {defaultSetId ? (
         <div className="vibe-row border-dashed px-4 py-3 text-sm text-muted-foreground">
-          This will be added as another option for the current product.
+          {t("shoppingList", "addedAsAnotherOption")}
         </div>
       ) : null}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Field>
-          <FieldLabel>Product Name *</FieldLabel>
+          <FieldLabel>{t("shoppingList", "productName")}</FieldLabel>
           <Input
             value={newItemName}
             onChange={(e) => setNewItemName(e.target.value)}
-            placeholder="e.g. Kitchen Countertop Navona"
+            placeholder={t("shoppingList", "productNamePlaceholder")}
             className="h-12 text-sm"
           />
         </Field>
         {!hideSectionField ? (
           <Field>
-            <FieldLabel>Section</FieldLabel>
+            <FieldLabel>{t("shoppingList", "section")}</FieldLabel>
             <Select
               value={newItemSectionId}
               onValueChange={(value) =>
@@ -345,10 +348,10 @@ export function AddItemForm({
               }
             >
               <SelectTrigger className="h-12 text-sm">
-                <SelectValue placeholder="Select section" />
+                <SelectValue placeholder={t("shoppingList", "selectSection")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">No Category</SelectItem>
+                <SelectItem value="none">{t("shoppingList", "noCategory")}</SelectItem>
                 {sections.map((section) => (
                   <SelectItem key={section._id} value={section._id}>
                     {section.name}
@@ -359,43 +362,43 @@ export function AddItemForm({
           </Field>
         ) : null}
         <Field>
-          <FieldLabel>Supplier</FieldLabel>
+          <FieldLabel>{t("shoppingList", "supplier")}</FieldLabel>
           <Input
             value={newItemSupplier}
             onChange={(e) => setNewItemSupplier(e.target.value)}
-            placeholder="e.g. kronosfera.pl"
+            placeholder={t("shoppingList", "supplierPlaceholder")}
             className="h-12 text-sm"
           />
         </Field>
         <Field>
-          <FieldLabel>Catalog Number</FieldLabel>
+          <FieldLabel>{t("shoppingList", "catalogNumber")}</FieldLabel>
           <Input
             value={newItemCatalogNumber}
             onChange={(e) => setNewItemCatalogNumber(e.target.value)}
-            placeholder="e.g. BU1K367PH-3BC1"
+            placeholder={t("shoppingList", "catalogNumberPlaceholder")}
             className="h-12 text-sm"
           />
         </Field>
         <Field>
-          <FieldLabel>Category</FieldLabel>
+          <FieldLabel>{t("shoppingList", "category")}</FieldLabel>
           <Input
             value={newItemCategory}
             onChange={(e) => setNewItemCategory(e.target.value)}
-            placeholder="e.g. Furniture"
+            placeholder={t("shoppingList", "categoryPlaceholder")}
             className="h-12 text-sm"
           />
         </Field>
         <Field>
-          <FieldLabel>Dimensions</FieldLabel>
+          <FieldLabel>{t("shoppingList", "dimensions")}</FieldLabel>
           <Input
             value={newItemDimensions}
             onChange={(e) => setNewItemDimensions(e.target.value)}
-            placeholder="e.g. 4100 x 1200"
+            placeholder={t("shoppingList", "dimensionsPlaceholder")}
             className="h-12 text-sm"
           />
         </Field>
         <Field>
-          <FieldLabel>Quantity</FieldLabel>
+          <FieldLabel>{t("shoppingList", "quantity")}</FieldLabel>
           <Input
             type="number"
             min="1"
@@ -407,7 +410,7 @@ export function AddItemForm({
           />
         </Field>
         <Field>
-          <FieldLabel>Unit Price ({currencySymbol})</FieldLabel>
+          <FieldLabel>{t("shoppingList", "unitPrice")} ({currencySymbol})</FieldLabel>
           <Input
             type="number"
             step="0.01"
@@ -418,7 +421,7 @@ export function AddItemForm({
           />
         </Field>
         <Field>
-          <FieldLabel>Tax treatment</FieldLabel>
+          <FieldLabel>{t("shoppingList", "taxTreatment")}</FieldLabel>
           <Select
             value={newItemPriceTaxMode}
             onValueChange={(value) => {
@@ -433,23 +436,23 @@ export function AddItemForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="unspecified">Not specified</SelectItem>
+              <SelectItem value="unspecified">{t("shoppingList", "notSpecified")}</SelectItem>
               <SelectItem value="net" disabled={activeTaxRates.length === 0}>
-                Net + tax
+                {t("shoppingList", "netPlusTax")}
               </SelectItem>
               <SelectItem value="gross" disabled={activeTaxRates.length === 0}>
-                Gross incl. tax
+                {t("shoppingList", "grossInclTax")}
               </SelectItem>
-              <SelectItem value="exempt">Tax exempt</SelectItem>
+              <SelectItem value="exempt">{t("shoppingList", "taxExempt")}</SelectItem>
             </SelectContent>
           </Select>
         </Field>
         {newItemPriceTaxMode === "net" || newItemPriceTaxMode === "gross" ? (
           <Field>
-            <FieldLabel>Tax rate</FieldLabel>
+            <FieldLabel>{t("shoppingList", "taxRate")}</FieldLabel>
             <Select value={selectedTaxRateId} onValueChange={setNewItemTaxRateId}>
               <SelectTrigger className="h-12 text-sm">
-                <SelectValue placeholder="Select tax rate" />
+                <SelectValue placeholder={t("shoppingList", "selectTaxRate")} />
               </SelectTrigger>
               <SelectContent>
                 {activeTaxRates.map((rate) => (
@@ -462,7 +465,7 @@ export function AddItemForm({
           </Field>
         ) : null}
         <Field>
-          <FieldLabel>Product Link</FieldLabel>
+          <FieldLabel>{t("shoppingList", "productLink")}</FieldLabel>
           <div className="flex items-center gap-2">
             <Input
               value={newItemProductLink}
@@ -483,13 +486,13 @@ export function AddItemForm({
                 <WandSparkles className="h-4 w-4" />
               )}
               <span className="ml-2 hidden xl:inline">
-                {isScraping ? "Scraping..." : "Auto-fill"}
+                {isScraping ? t("shoppingList", "scrapeProductDetails") : t("shoppingList", "autoFill")}
               </span>
             </Button>
           </div>
         </Field>
         <Field className="md:col-span-2 lg:col-span-3">
-          <FieldLabel>Image URL</FieldLabel>
+          <FieldLabel>{t("shoppingList", "imageUrl")}</FieldLabel>
           <Input
             value={newItemImageUrl}
             onChange={(e) => setNewItemImageUrl(e.target.value)}
@@ -498,16 +501,16 @@ export function AddItemForm({
           />
         </Field>
         <Field>
-          <FieldLabel>Assign To</FieldLabel>
+          <FieldLabel>{t("shoppingList", "assignTo")}</FieldLabel>
           <Select
             value={newItemAssignedTo}
             onValueChange={setNewItemAssignedTo}
           >
             <SelectTrigger className="h-12 text-sm">
-              <SelectValue placeholder="Select user" />
+              <SelectValue placeholder={t("shoppingList", "selectUser")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">Unassigned</SelectItem>
+              <SelectItem value="none">{t("shoppingList", "unassigned")}</SelectItem>
               {teamMembers?.map((member) => (
                 <SelectItem key={member.clerkUserId} value={member.clerkUserId}>
                   <div className="flex items-center gap-2">
@@ -523,11 +526,11 @@ export function AddItemForm({
           </Select>
         </Field>
         <Field>
-          <FieldLabel>Buy Before</FieldLabel>
+          <FieldLabel>{t("shoppingList", "buyBefore")}</FieldLabel>
           <DatePicker
             date={newItemBuyBefore}
             onDateChange={setNewItemBuyBefore}
-            placeholder="Pick a date"
+            placeholder={t("shoppingList", "pickDate")}
             className="h-12 w-full text-sm"
           />
         </Field>
@@ -548,11 +551,10 @@ export function AddItemForm({
             className="cursor-pointer text-sm leading-6"
           >
             <span className="font-medium text-foreground">
-              Offer alternatives?
+              {t("shoppingList", "offerAlternatives")}
             </span>
             <span className="block text-muted-foreground">
-              Create an alternative group if the client should choose one option
-              from a few versions of this product.
+              {t("shoppingList", "createAlternativeGroupDescription")}
             </span>
           </label>
         </div>
@@ -561,19 +563,19 @@ export function AddItemForm({
       {totalPrice > 0 && (
         <div className="flex flex-col items-end gap-1 text-sm">
           <div className="flex items-center justify-end gap-2">
-            <span className="text-muted-foreground">Total:</span>
+            <span className="text-muted-foreground">{t("shoppingList", "totalLabel")}</span>
             <span className="font-medium text-foreground">
               {totalPrice.toFixed(2)} {currencySymbol}
             </span>
           </div>
           {unitBreakdownLabel ? (
             <span className="text-xs text-muted-foreground">
-              Unit: {unitBreakdownLabel}
+              {t("shoppingList", "unitLabel")} {unitBreakdownLabel}
             </span>
           ) : null}
           {totalBreakdown.hasBreakdown ? (
             <span className="text-xs text-muted-foreground">
-              Gross total: {totalBreakdown.gross.toFixed(2)} {currencySymbol}
+              {t("shoppingList", "grossTotal")} {totalBreakdown.gross.toFixed(2)} {currencySymbol}
             </span>
           ) : null}
         </div>
@@ -585,7 +587,7 @@ export function AddItemForm({
           disabled={isPending || isScraping || !newItemName.trim()}
           className="h-11 px-6"
         >
-          {isPending ? "Adding..." : submitLabel}
+          {isPending ? t("shoppingList", "adding") : resolvedSubmitLabel}
         </Button>
       </div>
     </div>

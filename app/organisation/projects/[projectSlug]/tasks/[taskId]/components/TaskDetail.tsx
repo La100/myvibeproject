@@ -27,6 +27,7 @@ import ActivityLog from "@/components/dashboard/ActivityLog";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useI18n } from "@/lib/i18n";
 
 type TaskPriority = "low" | "medium" | "high" | "urgent" | null;
 
@@ -45,6 +46,7 @@ const statusTone: Record<string, "secondary" | "outline"> = {
 };
 
 export default function TaskDetail() {
+  const { t } = useI18n();
   const params = useParams<{ projectSlug: string; taskId: string }>();
   const router = useRouter();
   const { user, isLoaded: isUserLoaded } = useUser();
@@ -100,7 +102,7 @@ export default function TaskDetail() {
       <ProjectPageLayout>
         <div className="flex flex-col gap-6">
           <ProjectPageHeader
-            title="Task unavailable"
+            title={t("taskDetail", "taskUnavailable")}
             actions={
               <Button
                 variant="ghost"
@@ -109,7 +111,7 @@ export default function TaskDetail() {
                 className="text-muted-foreground hover:text-foreground"
               >
                 <ArrowLeft className="mr-1 h-5 w-5 stroke-[2.4]" />
-                Back to tasks
+                {t("taskDetail", "backToTasks")}
               </Button>
             }
           />
@@ -117,10 +119,9 @@ export default function TaskDetail() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <Empty className="border-border bg-background">
               <EmptyHeader>
-                <EmptyTitle>Task not found</EmptyTitle>
+                <EmptyTitle>{t("taskDetail", "taskNotFound")}</EmptyTitle>
                 <EmptyDescription>
-                  This task may have been removed, or you may no longer have
-                  access to it.
+                  {t("taskDetail", "taskNotFoundDescription")}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -162,9 +163,9 @@ export default function TaskDetail() {
         fileSize: file.size,
       });
 
-      toast.success("File uploaded successfully");
+      toast.success(t("taskDetail", "fileUploadedSuccessfully"));
     } catch (error) {
-      toast.error("Error uploading file", {
+      toast.error(t("taskDetail", "errorUploadingFile"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -182,9 +183,9 @@ export default function TaskDetail() {
         content: newComment.trim(),
       });
       setNewComment("");
-      toast.success("Comment added successfully");
+      toast.success(t("taskDetail", "commentAddedSuccessfully"));
     } catch {
-      toast.error("Error adding comment");
+      toast.error(t("taskDetail", "errorAddingComment"));
     }
   };
 
@@ -204,11 +205,11 @@ export default function TaskDetail() {
         taskId: task._id,
         title: titleValue.trim(),
       });
-      toast.success("Title updated successfully");
+      toast.success(t("taskDetail", "titleUpdatedSuccessfully"));
       setIsEditingTitle(false);
       setTitleValue("");
     } catch {
-      toast.error("Error updating title");
+      toast.error(t("taskDetail", "errorUpdatingTitle"));
     }
   };
 
@@ -232,13 +233,13 @@ export default function TaskDetail() {
                 className="text-muted-foreground hover:text-foreground"
               >
                 <ArrowLeft className="mr-1 h-5 w-5 stroke-[2.4]" />
-                Back to tasks
+                {t("taskDetail", "backToTasks")}
               </Button>
               {task.priority && task.priority !== null && (
                 <Badge
                   variant={priorityTone[task.priority as Exclude<TaskPriority, null>]}
                 >
-                  {task.priority}
+                  {t("taskDetail", task.priority)}
                 </Badge>
               )}
               <Badge
@@ -273,14 +274,14 @@ export default function TaskDetail() {
                     autoFocus
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Press Enter to save, Escape to cancel
+                    {t("taskDetail", "titleEditHint")}
                   </p>
                 </div>
               ) : (
                 <h1
                   className="mb-2 cursor-pointer rounded-md p-2 -m-2 text-3xl font-bold text-foreground transition-colors hover:bg-muted"
                   onClick={startEditingTitle}
-                  title="Click to edit title"
+                  title={t("taskDetail", "clickToEditTitle")}
                 >
                   {task.title}
                 </h1>
@@ -290,7 +291,7 @@ export default function TaskDetail() {
                 <TaskEditor
                   taskId={params.taskId}
                   initialContent={task.content || task.description || ""}
-                  placeholder="Describe the details of this task..."
+                  placeholder={t("taskDetail", "editorPlaceholder")}
                 />
               </div>
 
@@ -298,7 +299,7 @@ export default function TaskDetail() {
               <div>
                 <h2 className="mb-4 flex items-center text-2xl font-bold text-foreground">
                   <Paperclip className="mr-2 h-6 w-6" />
-                  Attachments
+                  {t("taskDetail", "attachments")}
                 </h2>
                 <div className="flex flex-col gap-4 rounded-lg border bg-background p-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -332,7 +333,7 @@ export default function TaskDetail() {
                                 {file.name}
                               </span>
                               <span className="text-xs">
-                                File link unavailable
+                                {t("taskDetail", "fileLinkUnavailable")}
                               </span>
                             </div>
                           </div>
@@ -341,7 +342,7 @@ export default function TaskDetail() {
                   </div>
                   {files?.length === 0 && (
                     <p className="text-sm text-muted-foreground">
-                      No attachments yet.
+                      {t("taskDetail", "noAttachmentsYet")}
                     </p>
                   )}
                   <Button
@@ -351,7 +352,7 @@ export default function TaskDetail() {
                   >
                     <label>
                       <Upload className="mr-2 h-4 w-4" />
-                      Add file
+                      {t("taskDetail", "addFile")}
                       <input
                         type="file"
                         className="hidden"
@@ -365,7 +366,7 @@ export default function TaskDetail() {
               {/* Comments Section */}
               <div>
                 <h2 className="mb-4 text-2xl font-bold text-foreground">
-                  Comments
+                  {t("taskDetail", "comments")}
                 </h2>
                 <div className="flex flex-col gap-6">
                   {/* Add comment form */}
@@ -380,14 +381,14 @@ export default function TaskDetail() {
                       <Textarea
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Add a comment..."
+                        placeholder={t("taskDetail", "addCommentPlaceholder")}
                         className="mb-2 bg-background"
                       />
                       <Button
                         onClick={handleAddComment}
                         disabled={!newComment.trim()}
                       >
-                        Add comment
+                        {t("taskDetail", "addComment")}
                       </Button>
                     </div>
                   </div>
@@ -419,9 +420,6 @@ export default function TaskDetail() {
                       </div>
                     </div>
                   ))}
-                  {/* {comments?.length === 0 && (
-                    <p className="text-center text-muted-foreground py-4">No comments yet. Be the first!</p>
-                  )} */}
                 </div>
               </div>
 
@@ -437,7 +435,7 @@ export default function TaskDetail() {
               {/* Activity Log Section */}
               <div>
                 <h2 className="mb-4 text-2xl font-bold text-foreground">
-                  Activity Log
+                  {t("taskDetail", "activityLog")}
                 </h2>
                 <div className="bg-background rounded-lg border p-4">
                   <ActivityLog taskId={task._id} />

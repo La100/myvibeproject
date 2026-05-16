@@ -20,8 +20,10 @@ import { ProductModal } from "./components/ProductModal";
 import { AddToProjectModal } from "./components/AddToProjectModal";
 import { cn, formatCurrency } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useI18n } from "@/lib/i18n";
 
 export default function ProductLibraryPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const { organization } = useOrganization();
   const team = useQuery(
@@ -77,7 +79,7 @@ export default function ProductLibraryPage() {
             />
           ) : (
             <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-border/70 bg-secondary/70 text-sm text-muted-foreground">
-              No preview
+              {t("productLibrary", "noPreview")}
             </div>
           )}
         </div>
@@ -116,7 +118,7 @@ export default function ProductLibraryPage() {
             {product.name}
           </h2>
           <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="truncate">{product.brand || product.supplier || "Unassigned brand"}</span>
+            <span className="truncate">{product.brand || product.supplier || t("productLibrary", "unassignedBrand")}</span>
             {product.category ? <span className="h-1 w-1 rounded-full bg-border" /> : null}
             {product.category ? <span className="truncate">{product.category}</span> : null}
           </div>
@@ -146,7 +148,7 @@ export default function ProductLibraryPage() {
             className="h-full w-full object-contain"
           />
         ) : (
-          <div className="text-xs text-muted-foreground">No preview</div>
+          <div className="text-xs text-muted-foreground">{t("productLibrary", "noPreview")}</div>
         )}
       </div>
 
@@ -155,7 +157,7 @@ export default function ProductLibraryPage() {
           <div className="min-w-0">
             <h2 className="truncate text-base font-medium tracking-[-0.02em]">{product.name}</h2>
             <p className="mt-1 truncate text-sm text-muted-foreground">
-              {[product.brand, product.category, product.supplier].filter(Boolean).join(" • ") || "No metadata yet"}
+              {[product.brand, product.category, product.supplier].filter(Boolean).join(" • ") || t("productLibrary", "noMetadata")}
             </p>
           </div>
           {product.unitPrice ? (
@@ -202,10 +204,10 @@ export default function ProductLibraryPage() {
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0">
             <h1 className="font-serif text-[2rem] leading-none tracking-[-0.04em] text-foreground">
-              Product Library
+              {t("navigation", "productLibrary")}
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Browse, search, and reuse approved products across the studio.
+              {t("productLibrary", "saveReusable")}
             </p>
           </div>
 
@@ -213,7 +215,7 @@ export default function ProductLibraryPage() {
             <div className="relative min-w-[220px] flex-1 xl:w-[320px] xl:flex-none">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search"
+                placeholder={t("productLibrary", "search")}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="h-10 rounded-2xl border-border/70 bg-card pl-10 shadow-none"
@@ -224,11 +226,11 @@ export default function ProductLibraryPage() {
               <SelectTrigger className="h-10 w-full rounded-2xl border-border/70 bg-card md:w-[180px]">
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-                  <SelectValue placeholder="All categories" />
+                  <SelectValue placeholder={t("productLibrary", "allCategories")} />
                 </div>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="all">{t("productLibrary", "allCategories")}</SelectItem>
                 {categories?.map(category => (
                   <SelectItem key={category} value={category}>
                     {category}
@@ -239,10 +241,10 @@ export default function ProductLibraryPage() {
 
             <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
               <SelectTrigger className="h-10 w-full rounded-2xl border-border/70 bg-card md:w-[180px]">
-                <SelectValue placeholder="All suppliers" />
+                <SelectValue placeholder={t("productLibrary", "allSuppliers")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Suppliers</SelectItem>
+                <SelectItem value="all">{t("productLibrary", "allSuppliers")}</SelectItem>
                 {suppliers?.map(supplier => (
                   <SelectItem key={supplier} value={supplier}>
                     {supplier}
@@ -279,7 +281,7 @@ export default function ProductLibraryPage() {
             <Button asChild className="h-10 rounded-2xl px-4">
               <Link href="/organisation/product-library/new">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Product
+                {t("productLibrary", "addProduct")}
               </Link>
             </Button>
           </div>
@@ -289,10 +291,10 @@ export default function ProductLibraryPage() {
       <div className="flex-1 overflow-auto px-5 py-6 md:px-7">
         {filteredProducts.length === 0 ? (
           <EmptyState
-            title="Start building your product library"
-            description="Save materials, furniture, fixtures, and lighting once, then pull them into projects whenever you need them."
+            title={t("productLibrary", "startBuilding")}
+            description={t("productLibrary", "saveReusable")}
             action={{
-              label: "Add a Product",
+              label: t("productLibrary", "addProductCta"),
               onClick: () => router.push("/organisation/product-library/new"),
               icon: Plus,
             }}
@@ -302,7 +304,10 @@ export default function ProductLibraryPage() {
           <>
             <div className="mb-5 flex items-center justify-between gap-3">
               <p className="text-sm text-muted-foreground">
-                {filteredProducts.length} {filteredProducts.length === 1 ? "product" : "products"}
+                {filteredProducts.length}{" "}
+                {filteredProducts.length === 1
+                  ? t("productLibrary", "productSingular")
+                  : t("productLibrary", "productPlural")}
               </p>
             </div>
 

@@ -8,6 +8,7 @@ import { apiAny } from "@/lib/convexApiAny";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Circle } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 type SidebarSubscriptionNudgeProps = {
   teamId?: Id<"teams"> | null;
@@ -20,6 +21,7 @@ export function SidebarSubscriptionNudge({
   className,
   onNavigate,
 }: SidebarSubscriptionNudgeProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const subscription = useQuery(
     apiAny.stripe.getTeamSubscription,
@@ -45,9 +47,9 @@ export function SidebarSubscriptionNudge({
 
   const href = "/organisation/subscription";
   const checklistItems = [
-    { label: "Create your workspace", completed: true },
-    { label: "Create project", completed: projects.length > 0 },
-    { label: "Start subscription", completed: false },
+    { label: t("subscriptionNudge", "createWorkspace"), completed: true },
+    { label: t("subscriptionNudge", "createProject"), completed: projects.length > 0 },
+    { label: t("subscriptionNudge", "startSubscription"), completed: false },
   ];
 
   return (
@@ -58,7 +60,7 @@ export function SidebarSubscriptionNudge({
       )}
     >
       <h3 className="text-[15px] font-semibold leading-tight text-sidebar-foreground">
-        Start Subscription Today
+        {t("subscriptionNudge", "title")}
       </h3>
       <ul className="mt-3 flex flex-col gap-2.5">
         {checklistItems.map((item) => {
@@ -89,7 +91,7 @@ export function SidebarSubscriptionNudge({
           onClick={onNavigate}
           onMouseEnter={() => router.prefetch(href)}
         >
-          Upgrade Now
+          {t("subscriptionNudge", "upgradeNow")}
         </Link>
       </Button>
     </div>

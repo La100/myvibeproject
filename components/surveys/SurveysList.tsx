@@ -37,6 +37,7 @@ import Link from "next/link";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useI18n } from "@/lib/i18n";
 
 type SurveyTemplateSummary = {
   _id: Id<"surveyTemplates">;
@@ -63,6 +64,7 @@ interface SurveysListProps {
 
 export function SurveysList({ projectSlug }: SurveysListProps) {
   const { project } = useProject();
+  const { t } = useI18n();
   const router = useRouter();
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [creatingFromTemplateId, setCreatingFromTemplateId] =
@@ -93,10 +95,10 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
         projectId: project._id,
         templateId: template._id,
       });
-      toast.success("Survey created from template");
+      toast.success(t("surveys", "surveyCreatedFromTemplate"));
       setIsTemplateDialogOpen(false);
     } catch (error) {
-      toast.error("Could not create survey from template", {
+      toast.error(t("surveys", "couldNotCreateFromTemplate"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -108,7 +110,7 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
   return (
     <div className="flex flex-col gap-6">
       <ProjectPageHeader
-        title="Surveys"
+        title={t("surveys", "surveys")}
         icon={<BarChart3 className="h-8 w-8 text-primary" />}
         actions={
           canEdit ? (
@@ -119,14 +121,14 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
                 onClick={() => setIsTemplateDialogOpen(true)}
               >
                 <Library data-icon="inline-start" />
-                Use Template
+                {t("surveys", "useTemplate")}
               </Button>
               <Button asChild>
                 <Link
                   href={`/organisation/projects/${projectSlug}/surveys/new`}
                 >
                   <Plus data-icon="inline-start" />
-                  New Survey
+                  {t("surveys", "newSurvey")}
                 </Link>
               </Button>
             </div>
@@ -138,12 +140,12 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
         <EmptyState
           className="border border-border bg-card"
           icon={BarChart3}
-          title="No Surveys"
-          description="You don't have any surveys yet. Create your first survey to start collecting feedback."
+          title={t("surveys", "noSurveys")}
+          description={t("surveys", "noSurveysDescription")}
           action={
             canEdit
               ? {
-                  label: "Create First Survey",
+                  label: t("surveys", "createFirstSurvey"),
                   onClick: () =>
                     router.push(
                       `/organisation/projects/${projectSlug}/surveys/new`,
@@ -155,7 +157,7 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
           secondaryAction={
             canEdit
               ? {
-                  label: "Use Template",
+                  label: t("surveys", "useTemplate"),
                   onClick: () => setIsTemplateDialogOpen(true),
                 }
               : undefined
@@ -168,12 +170,12 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
               <CardHeader className="pb-3">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                   <Badge variant="outline" className="capitalize">
-                    {survey.status}
+                    {t("surveys", `status${survey.status.charAt(0).toUpperCase()}${survey.status.slice(1)}`)}
                   </Badge>
                   {survey.isRequired ? (
-                    <Badge variant="secondary">Required</Badge>
+                    <Badge variant="secondary">{t("surveys", "required")}</Badge>
                   ) : null}
-                  <Badge variant="outline">Repeat submissions</Badge>
+                  <Badge variant="outline">{t("surveys", "repeatSubmissions")}</Badge>
                 </div>
                 <CardTitle className="line-clamp-2 text-xl">
                   {survey.title}
@@ -189,7 +191,7 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
                   <div className="rounded-lg bg-card px-2.5 py-2">
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                       <HelpCircle className="h-3.5 w-3.5" />
-                      Questions
+                      {t("surveys", "questions")}
                     </div>
                     <p className="mt-1 text-base font-semibold text-foreground">
                       {survey.questionCount ?? 0}
@@ -198,7 +200,7 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
                   <div className="rounded-lg bg-card px-2.5 py-2">
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                       <CheckCircle2 className="h-3.5 w-3.5" />
-                      Required
+                      {t("surveys", "required")}
                     </div>
                     <p className="mt-1 text-base font-semibold text-foreground">
                       {survey.requiredQuestionCount ?? 0}
@@ -207,7 +209,7 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
                   <div className="rounded-lg bg-card px-2.5 py-2">
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                       <BarChart3 className="h-3.5 w-3.5" />
-                      Responses
+                      {t("surveys", "responses")}
                     </div>
                     <p className="mt-1 text-base font-semibold text-foreground">
                       {survey.responseCount ?? 0}
@@ -221,7 +223,7 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
                       href={`/organisation/projects/${projectSlug}/surveys/${survey._id}`}
                     >
                       <Eye data-icon="inline-start" />
-                      View
+                      {t("surveys", "view")}
                     </Link>
                   </Button>
                   {canEdit && (
@@ -231,7 +233,7 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
                           href={`/organisation/projects/${projectSlug}/surveys/${survey._id}/edit`}
                         >
                           <Edit data-icon="inline-start" />
-                          Edit
+                          {t("surveys", "editSurvey")}
                         </Link>
                       </Button>
                       <Button asChild size="sm">
@@ -239,7 +241,7 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
                           href={`/organisation/projects/${projectSlug}/surveys/${survey._id}/responses`}
                         >
                           <BarChart3 data-icon="inline-start" />
-                          Responses
+                          {t("surveys", "responses")}
                         </Link>
                       </Button>
                     </>
@@ -257,9 +259,9 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
       >
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Use Survey Template</DialogTitle>
+            <DialogTitle>{t("surveys", "useSurveyTemplate")}</DialogTitle>
             <DialogDescription>
-              Copy a reusable organization template into this project.
+              {t("surveys", "templateUseDescription")}
             </DialogDescription>
           </DialogHeader>
 
@@ -267,10 +269,10 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
             <EmptyState
               className="border border-border bg-card py-12"
               icon={ClipboardList}
-              title="No survey templates yet"
-              description="Create templates in the organization survey library before using them in projects."
+              title={t("surveys", "noSurveyTemplatesYet")}
+              description={t("surveys", "noSurveyTemplatesDescription")}
               action={{
-                label: "Open Survey Library",
+                label: t("surveys", "openSurveyLibrary"),
                 onClick: () => router.push("/organisation/survey-library"),
                 icon: Library,
               }}
@@ -284,8 +286,8 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
                       <Badge variant="secondary">
                         {template.questionCount}{" "}
                         {template.questionCount === 1
-                          ? "question"
-                          : "questions"}
+                          ? t("surveys", "questionCountSingular")
+                          : t("surveys", "questionCountPlural")}
                       </Badge>
                     </div>
                     <CardTitle className="text-lg">{template.title}</CardTitle>
@@ -304,8 +306,8 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
                     >
                       <ClipboardList data-icon="inline-start" />
                       {creatingFromTemplateId === template._id
-                        ? "Creating..."
-                        : "Use Template"}
+                        ? t("surveys", "creating")
+                        : t("surveys", "useTemplate")}
                     </Button>
                   </CardContent>
                 </Card>

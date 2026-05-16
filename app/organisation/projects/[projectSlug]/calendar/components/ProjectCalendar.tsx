@@ -9,11 +9,13 @@ import {
   type CalendarResponse,
 } from "@/components/calendar/OperationsCalendar";
 import { apiAny } from "@/lib/convexApiAny";
+import { useI18n } from "@/lib/i18n";
 
 export { OperationsCalendarLoading as ProjectCalendarLoading };
 
 export default function ProjectCalendar() {
   const { project } = useProject();
+  const { t } = useI18n();
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -29,7 +31,7 @@ export default function ProjectCalendar() {
       calendarData={calendarData}
       currentMonth={currentMonth}
       onMonthChange={setCurrentMonth}
-      title="Calendar"
+      title={t("navigation", "calendar")}
     />
   );
 }

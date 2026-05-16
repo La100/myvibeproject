@@ -29,6 +29,7 @@ import {
   getLaborUnitsForMeasurementSystem,
   type MeasurementSystem,
 } from './laborUnits';
+import { useI18n } from '@/lib/i18n';
 
 
 interface AddLaborItemFormProps {
@@ -87,9 +88,10 @@ export function AddLaborItemForm({
   defaultSectionId,
   measurementSystem = 'metric',
   initialValues,
-  submitLabel = 'Add Labor Item',
+  submitLabel,
   onSubmitted,
 }: AddLaborItemFormProps) {
+  const { t } = useI18n();
   const ensureLaborFolder = useMutation(apiAny.files.ensureLaborFolder);
   const generateUploadUrl = useMutation(apiAny.files.generateUploadUrlWithCustomKey);
   const addFile = useMutation(apiAny.files.addFile);
@@ -207,7 +209,7 @@ export function AddLaborItemForm({
     const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
     const parsedUrl = new URL(candidate);
     if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
-      throw new Error('Invalid link format');
+      throw new Error(t('labor', 'invalidLinkFormat'));
     }
     return candidate;
   };
@@ -270,7 +272,7 @@ export function AddLaborItemForm({
       (normalizedPriceTaxMode === 'net' || normalizedPriceTaxMode === 'gross') &&
       !taxRateSnapshot
     ) {
-      toast.error('Select a tax rate or leave tax as not specified');
+      toast.error(t('labor', 'selectTaxRateOrLeaveUnspecified'));
       return;
     }
 
@@ -293,7 +295,7 @@ export function AddLaborItemForm({
         typeof computedEndDate === 'number' &&
         computedEndDate < computedStartDate
       ) {
-        toast.error('End date cannot be earlier than start date.');
+        toast.error(t('labor', 'endDateCannotBeEarlier'));
         return;
       }
 
@@ -341,7 +343,7 @@ export function AddLaborItemForm({
       onSubmitted?.();
     } catch (error) {
       console.error('Error creating item:', error);
-      toast.error('Failed to add labor item', {
+      toast.error(t('labor', 'failedToAddLaborItem'), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -362,30 +364,49 @@ export function AddLaborItemForm({
     currencySymbol,
   );
   const totalBreakdown = calculatePriceTaxBreakdown(totalPrice, priceTaxMetadata);
+  const resolvedSubmitLabel = submitLabel ?? t('labor', 'addLaborItem');
+  const getUnitLabel = (unit: string, fallback: string) => {
+    switch (unit) {
+      case 'm²': return t('labor', 'unitSquareMeters');
+      case 'm': return t('labor', 'unitLinearMeters');
+      case 'm³': return t('labor', 'unitCubicMeters');
+      case 'sq ft': return t('labor', 'unitSquareFeet');
+      case 'ft': return t('labor', 'unitLinearFeet');
+      case 'cu ft': return t('labor', 'unitCubicFeet');
+      case 'hours': return t('labor', 'unitHours');
+      case 'pcs': return t('labor', 'unitPieces');
+      case 'kg': return t('labor', 'unitKilograms');
+      case 'lb': return t('labor', 'unitPounds');
+      case 'set': return t('labor', 'unitCompleteSet');
+      case 'room': return t('labor', 'unitPerRoom');
+      case 'item': return t('labor', 'unitPerItem');
+      default: return fallback;
+    }
+  };
 
   return (
     <div className="flex flex-col gap-4">
       <FieldGroup className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Field className="gap-2 lg:col-span-2">
-          <FieldLabel>Work Description *</FieldLabel>
+          <FieldLabel>{t('labor', 'workDescription')}</FieldLabel>
           <Input
             value={newItemName}
             onChange={(e) => setNewItemName(e.target.value)}
-            placeholder="e.g. Tile installation"
+            placeholder={t('labor', 'workDescriptionPlaceholder')}
             className="h-12 text-sm"
           />
         </Field>
         <Field className="gap-2">
-          <FieldLabel>Section</FieldLabel>
+          <FieldLabel>{t('labor', 'section')}</FieldLabel>
           <Select
             value={newItemSectionId}
             onValueChange={(value) => setNewItemSectionId(value as Id<"laborSections"> | "none")}
           >
             <SelectTrigger className="h-12 text-sm">
-              <SelectValue placeholder="Select section" />
+              <SelectValue placeholder={t('labor', 'selectSection')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">No Category</SelectItem>
+              <SelectItem value="none">{t('labor', 'noCategory')}</SelectItem>
               {sections.map((section) => (
                 <SelectItem key={section._id} value={section._id}>
                   {section.name}
@@ -395,7 +416,7 @@ export function AddLaborItemForm({
           </Select>
         </Field>
         <Field className="gap-2">
-          <FieldLabel>Quantity *</FieldLabel>
+          <FieldLabel>{t('labor', 'quantity')}</FieldLabel>
           <Input
             type="number"
             min="0.01"
@@ -406,22 +427,22 @@ export function AddLaborItemForm({
           />
         </Field>
         <Field className="gap-2">
-          <FieldLabel>Unit *</FieldLabel>
+          <FieldLabel>{t('labor', 'unit')}</FieldLabel>
           <Select value={newItemUnit} onValueChange={setNewItemUnit}>
             <SelectTrigger className="h-12 text-sm">
-              <SelectValue placeholder="Select unit" />
+              <SelectValue placeholder={t('labor', 'selectUnit')} />
             </SelectTrigger>
             <SelectContent>
               {laborUnits.map((unit) => (
                 <SelectItem key={unit.value} value={unit.value}>
-                  {unit.label}
+                  {getUnitLabel(unit.value, unit.label)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </Field>
         <Field className="gap-2">
-          <FieldLabel>Price per Unit ({currencySymbol})</FieldLabel>
+          <FieldLabel>{t('labor', 'pricePerUnit', { currency: currencySymbol })}</FieldLabel>
           <Input
             type="number"
             step="0.01"
@@ -432,7 +453,7 @@ export function AddLaborItemForm({
           />
         </Field>
         <Field className="gap-2">
-          <FieldLabel>Tax treatment</FieldLabel>
+          <FieldLabel>{t('labor', 'taxTreatment')}</FieldLabel>
           <Select
             value={newItemPriceTaxMode}
             onValueChange={(value) => {
@@ -447,23 +468,23 @@ export function AddLaborItemForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="unspecified">Not specified</SelectItem>
+              <SelectItem value="unspecified">{t('labor', 'notSpecified')}</SelectItem>
               <SelectItem value="net" disabled={activeTaxRates.length === 0}>
-                Net + tax
+                {t('labor', 'netPlusTax')}
               </SelectItem>
               <SelectItem value="gross" disabled={activeTaxRates.length === 0}>
-                Gross incl. tax
+                {t('labor', 'grossInclTax')}
               </SelectItem>
-              <SelectItem value="exempt">Tax exempt</SelectItem>
+              <SelectItem value="exempt">{t('labor', 'taxExempt')}</SelectItem>
             </SelectContent>
           </Select>
         </Field>
         {newItemPriceTaxMode === 'net' || newItemPriceTaxMode === 'gross' ? (
           <Field className="gap-2">
-            <FieldLabel>Tax rate</FieldLabel>
+            <FieldLabel>{t('labor', 'taxRate')}</FieldLabel>
             <Select value={selectedTaxRateId} onValueChange={setNewItemTaxRateId}>
               <SelectTrigger className="h-12 text-sm">
-                <SelectValue placeholder="Select tax rate" />
+                <SelectValue placeholder={t('labor', 'selectTaxRate')} />
               </SelectTrigger>
               <SelectContent>
                 {activeTaxRates.map((rate) => (
@@ -476,16 +497,16 @@ export function AddLaborItemForm({
           </Field>
         ) : null}
         <Field className="gap-2">
-          <FieldLabel>Assign To</FieldLabel>
+          <FieldLabel>{t('labor', 'assignTo')}</FieldLabel>
           <Select
             value={newItemAssignedTo}
             onValueChange={setNewItemAssignedTo}
           >
             <SelectTrigger className="h-12 text-sm">
-              <SelectValue placeholder="Select contractor" />
+              <SelectValue placeholder={t('labor', 'selectContractor')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">Unassigned</SelectItem>
+              <SelectItem value="none">{t('labor', 'unassigned')}</SelectItem>
               {teamMembers?.map((member: TeamMember) => (
                 <SelectItem key={member.clerkUserId} value={member.clerkUserId}>
                   <div className="flex items-center gap-2">
@@ -501,17 +522,17 @@ export function AddLaborItemForm({
           </Select>
         </Field>
         <Field className="gap-2 lg:col-span-2">
-          <FieldLabel>Notes</FieldLabel>
+          <FieldLabel>{t('labor', 'notes')}</FieldLabel>
           <Input
             value={newItemNotes}
             onChange={(e) => setNewItemNotes(e.target.value)}
-            placeholder="Additional notes..."
+            placeholder={t('labor', 'notesPlaceholder')}
             className="h-12 text-sm"
           />
         </Field>
         <Field className="gap-3 lg:col-span-3">
           <div className="flex items-center justify-between">
-            <FieldLabel>Schedule</FieldLabel>
+            <FieldLabel>{t('labor', 'schedule')}</FieldLabel>
             <div className="flex items-center gap-2">
               <Checkbox
                 id="labor-all-day"
@@ -519,7 +540,7 @@ export function AddLaborItemForm({
                 onCheckedChange={(checked) => setIsAllDay(checked as boolean)}
               />
               <Label htmlFor="labor-all-day" className="cursor-pointer text-sm font-normal">
-                All day
+                {t('labor', 'allDay')}
               </Label>
             </div>
           </div>
@@ -536,13 +557,13 @@ export function AddLaborItemForm({
               }}
             />
             <Label htmlFor="labor-single-day" className="cursor-pointer text-sm font-normal">
-              Single day
+              {t('labor', 'singleDay')}
             </Label>
           </div>
           <div className={singleDayItem ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 gap-4 md:grid-cols-2'}>
             <div className="flex flex-col gap-2">
               <Label className="text-sm text-muted-foreground">
-                {singleDayItem ? 'Date' : 'Start Date'}
+                {singleDayItem ? t('labor', 'date') : t('labor', 'startDate')}
               </Label>
               <DatePicker
                 date={startDate}
@@ -556,7 +577,7 @@ export function AddLaborItemForm({
             </div>
             {!singleDayItem ? (
               <div className="flex flex-col gap-2">
-                <Label className="text-sm text-muted-foreground">End Date</Label>
+                <Label className="text-sm text-muted-foreground">{t('labor', 'endDate')}</Label>
                 <DatePicker date={endDate} onDateChange={setEndDate} />
               </div>
             ) : null}
@@ -565,7 +586,7 @@ export function AddLaborItemForm({
             <div className="flex flex-col gap-3">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <Label className="text-sm text-muted-foreground">Start Time</Label>
+                  <Label className="text-sm text-muted-foreground">{t('labor', 'startTime')}</Label>
                   <Input
                     type="time"
                     value={startTime}
@@ -575,7 +596,7 @@ export function AddLaborItemForm({
                 </div>
                 {hasEndTime ? (
                   <div>
-                    <Label className="text-sm text-muted-foreground">End Time</Label>
+                    <Label className="text-sm text-muted-foreground">{t('labor', 'endTime')}</Label>
                     <Input
                       type="time"
                       value={endTime}
@@ -600,30 +621,30 @@ export function AddLaborItemForm({
                   }}
                 />
                 <Label htmlFor="labor-has-end-time" className="cursor-pointer text-sm font-normal">
-                  Specify end time
+                  {t('labor', 'specifyEndTime')}
                 </Label>
               </div>
             </div>
           ) : null}
         </Field>
         <Field className="gap-2 lg:col-span-2">
-          <FieldLabel>Reference Link</FieldLabel>
+          <FieldLabel>{t('labor', 'referenceLink')}</FieldLabel>
           <div className="relative">
             <LinkIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={newItemReferenceLink}
               onChange={(e) => setNewItemReferenceLink(e.target.value)}
-              placeholder="https://example.com"
+              placeholder={t('labor', 'referenceLinkPlaceholder')}
               className="h-12 pl-10 text-sm"
             />
           </div>
         </Field>
         <Field className="gap-2">
-          <FieldLabel>Attachment</FieldLabel>
+          <FieldLabel>{t('labor', 'attachment')}</FieldLabel>
           <FieldContent className="gap-2">
             <label className="flex h-12 cursor-pointer items-center gap-2 rounded-2xl border border-input bg-background px-4 text-sm text-foreground transition-colors hover:bg-muted">
               <PaperclipIcon className="h-4 w-4 text-muted-foreground" />
-              <span className="truncate">{newItemAttachment?.name || 'Choose file'}</span>
+              <span className="truncate">{newItemAttachment?.name || t('labor', 'chooseFile')}</span>
               <input
                 type="file"
                 className="hidden"
@@ -639,11 +660,11 @@ export function AddLaborItemForm({
                 onClick={() => setNewItemAttachment(null)}
               >
                 <XIcon className="mr-1 h-3 w-3" />
-                Remove file
+                {t('labor', 'removeFile')}
               </Button>
             )}
             <FieldDescription className="text-xs">
-              Stored automatically in <span className="font-medium">Files/labor</span>.
+              {t('labor', 'storedInFilesLabor', { path: 'Files/labor' })}
             </FieldDescription>
           </FieldContent>
         </Field>
@@ -652,19 +673,19 @@ export function AddLaborItemForm({
       {totalPrice > 0 && (
         <div className="flex flex-col items-end gap-1 text-sm">
           <div className="flex items-center justify-end gap-2">
-            <span className="text-muted-foreground">Total:</span>
+            <span className="text-muted-foreground">{t('labor', 'total')}</span>
             <span className="font-medium text-foreground">
               {totalPrice.toFixed(2)} {currencySymbol}
             </span>
           </div>
           {unitBreakdownLabel ? (
             <span className="text-xs text-muted-foreground">
-              Unit: {unitBreakdownLabel}
+              {t('labor', 'unitLabel', { value: unitBreakdownLabel })}
             </span>
           ) : null}
           {totalBreakdown.hasBreakdown ? (
             <span className="text-xs text-muted-foreground">
-              Gross total: {totalBreakdown.gross.toFixed(2)} {currencySymbol}
+              {t('labor', 'grossTotal')} {totalBreakdown.gross.toFixed(2)} {currencySymbol}
             </span>
           ) : null}
         </div>
@@ -676,7 +697,7 @@ export function AddLaborItemForm({
           disabled={isPending || isUploadingAttachment || !newItemName.trim()}
           className="h-11 px-6"
         >
-          {isUploadingAttachment ? 'Uploading...' : isPending ? 'Saving...' : submitLabel}
+          {isUploadingAttachment ? t('labor', 'uploading') : isPending ? t('labor', 'saving') : resolvedSubmitLabel}
         </Button>
       </div>
     </div>

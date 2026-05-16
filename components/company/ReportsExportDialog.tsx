@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { useI18n } from "@/lib/i18n";
 
 export type ReportSectionKey = "overview" | "projects" | "tasks" | "financial";
 
@@ -20,13 +21,6 @@ export type ReportExportOptions = {
   format: "csv" | "pdf" | "xlsx";
   includeDetails: boolean;
   sections: Record<ReportSectionKey, boolean>;
-};
-
-const SECTION_LABELS: Record<ReportSectionKey, string> = {
-  overview: "Overview",
-  projects: "Projects",
-  tasks: "Tasks",
-  financial: "Financial",
 };
 
 type ReportsExportDialogProps = {
@@ -54,19 +48,29 @@ export function ReportsExportDialog({
   onSelectCurrentSection,
   timeRangeLabel,
 }: ReportsExportDialogProps) {
+  const { t } = useI18n();
+  const sectionLabels: Record<ReportSectionKey, string> = {
+    overview: t("reportsExport", "overview"),
+    projects: t("reportsExport", "projects"),
+    tasks: t("reportsExport", "tasks"),
+    financial: t("reportsExport", "financial"),
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Export Reports</DialogTitle>
+          <DialogTitle>{t("reportsExport", "title")}</DialogTitle>
           <DialogDescription>
-            Choose what to include in the export for <span className="font-medium text-foreground">{timeRangeLabel}</span>.
+            {t("reportsExport", "description", {
+              timeRange: timeRangeLabel,
+            })}
           </DialogDescription>
         </DialogHeader>
 
         <FieldGroup>
           <Field>
-            <FieldLabel>Format</FieldLabel>
+            <FieldLabel>{t("reportsExport", "format")}</FieldLabel>
             <div className="flex gap-2">
               <Button
                 size="sm"
@@ -100,18 +104,18 @@ export function ReportsExportDialog({
 
           <Field>
             <div className="flex items-center justify-between gap-3">
-              <FieldLabel>Sections</FieldLabel>
+              <FieldLabel>{t("reportsExport", "sections")}</FieldLabel>
               <div className="flex gap-2">
                 <Button size="sm" type="button" variant="ghost" onClick={onSelectCurrentSection}>
-                  Current tab
+                  {t("reportsExport", "currentTab")}
                 </Button>
                 <Button size="sm" type="button" variant="ghost" onClick={onSelectAllSections}>
-                  All sections
+                  {t("reportsExport", "allSections")}
                 </Button>
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              {(Object.keys(SECTION_LABELS) as ReportSectionKey[]).map((section) => (
+              {(Object.keys(sectionLabels) as ReportSectionKey[]).map((section) => (
                 <label
                   key={section}
                   className="flex items-start gap-3 rounded-lg border border-border/70 px-3 py-3 text-sm"
@@ -129,9 +133,11 @@ export function ReportsExportDialog({
                     }
                   />
                   <div className="flex flex-col">
-                    <span className="font-medium">{SECTION_LABELS[section]}</span>
+                    <span className="font-medium">{sectionLabels[section]}</span>
                     <span className="text-xs text-muted-foreground">
-                      {section === activeSection ? "Currently open tab" : "Optional section"}
+                      {section === activeSection
+                        ? t("reportsExport", "currentlyOpenTab")
+                        : t("reportsExport", "optionalSection")}
                     </span>
                   </div>
                 </label>
@@ -151,9 +157,9 @@ export function ReportsExportDialog({
                 }
               />
               <div className="flex flex-col">
-                <span className="font-medium">Include detailed rows</span>
+                <span className="font-medium">{t("reportsExport", "includeDetails")}</span>
                 <FieldDescription>
-                  Adds full project, task, and financial breakdowns instead of only summary tables.
+                  {t("reportsExport", "includeDetailsDescription")}
                 </FieldDescription>
               </div>
             </label>
@@ -162,10 +168,14 @@ export function ReportsExportDialog({
 
         <DialogFooter>
           <Button disabled={isPending} onClick={onExport} type="button">
-            {isPending ? "Exporting..." : `Export ${exportOptions.format.toUpperCase()}`}
+            {isPending
+              ? t("reportsExport", "exporting")
+              : t("reportsExport", "exportFormat", {
+                  format: exportOptions.format.toUpperCase(),
+                })}
           </Button>
           <Button onClick={onClose} type="button" variant="outline">
-            Cancel
+            {t("reportsExport", "cancel")}
           </Button>
         </DialogFooter>
       </DialogContent>

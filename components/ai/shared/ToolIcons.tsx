@@ -12,6 +12,7 @@ import {
   Edit3,
   type LucideIcon,
 } from "lucide-react";
+import type { useI18n } from "@/lib/i18n";
 
 export interface ToolConfig {
   icon: LucideIcon;
@@ -20,6 +21,31 @@ export interface ToolConfig {
   category: "context" | "search" | "create" | "edit" | "delete";
   color: string;
 }
+
+type TranslationFn = ReturnType<typeof useI18n>["t"];
+type ToolCopyKey =
+  | "manageTasksLabel"
+  | "manageTasksDescription"
+  | "manageNotesLabel"
+  | "manageNotesDescription"
+  | "manageContactsLabel"
+  | "manageContactsDescription"
+  | "managePaymentsLabel"
+  | "managePaymentsDescription"
+  | "manageShoppingLabel"
+  | "manageShoppingDescription"
+  | "manageLaborLabel"
+  | "manageLaborDescription"
+  | "manageSurveysLabel"
+  | "manageSurveysDescription"
+  | "loadProjectLabel"
+  | "loadProjectDescription"
+  | "searchItemsLabel"
+  | "searchItemsDescription"
+  | "scrapeProductLabel"
+  | "scrapeProductDescription"
+  | "updateProjectSettingsLabel"
+  | "updateProjectSettingsDescription";
 
 const TOOL_CONFIGS: Record<string, ToolConfig> = {
   manage_tasks: {
@@ -101,18 +127,78 @@ const TOOL_CONFIGS: Record<string, ToolConfig> = {
   },
 };
 
+const TOOL_COPY_KEYS: Record<
+  keyof typeof TOOL_CONFIGS,
+  { label: ToolCopyKey; description: ToolCopyKey }
+> = {
+  manage_tasks: {
+    label: "manageTasksLabel",
+    description: "manageTasksDescription",
+  },
+  manage_notes: {
+    label: "manageNotesLabel",
+    description: "manageNotesDescription",
+  },
+  manage_contacts: {
+    label: "manageContactsLabel",
+    description: "manageContactsDescription",
+  },
+  manage_payments: {
+    label: "managePaymentsLabel",
+    description: "managePaymentsDescription",
+  },
+  manage_shopping: {
+    label: "manageShoppingLabel",
+    description: "manageShoppingDescription",
+  },
+  manage_labor: {
+    label: "manageLaborLabel",
+    description: "manageLaborDescription",
+  },
+  manage_surveys: {
+    label: "manageSurveysLabel",
+    description: "manageSurveysDescription",
+  },
+  load_full_project_context: {
+    label: "loadProjectLabel",
+    description: "loadProjectDescription",
+  },
+  search_items: {
+    label: "searchItemsLabel",
+    description: "searchItemsDescription",
+  },
+  scrape_shopping_product: {
+    label: "scrapeProductLabel",
+    description: "scrapeProductDescription",
+  },
+  update_project_settings: {
+    label: "updateProjectSettingsLabel",
+    description: "updateProjectSettingsDescription",
+  },
+};
+
 /**
  * Get tool configuration by name
  * Returns a default config if tool is not found
  */
-function getToolConfig(toolName: string): ToolConfig {
+function getToolConfig(toolName: string, t?: TranslationFn): ToolConfig {
   const config = TOOL_CONFIGS[toolName];
-  if (config) return config;
+  const copyKeys = TOOL_COPY_KEYS[toolName];
+  if (config) {
+    if (!t || !copyKeys) return config;
+    return {
+      ...config,
+      label: t("toolIcons", copyKeys.label),
+      description: t("toolIcons", copyKeys.description),
+    };
+  }
 
   return {
     icon: Database,
     label: toolName.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
-    description: `Executing ${toolName}`,
+    description: t
+      ? t("toolIcons", "executingTool", { tool: toolName })
+      : `Executing ${toolName}`,
     category: "context",
     color: "text-muted-foreground",
   };

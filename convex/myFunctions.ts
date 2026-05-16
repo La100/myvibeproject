@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { ensureDemoProjectForNewWorkspace } from "./demoProjectSeed";
 import { SUBSCRIPTION_PLANS } from "./stripe";
+const internalAny = require("./_generated/api").internal as any;
 
 // Utility function to generate a slug from a string
 const generateSlug = (name: string) => {
@@ -412,6 +413,11 @@ export const createOrUpdateMembership = internalMutation({
                 joinedAt: Date.now(),
                 permissions: [],
             });
+            await ctx.scheduler.runAfter(
+                0,
+                internalAny.stripeActions.syncTeamSeatQuantity,
+                { teamId: team._id },
+            );
         }
 
         if (createdTeam || isFirstTeamMembership) {
@@ -449,6 +455,11 @@ export const deleteMembership = internalMutation({
         
         if(membership){
             await ctx.db.delete(membership._id);
+            await ctx.scheduler.runAfter(
+                0,
+                internalAny.stripeActions.syncTeamSeatQuantity,
+                { teamId: team._id },
+            );
         }
 
         console.log(`Cleaned up membership for user ${args.clerkUserId} from org ${args.clerkOrgId}`);

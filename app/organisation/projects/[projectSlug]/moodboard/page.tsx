@@ -32,6 +32,9 @@ import {
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
+
+type TFunction = ReturnType<typeof useI18n>["t"];
 
 interface MoodboardImage {
   id: string;
@@ -56,6 +59,7 @@ function MoodboardRowTitle({
   isUploading,
   onDelete,
   isDeleting,
+  t,
 }: {
   title: string;
   dragHandle?: ReactNode;
@@ -66,6 +70,7 @@ function MoodboardRowTitle({
   isUploading: boolean;
   onDelete: () => void;
   isDeleting: boolean;
+  t: TFunction;
 }) {
   const [editedTitle, setEditedTitle] = useState(title);
 
@@ -87,7 +92,7 @@ function MoodboardRowTitle({
           autoFocus
         />
         <Button onClick={handleSave} size="sm">
-          Save
+          {t("moodboard", "save")}
         </Button>
       </div>
     );
@@ -108,7 +113,7 @@ function MoodboardRowTitle({
           className="text-xs"
         >
           <Plus className="mr-1 h-3 w-3" />
-          {isUploading ? "Uploading..." : "Add images"}
+          {isUploading ? t("moodboard", "uploading") : t("moodboard", "addImages")}
         </Button>
         <Button
           variant="ghost"
@@ -146,12 +151,14 @@ function MoodboardImageCard({
   index,
   onPreview,
   onDelete,
+  t,
 }: {
   image: MoodboardImage;
   sectionId: string;
   index: number;
   onPreview: () => void;
   onDelete: () => void;
+  t: TFunction;
 }) {
   const {
     attributes,
@@ -203,7 +210,11 @@ function MoodboardImageCard({
             type="button"
             className="block w-full"
             onClick={onPreview}
-            aria-label={image.name ? `Preview ${image.name}` : "Preview image"}
+            aria-label={
+              image.name
+                ? t("moodboard", "previewNamedImage", { name: image.name })
+                : t("moodboard", "previewImage")
+            }
           >
             <img
               src={image.url}
@@ -217,7 +228,7 @@ function MoodboardImageCard({
             variant="secondary"
             size="icon-sm"
             className="absolute left-3 top-3 cursor-grab border border-border bg-card/90 opacity-0 transition-opacity duration-200 hover:bg-muted group-hover:opacity-100"
-            aria-label="Drag image"
+            aria-label={t("moodboard", "dragImage")}
             {...attributes}
             {...listeners}
           >
@@ -232,7 +243,7 @@ function MoodboardImageCard({
               e.stopPropagation();
               onDelete();
             }}
-            aria-label="Delete image"
+            aria-label={t("moodboard", "deleteImage")}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -258,10 +269,12 @@ function MoodboardSectionShell({
   row,
   index,
   children,
+  t,
 }: {
   row: MoodboardRow;
   index: number;
   children: (dragHandle: ReactNode) => ReactNode;
+  t: TFunction;
 }) {
   const {
     attributes,
@@ -301,7 +314,7 @@ function MoodboardSectionShell({
       variant="ghost"
       size="icon-sm"
       className="cursor-grab text-muted-foreground hover:text-foreground"
-      aria-label="Drag section"
+      aria-label={t("moodboard", "dragSection")}
       {...attributes}
       {...listeners}
     >
@@ -329,11 +342,13 @@ function MoodboardRow({
   dragHandle,
   onUpdateTitle,
   onDeleteSection,
+  t,
 }: {
   row: MoodboardRow;
   dragHandle?: ReactNode;
   onUpdateTitle: (rowId: string, newTitle: string) => Promise<void>;
   onDeleteSection: (row: MoodboardRow) => Promise<void>;
+  t: TFunction;
 }) {
   const { project } = useProject();
   const [selectedImage, setSelectedImage] = useState<MoodboardImage | null>(
@@ -397,7 +412,7 @@ function MoodboardRow({
 
       for (const file of fileArray) {
         if (!file.type.startsWith("image/")) {
-          toast.error(`${file.name} is not an image file`);
+          toast.error(t("moodboard", "notImageFile", { name: file.name }));
           continue;
         }
 
@@ -432,9 +447,9 @@ function MoodboardRow({
         });
       }
 
-      toast.success("Images uploaded successfully");
+      toast.success(t("moodboard", "imagesUploaded"));
     } catch (error) {
-      toast.error("Failed to upload images", {
+      toast.error(t("moodboard", "failedToUploadImages"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -443,7 +458,7 @@ function MoodboardRow({
   };
 
   const handleDeleteImage = async (imageId: string) => {
-    if (!confirm("Are you sure you want to delete this image?")) {
+    if (!confirm(t("moodboard", "deleteImageConfirm"))) {
       return;
     }
 
@@ -452,9 +467,9 @@ function MoodboardRow({
         projectId: project._id,
         storageId: imageId,
       });
-      toast.success("Image deleted successfully");
+      toast.success(t("moodboard", "imageDeleted"));
     } catch (error) {
-      toast.error("Failed to delete image", {
+      toast.error(t("moodboard", "failedToDeleteImage"), {
         description: toUserFacingErrorMessage(error),
       });
     }
@@ -464,8 +479,15 @@ function MoodboardRow({
     const imageCount = sectionImages?.length || 0;
     const confirmationMessage =
       imageCount > 0
-        ? `Delete "${row.title}" and remove ${imageCount} image${imageCount === 1 ? "" : "s"} from this section?`
-        : `Delete "${row.title}" section?`;
+        ? t("moodboard", "deleteSectionWithImagesConfirm", {
+            title: row.title,
+            count: imageCount,
+            imageLabel:
+              imageCount === 1
+                ? t("moodboard", "imageSingular")
+                : t("moodboard", "imagePlural"),
+          })
+        : t("moodboard", "deleteSectionConfirm", { title: row.title });
 
     if (!confirm(confirmationMessage)) {
       return;
@@ -495,6 +517,7 @@ function MoodboardRow({
           void handleDeleteSection();
         }}
         isDeleting={isDeletingSection}
+        t={t}
       />
 
       <MoodboardImageGrid
@@ -514,6 +537,7 @@ function MoodboardRow({
             onDelete={() => {
               void handleDeleteImage(image.id);
             }}
+            t={t}
           />
         ))}
       </MoodboardImageGrid>
@@ -538,6 +562,7 @@ function MoodboardRow({
 
 export default function MoodboardPage() {
   const { project } = useProject();
+  const { t } = useI18n();
   const savedSections = useQuery(
     apiAny.files.getMoodboardSections,
     project?._id ? { projectId: project._id } : "skip",
@@ -586,9 +611,9 @@ export default function MoodboardPage() {
         sectionId: rowId,
         title: trimmedTitle,
       });
-      toast.success("Section updated");
+      toast.success(t("moodboard", "sectionUpdated"));
     } catch (error) {
-      toast.error("Failed to update section", {
+      toast.error(t("moodboard", "failedToUpdateSection"), {
         description: toUserFacingErrorMessage(error),
       });
       throw error;
@@ -600,11 +625,11 @@ export default function MoodboardPage() {
       rows.map((row) => row.title.trim().toUpperCase()),
     );
     let nextIndex = rows.length + 1;
-    let sectionLabel = `SECTION ${nextIndex}`;
+    let sectionLabel = t("moodboard", "sectionName", { number: nextIndex });
 
     while (existingTitles.has(sectionLabel)) {
       nextIndex += 1;
-      sectionLabel = `SECTION ${nextIndex}`;
+      sectionLabel = t("moodboard", "sectionName", { number: nextIndex });
     }
 
     try {
@@ -612,9 +637,9 @@ export default function MoodboardPage() {
         projectId: project._id,
         title: sectionLabel,
       });
-      toast.success("Section created");
+      toast.success(t("moodboard", "sectionCreated"));
     } catch (error) {
-      toast.error("Failed to create section", {
+      toast.error(t("moodboard", "failedToCreateSection"), {
         description: toUserFacingErrorMessage(error),
       });
     }
@@ -629,11 +654,17 @@ export default function MoodboardPage() {
 
       toast.success(
         result.deletedFilesCount > 0
-          ? `Section deleted with ${result.deletedFilesCount} image${result.deletedFilesCount === 1 ? "" : "s"}`
-          : "Section deleted",
+          ? t("moodboard", "sectionDeletedWithImages", {
+              count: result.deletedFilesCount,
+              imageLabel:
+                result.deletedFilesCount === 1
+                  ? t("moodboard", "imageSingular")
+                  : t("moodboard", "imagePlural"),
+            })
+          : t("moodboard", "sectionDeleted"),
       );
     } catch (error) {
-      toast.error("Failed to delete section", {
+      toast.error(t("moodboard", "failedToDeleteSection"), {
         description: toUserFacingErrorMessage(error),
       });
       throw error;
@@ -689,7 +720,7 @@ export default function MoodboardPage() {
           orderedSectionIds: reorderedRows.map((row) => row.id),
         });
       } catch (error) {
-        toast.error("Failed to reorder sections", {
+        toast.error(t("moodboard", "failedToReorderSections"), {
           description: toUserFacingErrorMessage(error),
         });
       }
@@ -722,7 +753,7 @@ export default function MoodboardPage() {
         targetIndex,
       });
     } catch (error) {
-      toast.error("Failed to move image", {
+      toast.error(t("moodboard", "failedToMoveImage"), {
         description: toUserFacingErrorMessage(error),
       });
     }
@@ -732,9 +763,9 @@ export default function MoodboardPage() {
     <ProjectPageLayout>
       <div className="w-full">
         <ProjectPageHeader
-          title="Moodboard"
+          title={t("moodboard", "title")}
           icon={<Images className="h-8 w-8 text-primary" />}
-          subtitle="Curate visual references, material studies, and room direction in one calm studio board."
+          subtitle={t("moodboard", "subtitle")}
           tags={
             <>
               <Badge
@@ -747,7 +778,13 @@ export default function MoodboardPage() {
                 variant="outline"
                 className="border-border bg-card px-4 py-2 text-sm font-medium text-foreground"
               >
-                {rows.length} sections
+                {t("moodboard", "sectionsCount", {
+                  count: rows.length,
+                  sectionLabel:
+                    rows.length === 1
+                      ? t("moodboard", "sectionSingular")
+                      : t("moodboard", "sectionPlural"),
+                })}
               </Badge>
             </>
           }
@@ -759,7 +796,7 @@ export default function MoodboardPage() {
               className="px-6 transition-transform hover:-translate-y-0.5"
             >
               <Plus className="mr-2 h-4 w-4" />
-              Add Section
+              {t("moodboard", "addSection")}
             </Button>
           }
         />
@@ -775,13 +812,14 @@ export default function MoodboardPage() {
         >
           <div className="vibe-panel flex flex-col gap-16 p-5 sm:p-8">
             {rows.map((row, index) => (
-              <MoodboardSectionShell key={row.id} row={row} index={index}>
+              <MoodboardSectionShell key={row.id} row={row} index={index} t={t}>
                 {(dragHandle) => (
                   <MoodboardRow
                     row={row}
                     dragHandle={dragHandle}
                     onUpdateTitle={handleUpdateTitle}
                     onDeleteSection={handleDeleteSection}
+                    t={t}
                   />
                 )}
               </MoodboardSectionShell>

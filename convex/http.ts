@@ -24,6 +24,8 @@ const getSubscriptionPeriod = (subscription: Stripe.Subscription) => {
   const subscriptionItem = subscription.items.data[0];
   return {
     priceId: subscriptionItem?.price.id || "",
+    quantity: subscriptionItem?.quantity || 1,
+    currency: subscriptionItem?.price.currency,
     currentPeriodStart: subscriptionItem?.current_period_start
       ? subscriptionItem.current_period_start * 1000
       : Date.now(),
@@ -40,6 +42,8 @@ const syncSubscriptionAndQueueEmail = async (
     subscriptionId: string;
     status: string;
     priceId: string;
+    quantity?: number;
+    currency?: string;
     currentPeriodStart: number;
     currentPeriodEnd: number;
     cancelAtPeriodEnd: boolean;
@@ -104,7 +108,7 @@ registerRoutes(http, components.stripe, {
 
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
         const teamId = subscription.metadata?.teamId;
-        const { priceId, currentPeriodStart, currentPeriodEnd } =
+        const { priceId, quantity, currency, currentPeriodStart, currentPeriodEnd } =
           getSubscriptionPeriod(subscription);
 
         if (teamId) {
@@ -116,6 +120,8 @@ registerRoutes(http, components.stripe, {
             subscriptionId: subscriptionId,
             status: subscription.status,
             priceId,
+            quantity,
+            currency,
             currentPeriodStart,
             currentPeriodEnd,
             cancelAtPeriodEnd: subscription.cancel_at_period_end,
@@ -130,7 +136,7 @@ registerRoutes(http, components.stripe, {
     "customer.subscription.created": async (ctx, event: Stripe.CustomerSubscriptionCreatedEvent) => {
       const subscription = event.data.object;
       const teamId = subscription.metadata?.teamId;
-      const { priceId, currentPeriodStart, currentPeriodEnd } =
+      const { priceId, quantity, currency, currentPeriodStart, currentPeriodEnd } =
         getSubscriptionPeriod(subscription);
 
       if (teamId) {
@@ -141,6 +147,8 @@ registerRoutes(http, components.stripe, {
           subscriptionId: subscription.id,
           status: subscription.status,
           priceId,
+          quantity,
+          currency,
           currentPeriodStart,
           currentPeriodEnd,
           cancelAtPeriodEnd: subscription.cancel_at_period_end,
@@ -154,7 +162,7 @@ registerRoutes(http, components.stripe, {
     "customer.subscription.updated": async (ctx, event: Stripe.CustomerSubscriptionUpdatedEvent) => {
       const subscription = event.data.object;
       const teamId = subscription.metadata?.teamId;
-      const { priceId, currentPeriodStart, currentPeriodEnd } =
+      const { priceId, quantity, currency, currentPeriodStart, currentPeriodEnd } =
         getSubscriptionPeriod(subscription);
 
       if (teamId) {
@@ -165,6 +173,8 @@ registerRoutes(http, components.stripe, {
           subscriptionId: subscription.id,
           status: subscription.status,
           priceId,
+          quantity,
+          currency,
           currentPeriodStart,
           currentPeriodEnd,
           cancelAtPeriodEnd: subscription.cancel_at_period_end,

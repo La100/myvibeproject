@@ -13,6 +13,7 @@ import { X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Id } from "@/convex/_generated/dataModel";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useI18n } from "@/lib/i18n";
 
 interface EditProductModalProps {
   product: { _id: string; name: string; brand?: string; description?: string; category?: string; model?: string; sku?: string; imageUrl?: string; productLink?: string; supplier?: string; supplierSku?: string; dimensions?: string; weight?: number; material?: string; color?: string; unitPrice?: number; notes?: string; tags?: string[]; };
@@ -20,6 +21,7 @@ interface EditProductModalProps {
 }
 
 export function EditProductModal({ product, onClose }: EditProductModalProps) {
+  const { t } = useI18n();
   const updateProduct = useMutation(apiAny.productLibrary.updateProduct);
   
   const [formData, setFormData] = useState({
@@ -88,7 +90,7 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
-      toast.error("Product name is required");
+      toast.error(t("productLibrary", "productNameRequired"));
       return;
     }
 
@@ -115,11 +117,11 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
         notes: formData.notes || undefined,
       });
 
-      toast.success("Product updated successfully!");
+      toast.success(t("productLibrary", "updateProduct"));
       onClose();
     } catch (error) {
       console.error("Error updating product:", error);
-      toast.error("Failed to update product", {
+      toast.error(t("productLibrary", "failedUpdateProduct"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -131,18 +133,18 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Product</DialogTitle>
+          <DialogTitle>{t("productLibrary", "editProduct")}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
           {/* Product Name - Most Important Field */}
           <div className="flex flex-col gap-2">
-            <Label htmlFor="name" className="text-base font-semibold">Product Name *</Label>
+            <Label htmlFor="name" className="text-base font-semibold">{t("productLibrary", "productName")} *</Label>
             <Input
               id="name"
               value={formData.name}
               onChange={(e) => handleInputChange("name", e.target.value)}
-              placeholder="Enter product name"
+              placeholder={t("productLibrary", "enterProductName")}
               required
               className="text-base"
             />
@@ -150,12 +152,12 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
 
           {/* Description */}
           <div className="flex flex-col gap-2">
-            <Label htmlFor="description" className="text-sm font-medium">Description</Label>
+            <Label htmlFor="description" className="text-sm font-medium">{t("productLibrary", "description")}</Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => handleInputChange("description", e.target.value)}
-              placeholder="Enter product description"
+              placeholder={t("productLibrary", "enterProductDescription")}
               rows={3}
             />
           </div>
@@ -163,17 +165,17 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
           {/* Two Column Grid for Basic Info */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="brand" className="text-sm font-medium">Brand</Label>
+              <Label htmlFor="brand" className="text-sm font-medium">{t("productLibrary", "brand")}</Label>
               <Input
                 id="brand"
                 value={formData.brand}
                 onChange={(e) => handleInputChange("brand", e.target.value)}
-                placeholder="Brand name"
+                placeholder={t("productLibrary", "brandName")}
               />
             </div>
             
             <div className="flex flex-col gap-2">
-              <Label htmlFor="category" className="text-sm font-medium">Category</Label>
+              <Label htmlFor="category" className="text-sm font-medium">{t("productLibrary", "category")}</Label>
               <Input
                 id="category"
                 value={formData.category}
@@ -186,12 +188,12 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
           {/* Three Column Grid for Identifiers */}
           <div className="grid grid-cols-3 gap-3">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="model" className="text-sm font-medium">Model</Label>
+              <Label htmlFor="model" className="text-sm font-medium">{t("productLibrary", "model")}</Label>
               <Input
                 id="model"
                 value={formData.model}
                 onChange={(e) => handleInputChange("model", e.target.value)}
-                placeholder="Model"
+                placeholder={t("productLibrary", "model")}
               />
             </div>
             
@@ -206,7 +208,7 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
             </div>
             
             <div className="flex flex-col gap-2">
-              <Label htmlFor="unitPrice" className="text-sm font-medium">Price</Label>
+              <Label htmlFor="unitPrice" className="text-sm font-medium">{t("productLibrary", "price")}</Label>
               <Input
                 id="unitPrice"
                 type="number"
@@ -221,22 +223,22 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
           {/* Supplier Info */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="supplier" className="text-sm font-medium">Supplier</Label>
+              <Label htmlFor="supplier" className="text-sm font-medium">{t("productLibrary", "supplier")}</Label>
               <Input
                 id="supplier"
                 value={formData.supplier}
                 onChange={(e) => handleInputChange("supplier", e.target.value)}
-                placeholder="Supplier name"
+                placeholder={t("productLibrary", "supplierName")}
               />
             </div>
             
             <div className="flex flex-col gap-2">
-              <Label htmlFor="supplierSku" className="text-sm font-medium">Supplier SKU</Label>
+              <Label htmlFor="supplierSku" className="text-sm font-medium">{t("productLibrary", "supplierSku")}</Label>
               <Input
                 id="supplierSku"
                 value={formData.supplierSku}
                 onChange={(e) => handleInputChange("supplierSku", e.target.value)}
-                placeholder="Supplier SKU"
+                placeholder={t("productLibrary", "supplierSku")}
               />
             </div>
           </div>
@@ -244,7 +246,7 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
           {/* Links */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="imageUrl" className="text-sm font-medium">Image URL</Label>
+              <Label htmlFor="imageUrl" className="text-sm font-medium">{t("productLibrary", "directImageUrl")}</Label>
               <Input
                 id="imageUrl"
                 value={formData.imageUrl}
@@ -254,7 +256,7 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
             </div>
             
             <div className="flex flex-col gap-2">
-              <Label htmlFor="productLink" className="text-sm font-medium">Product Link</Label>
+              <Label htmlFor="productLink" className="text-sm font-medium">{t("productLibrary", "productLink")}</Label>
               <Input
                 id="productLink"
                 value={formData.productLink}
@@ -267,7 +269,7 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
           {/* Physical Properties */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="dimensions" className="text-sm font-medium">Dimensions</Label>
+              <Label htmlFor="dimensions" className="text-sm font-medium">{t("productLibrary", "dimensions")}</Label>
               <Input
                 id="dimensions"
                 value={formData.dimensions}
@@ -277,7 +279,7 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
             </div>
             
             <div className="flex flex-col gap-2">
-              <Label htmlFor="weight" className="text-sm font-medium">Weight (kg)</Label>
+              <Label htmlFor="weight" className="text-sm font-medium">{t("productLibrary", "weightKg")}</Label>
               <Input
                 id="weight"
                 type="number"
@@ -292,22 +294,22 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
           {/* Material and Color */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="material" className="text-sm font-medium">Material</Label>
+              <Label htmlFor="material" className="text-sm font-medium">{t("productLibrary", "material")}</Label>
               <Input
                 id="material"
                 value={formData.material}
                 onChange={(e) => handleInputChange("material", e.target.value)}
-                placeholder="Wood, Metal, Plastic..."
+                placeholder={t("productLibrary", "materialPlaceholder")}
               />
             </div>
             
             <div className="flex flex-col gap-2">
-              <Label htmlFor="color" className="text-sm font-medium">Color</Label>
+              <Label htmlFor="color" className="text-sm font-medium">{t("productLibrary", "color")}</Label>
               <Input
                 id="color"
                 value={formData.color}
                 onChange={(e) => handleInputChange("color", e.target.value)}
-                placeholder="White, Black, Natural..."
+                placeholder={t("productLibrary", "colorPlaceholder")}
               />
             </div>
           </div>
@@ -315,12 +317,12 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
 
           {/* Tags */}
           <div className="flex flex-col gap-2">
-            <Label className="text-sm font-medium">Tags</Label>
+            <Label className="text-sm font-medium">{t("productLibrary", "tags")}</Label>
             <div className="flex gap-2">
               <Input
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
-                placeholder="Add a tag"
+                placeholder={t("productLibrary", "tagPlaceholder")}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
@@ -350,12 +352,12 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
 
           {/* Notes */}
           <div className="flex flex-col gap-2">
-            <Label htmlFor="notes" className="text-sm font-medium">Additional Notes</Label>
+            <Label htmlFor="notes" className="text-sm font-medium">{t("productLibrary", "additionalNotesEdit")}</Label>
             <Textarea
               id="notes"
               value={formData.notes}
               onChange={(e) => handleInputChange("notes", e.target.value)}
-              placeholder="Additional notes or specifications..."
+              placeholder={t("productLibrary", "additionalNotesShortPlaceholder")}
               rows={3}
             />
           </div>
@@ -363,10 +365,10 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
           {/* Actions */}
           <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row">
             <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-              Cancel
+              {t("productLibrary", "cancel")}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Updating Product..." : "Update Product"}
+              {isSubmitting ? t("productLibrary", "updatingProduct") : t("productLibrary", "updateProduct")}
             </Button>
           </div>
         </form>

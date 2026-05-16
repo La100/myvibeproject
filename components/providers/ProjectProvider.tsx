@@ -8,6 +8,7 @@ import { AppLoadingState } from "@/components/ui/loading-state";
 import { useParams, useRouter } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
 import { postAuthResolverUrl } from "@/lib/authRedirects";
+import { useI18n } from "@/lib/i18n";
 
 interface ProjectContextType {
   project: Doc<"projects">;
@@ -25,6 +26,7 @@ export function ProjectProvider({ children }: {
   children: ReactNode; 
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const params = useParams<{ projectSlug: string }>();
   const { organization, isLoaded } = useOrganization();
   const [localClientNotificationsLastReadAt, setLocalClientNotificationsLastReadAt] =
@@ -133,8 +135,8 @@ export function ProjectProvider({ children }: {
       return (
         <AppLoadingState
           variant="screen"
-          title="Opening workspace setup"
-          description="Redirecting to workspace selection."
+          title={t("projectProvider", "openingWorkspaceSetup")}
+          description={t("projectProvider", "redirectingToWorkspaceSelection")}
           className="fixed inset-0 bg-background/95"
         />
       );
@@ -143,8 +145,8 @@ export function ProjectProvider({ children }: {
     return (
       <AppLoadingState
         variant="screen"
-        title="Loading project"
-        description="Preparing the project workspace."
+        title={t("projectProvider", "loadingProject")}
+        description={t("projectProvider", "preparingProjectWorkspace")}
         className="fixed inset-0 bg-background/95"
       />
     );

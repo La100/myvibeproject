@@ -57,6 +57,7 @@ import {
 } from "@/components/ui/table";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useI18n } from "@/lib/i18n";
 
 import {
   Tooltip,
@@ -76,8 +77,11 @@ import type { DragStartEvent } from "@dnd-kit/core";
 import { Spinner } from "@/components/ui/spinner";
 import { format } from "date-fns";
 
-const formatDateTime = (timestamp: number | undefined): string => {
-  if (!timestamp) return "N/A";
+const formatDateTime = (
+  timestamp: number | undefined,
+  fallback: string,
+): string => {
+  if (!timestamp) return fallback;
   const date = new Date(timestamp);
   const hasTime = date.getHours() !== 0 || date.getMinutes() !== 0;
   if (hasTime) {
@@ -197,38 +201,45 @@ function useDebounce<T>(value: T, delay: number): T {
 const priorityStyles: Record<
   NonNullable<TaskPriority>,
   {
-    label: string;
+    labelKey: string;
     variant: "outline" | "secondary" | "default" | "destructive";
     accentClassName: string;
   }
 > = {
   low: {
-    label: "Low",
+    labelKey: "low",
     variant: "outline",
     accentClassName: "bg-[var(--chart-4)]/55",
   },
   medium: {
-    label: "Medium",
+    labelKey: "medium",
     variant: "secondary",
     accentClassName: "bg-primary/55",
   },
-  high: { label: "High", variant: "default", accentClassName: "bg-primary" },
+  high: { labelKey: "high", variant: "default", accentClassName: "bg-primary" },
   urgent: {
-    label: "Urgent",
+    labelKey: "urgent",
     variant: "destructive",
     accentClassName: "bg-destructive",
   },
 };
 
-const getPriorityDisplay = (priority: TaskPriority) => {
+const getPriorityDisplay = (
+  priority: TaskPriority,
+  t: ReturnType<typeof useI18n>["t"],
+) => {
   if (!priority || priority === null) {
     return {
-      label: "No priority",
+      label: t("taskDetail", "noPriority"),
       variant: "outline" as const,
       accentClassName: "bg-muted-foreground/20",
     };
   }
-  return priorityStyles[priority];
+  const style = priorityStyles[priority];
+  return {
+    ...style,
+    label: t("taskDetail", style.labelKey),
+  };
 };
 
 export function TasksViewLoading({
@@ -247,6 +258,7 @@ export function TasksViewLoading({
 }
 
 export default function TasksView() {
+  const { t } = useI18n();
   const params = useParams<{ projectSlug: string }>();
   const router = useRouter();
   const pathname = usePathname();
@@ -316,12 +328,15 @@ export default function TasksView() {
     [project],
   );
 
-  const priorityOptions = [
-    { value: "urgent", label: "Urgent" },
-    { value: "high", label: "High" },
-    { value: "medium", label: "Medium" },
-    { value: "low", label: "Low" },
-  ];
+  const priorityOptions = useMemo(
+    () => [
+      { value: "urgent", label: t("taskDetail", "urgent") },
+      { value: "high", label: t("taskDetail", "high") },
+      { value: "medium", label: t("taskDetail", "medium") },
+      { value: "low", label: t("taskDetail", "low") },
+    ],
+    [t],
+  );
 
   const assignedToOptions = useMemo(
     () =>
@@ -429,9 +444,9 @@ export default function TasksView() {
           taskId: cardId,
           status: columnId,
         });
-        toast.success("Task status updated.");
+        toast.success(t("taskDetail", "taskStatusUpdated"));
       } catch {
-        toast.error("Failed to update task status.");
+        toast.error(t("taskDetail", "failedToUpdateTaskStatus"));
         // Revert optimistic update on failure
         setLocalKanbanTasks((prev) => {
           return prev.map((t) =>
@@ -483,18 +498,18 @@ export default function TasksView() {
   }
 
   if (project === null) {
-    return <div>Project not found.</div>;
+    return <div>{t("taskDetail", "projectNotFound")}</div>;
   }
 
   return (
     <div className="flex flex-col gap-4">
       <div className="mb-2">
         <ProjectPageHeader
-          title="Tasks"
+          title={t("taskDetail", "tasks")}
           icon={<ListTodo className="h-8 w-8 text-primary" />}
           actions={
             <div className="flex items-center gap-2">
-              <Button onClick={() => setIsTaskFormOpen(true)}>Add Task</Button>
+              <Button onClick={() => setIsTaskFormOpen(true)}>{t("taskDetail", "addTask")}</Button>
               <div className="flex items-center rounded-md border bg-card">
                 <Button
                   variant={viewMode === "kanban" ? "secondary" : "ghost"}
@@ -520,14 +535,14 @@ export default function TasksView() {
         {/* Filters */}
         <div className="flex items-center gap-2 mt-4">
           <Input
-            placeholder="Search tasks..."
+            placeholder={t("taskDetail", "searchTasksPlaceholder")}
             className="max-w-sm"
             value={filters.searchQuery}
             onChange={(e) => handleFilterChange("searchQuery", e.target.value)}
           />
 
           <DataTableFacetedFilter
-            title="Status"
+            title={t("taskDetail", "status")}
             options={statusOptions}
             selectedValues={new Set(filters.status)}
             onFilterChange={(selected) =>
@@ -535,7 +550,7 @@ export default function TasksView() {
             }
           />
           <DataTableFacetedFilter
-            title="Priority"
+            title={t("taskDetail", "priority")}
             options={priorityOptions}
             selectedValues={new Set(filters.priority)}
             onFilterChange={(selected) =>
@@ -543,7 +558,7 @@ export default function TasksView() {
             }
           />
           <DataTableFacetedFilter
-            title="Assignee"
+            title={t("taskDetail", "assignee")}
             options={assignedToOptions}
             selectedValues={new Set(filters.assignedTo)}
             onFilterChange={(selected) =>
@@ -551,7 +566,7 @@ export default function TasksView() {
             }
           />
           <DataTableFacetedFilter
-            title="Tags"
+            title={t("taskDetail", "tags")}
             options={tagsOptions}
             selectedValues={new Set(filters.tags)}
             onFilterChange={(selected) =>
@@ -565,7 +580,7 @@ export default function TasksView() {
               onClick={clearFilters}
               className="h-8 px-2 lg:px-3"
             >
-              Reset <X data-icon="inline-end" />
+              {t("taskDetail", "reset")} <X data-icon="inline-end" />
             </Button>
           )}
         </div>
@@ -573,7 +588,7 @@ export default function TasksView() {
       <Dialog open={isTaskFormOpen} onOpenChange={setIsTaskFormOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Create a new task</DialogTitle>
+            <DialogTitle>{t("taskDetail", "createNewTask")}</DialogTitle>
           </DialogHeader>
           {project && (
             <TaskForm
@@ -593,10 +608,10 @@ export default function TasksView() {
         {localKanbanTasks.length === 0 ? (
           <EmptyState
             icon={ListTodo}
-            title="No tasks yet"
-            description="Get started by creating your first task to track your project progress"
+            title={t("taskDetail", "noTasksYet")}
+            description={t("taskDetail", "noTasksYetDescription")}
             action={{
-              label: "Create Task",
+              label: t("taskDetail", "createTask"),
               onClick: () => setIsTaskFormOpen(true),
               icon: Plus,
             }}
@@ -663,18 +678,18 @@ export default function TasksView() {
                 <TableRow>
                   <TableHead onClick={() => handleSortChange("title")}>
                     <div className="flex items-center cursor-pointer">
-                      Task <ChevronsUpDown data-icon="inline-end" />
+                      {t("taskDetail", "task")} <ChevronsUpDown data-icon="inline-end" />
                     </div>
                   </TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Assignee</TableHead>
+                  <TableHead>{t("taskDetail", "status")}</TableHead>
+                  <TableHead>{t("taskDetail", "priority")}</TableHead>
+                  <TableHead>{t("taskDetail", "assignee")}</TableHead>
                   <TableHead onClick={() => handleSortChange("endDate")}>
                     <div className="flex items-center cursor-pointer">
-                      End Date <ChevronsUpDown data-icon="inline-end" />
+                      {t("taskDetail", "endDate")} <ChevronsUpDown data-icon="inline-end" />
                     </div>
                   </TableHead>
-                  <TableHead>Tags</TableHead>
+                  <TableHead>{t("taskDetail", "tags")}</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
@@ -696,7 +711,9 @@ export default function TasksView() {
                     </TableCell>
                     <TableCell>
                       {task.priority && (
-                        <Badge variant="outline">{task.priority}</Badge>
+                        <Badge variant="outline">
+                          {getPriorityDisplay(task.priority, t).label}
+                        </Badge>
                       )}
                     </TableCell>
                     <TableCell>
@@ -714,9 +731,9 @@ export default function TasksView() {
                     </TableCell>
                     <TableCell>
                       {task.endDate
-                        ? formatDateTime(task.endDate)
+                        ? formatDateTime(task.endDate, t("taskDetail", "notAvailable"))
                         : task.startDate
-                          ? formatDateTime(task.startDate)
+                          ? formatDateTime(task.startDate, t("taskDetail", "notAvailable"))
                           : "-"}
                     </TableCell>
                     <TableCell>
@@ -732,15 +749,15 @@ export default function TasksView() {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
+                            <span className="sr-only">{t("taskDetail", "openMenu")}</span>
                             <ChevronsUpDown />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuLabel>{t("taskDetail", "actions")}</DropdownMenuLabel>
                           <DropdownMenuGroup>
-                            <DropdownMenuItem>Edit</DropdownMenuItem>
-                            <DropdownMenuItem>Delete</DropdownMenuItem>
+                            <DropdownMenuItem>{t("taskDetail", "edit")}</DropdownMenuItem>
+                            <DropdownMenuItem>{t("taskDetail", "delete")}</DropdownMenuItem>
                           </DropdownMenuGroup>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -774,7 +791,8 @@ const TaskCardContent = memo(function TaskCardContent({
     status: TaskStatusLiterals,
   ) => Promise<void>;
 }) {
-  const priority = getPriorityDisplay(task.priority);
+  const { t } = useI18n();
+  const priority = getPriorityDisplay(task.priority, t);
   const doneStatus = statusOptions.find((status) => status.value === "done");
   const nextStatuses = statusOptions.filter(
     (status) => status.value !== task.status,
@@ -806,7 +824,7 @@ const TaskCardContent = memo(function TaskCardContent({
                 </Badge>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Priority: {priority.label}</p>
+                <p>{t("taskDetail", "priorityWithValue", { priority: priority.label })}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -823,12 +841,12 @@ const TaskCardContent = memo(function TaskCardContent({
         <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3">
           {task.startDate && task.endDate ? (
             <span>
-              {formatDateTime(task.startDate)} - {formatDateTime(task.endDate)}
+              {formatDateTime(task.startDate, t("taskDetail", "notAvailable"))} - {formatDateTime(task.endDate, t("taskDetail", "notAvailable"))}
             </span>
           ) : task.endDate ? (
-            <span>Due: {formatDateTime(task.endDate)}</span>
+            <span>{t("taskDetail", "dueWithDate", { date: formatDateTime(task.endDate, t("taskDetail", "notAvailable")) })}</span>
           ) : (
-            <span>Start: {formatDateTime(task.startDate!)}</span>
+            <span>{t("taskDetail", "startWithDate", { date: formatDateTime(task.startDate!, t("taskDetail", "notAvailable")) })}</span>
           )}
         </div>
       )}
@@ -865,7 +883,7 @@ const TaskCardContent = memo(function TaskCardContent({
                   </Avatar>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Assigned to {task.assignedToName}</p>
+                  <p>{t("taskDetail", "assignedToName", { name: task.assignedToName ?? "" })}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -884,7 +902,7 @@ const TaskCardContent = memo(function TaskCardContent({
               className="flex-1"
             >
               <CheckCircle2 data-icon="inline-start" />
-              Mark done
+              {t("taskDetail", "markDone")}
             </Button>
           )}
           <DropdownMenu>
@@ -897,11 +915,11 @@ const TaskCardContent = memo(function TaskCardContent({
                 className={cn(canMarkDone ? "shrink-0" : "flex-1")}
               >
                 <MoreHorizontal data-icon="inline-start" />
-                Status
+                {t("taskDetail", "status")}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Move to</DropdownMenuLabel>
+              <DropdownMenuLabel>{t("taskDetail", "moveTo")}</DropdownMenuLabel>
               <DropdownMenuGroup>
                 {nextStatuses.map((status) => (
                   <DropdownMenuItem
@@ -926,7 +944,8 @@ const TaskCardContent = memo(function TaskCardContent({
 });
 
 function TaskDragPreview({ task }: { task: KanbanTask }) {
-  const priority = getPriorityDisplay(task.priority);
+  const { t } = useI18n();
+  const priority = getPriorityDisplay(task.priority, t);
 
   return (
     <div className="w-[340px] rounded-2xl border border-border/85 bg-card px-4 py-3 shadow-md">

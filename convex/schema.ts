@@ -328,6 +328,7 @@ export default defineSchema({
     subscriptionPlan: v.optional(
       v.union(
         v.literal("free"),
+        v.literal("core"),
         v.literal("basic"),
         v.literal("ai"),
         v.literal("ai_scale"),
@@ -336,6 +337,11 @@ export default defineSchema({
       ),
     ),
     subscriptionPriceId: v.optional(v.string()), // Stripe price ID
+    subscriptionCurrency: v.optional(
+      v.union(v.literal("usd"), v.literal("pln")),
+    ),
+    billingSeatQuantity: v.optional(v.number()),
+    billingModel: v.optional(v.union(v.literal("per_user"))),
     currentPeriodStart: v.optional(v.number()), // Unix timestamp
     currentPeriodEnd: v.optional(v.number()), // Unix timestamp
     trialEnd: v.optional(v.number()), // Unix timestamp
@@ -350,6 +356,8 @@ export default defineSchema({
         hasAdvancedFeatures: v.boolean(),
         hasAIFeatures: v.optional(v.boolean()),
         price: v.number(),
+        pricePerUser: v.optional(v.number()),
+        aiMonthlyTokensPerUser: v.optional(v.number()),
         aiMonthlyTokens: v.optional(v.number()), // Monthly AI tokens
       }),
     ),

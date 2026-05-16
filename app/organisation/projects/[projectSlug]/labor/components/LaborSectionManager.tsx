@@ -14,6 +14,7 @@ import {
 import { Doc, Id } from '@/convex/_generated/dataModel';
 import { toast } from 'sonner';
 import { toUserFacingErrorMessage } from '@/lib/userFacingErrors';
+import { useI18n } from '@/lib/i18n';
 
 interface LaborSectionManagerProps {
   sections: Doc<"laborSections">[];
@@ -34,6 +35,7 @@ export function LaborSectionManager({
   expanded,
   onExpandedChange,
 }: LaborSectionManagerProps) {
+  const { t } = useI18n();
   const [internalExpanded, setInternalExpanded] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
   const [editingSectionId, setEditingSectionId] = useState<Id<"laborSections"> | null>(null);
@@ -77,9 +79,9 @@ export function LaborSectionManager({
     try {
       await onUpdateSection(section._id, normalizedName);
       cancelEditingSection();
-      toast.success('Section name updated');
+      toast.success(t('labor', 'sectionNameUpdated'));
     } catch (error) {
-      toast.error('Could not update section name', {
+      toast.error(t('labor', 'couldNotUpdateSectionName'), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -88,21 +90,21 @@ export function LaborSectionManager({
   };
 
   const defaultSections = [
-    'Tiling',
-    'Plumbing',
-    'Electrical',
-    'Painting',
-    'Carpentry',
-    'Demolition',
-    'Installation',
-    'Finishing',
+    t('labor', 'sectionTiling'),
+    t('labor', 'sectionPlumbing'),
+    t('labor', 'sectionElectrical'),
+    t('labor', 'sectionPainting'),
+    t('labor', 'sectionCarpentry'),
+    t('labor', 'sectionDemolition'),
+    t('labor', 'sectionInstallation'),
+    t('labor', 'sectionFinishing'),
   ];
 
   const existingSectionNames = sections.map((section) => section.name.toLowerCase());
   const suggestedSections = defaultSections.filter(
     (name) => !existingSectionNames.includes(name.toLowerCase()),
   );
-  const sectionLabel = `${sections.length} ${sections.length === 1 ? 'section' : 'sections'}`;
+  const sectionLabel = `${sections.length} ${sections.length === 1 ? t('labor', 'sectionsSingular') : t('labor', 'sections')}`;
 
   return (
     <div className="vibe-panel mb-8 p-5 sm:p-6">
@@ -117,14 +119,14 @@ export function LaborSectionManager({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-base font-semibold text-foreground">
-                Manage Sections
+                {t('labor', 'manageSections')}
               </span>
               <span className="rounded-full border border-border/60 bg-secondary/70 px-2.5 py-1 text-[12px] font-medium text-muted-foreground">
                 {sectionLabel}
               </span>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Group labor items by trade, phase, or contractor package.
+              {t('labor', 'groupLaborItems')}
             </p>
           </div>
         </div>
@@ -143,7 +145,7 @@ export function LaborSectionManager({
             <Input
               value={newSectionName}
               onChange={(e) => setNewSectionName(e.target.value)}
-              placeholder="Add a section, for example Electrical or Finishing"
+              placeholder={t('labor', 'addSectionPlaceholder')}
               onKeyDown={(e) => e.key === 'Enter' && handleCreateSection()}
               className="h-11 rounded-full border-border/70 px-4 text-sm shadow-none"
             />
@@ -153,13 +155,13 @@ export function LaborSectionManager({
               className="h-11 rounded-full px-5"
             >
               <PlusIcon className="mr-2 h-4 w-4" />
-              Add Section
+              {t('labor', 'addSection')}
             </Button>
           </div>
 
           {suggestedSections.length > 0 ? (
             <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Quick add</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t('labor', 'quickAdd')}</p>
               <div className="flex flex-wrap gap-2">
                 {suggestedSections.map((name) => (
                   <button
@@ -177,7 +179,7 @@ export function LaborSectionManager({
 
           {sections.length > 0 ? (
             <div>
-              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Existing sections</p>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t('labor', 'existingSections')}</p>
               <div className="flex flex-col gap-2">
                 {sections.map((section) => (
                   <div

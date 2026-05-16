@@ -39,16 +39,16 @@ import { LaborExportDialog, type LaborListExportOptions } from './LaborExportDia
 import { LaborListHeader } from './LaborListHeader';
 import { LaborListSection } from './LaborListSection';
 import { LaborSectionManager } from './LaborSectionManager';
+import { useI18n } from '@/lib/i18n';
 
 type LaborItem = Doc<"laborItems">;
-const formatItemCountLabel = (count: number) => `${count} ${count === 1 ? 'item' : 'items'}`;
-const getSectionOptionLabel = (section: string) => section === 'No Section' ? 'No section' : section;
 
 export function LaborListViewLoading() {
   return <Spinner className="p-4 sm:p-6" />;
 }
 
 export default function LaborListView() {
+  const { t } = useI18n();
   const [isPending] = useTransition();
   const [showMainAddForm, setShowMainAddForm] = useState(false);
   const [isSectionManagerOpen, setIsSectionManagerOpen] = useState(false);
@@ -84,7 +84,7 @@ export default function LaborListView() {
   }
 
   if (project === null) {
-    return <div>Project not found</div>;
+    return <div>{t('files', 'projectNotFound')}</div>;
   }
 
   const currencySymbol = getCurrencySymbol(project.currency);
@@ -96,9 +96,11 @@ export default function LaborListView() {
   const sectionMap = new Map(sections.map((section) => [String(section._id), section]));
 
   const resolveSectionName = (item: LaborItem) => {
-    if (!item.sectionId) return 'No Section';
-    return sectionMap.get(String(item.sectionId))?.name || 'No Section';
+    if (!item.sectionId) return t('labor', 'noSection');
+    return sectionMap.get(String(item.sectionId))?.name || t('labor', 'noSection');
   };
+  const formatItemCountLabel = (count: number) => `${count} ${count === 1 ? t('labor', 'item') : t('labor', 'items')}`;
+  const getSectionOptionLabel = (section: string) => section === t('labor', 'noSection') ? t('labor', 'noSectionLower') : section;
 
   const getAssignedMemberName = (assignedTo?: string) => {
     if (!assignedTo) return null;
@@ -109,7 +111,7 @@ export default function LaborListView() {
   const availableSections = Array.from(
     new Set([
       ...sections.map((section) => section.name),
-      ...(items.some((item) => !item.sectionId) ? ['No Section'] : []),
+      ...(items.some((item) => !item.sectionId) ? [t('labor', 'noSection')] : []),
     ]),
   );
 
@@ -144,8 +146,8 @@ export default function LaborListView() {
     }
 
     return Array.from(sectionBuckets.values()).sort((left, right) => {
-      if (left.name === 'No Section') return 1;
-      if (right.name === 'No Section') return -1;
+      if (left.name === t('labor', 'noSection')) return 1;
+      if (right.name === t('labor', 'noSection')) return -1;
       const leftOrder = left.sectionId ? sectionOrder.get(String(left.sectionId)) ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
       const rightOrder = right.sectionId ? sectionOrder.get(String(right.sectionId)) ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER;
       if (leftOrder !== rightOrder) return leftOrder - rightOrder;
@@ -230,7 +232,7 @@ export default function LaborListView() {
 
     const hasItems = items.some((item) => item.sectionId === sectionId);
     if (hasItems) {
-      if (!confirm(`Section "${section.name}" contains items. Are you sure you want to delete it? Items will be moved to "No Category".`)) {
+      if (!confirm(t('labor', 'deleteSectionConfirm', { name: section.name }))) {
         return;
       }
     }
@@ -264,7 +266,7 @@ export default function LaborListView() {
       projectId: project._id,
       ...itemData,
     });
-    toast.success('Labor item added');
+    toast.success(t('labor', 'laborItemAdded'));
   };
 
   const handleUpdateItem = async (id: Id<"laborItems">, updates: Partial<LaborItem>) => {
@@ -272,7 +274,7 @@ export default function LaborListView() {
       await updateItem({ itemId: id, ...updates });
     } catch (error) {
       console.error('Error updating item:', error);
-      toast.error('Error updating item', {
+      toast.error(t('labor', 'errorUpdatingItem'), {
         description: toUserFacingErrorMessage(error),
       });
     }
@@ -281,7 +283,7 @@ export default function LaborListView() {
   const handleDeleteItem = async (id: Id<"laborItems">) => {
     try {
       await deleteItem({ itemId: id });
-      toast.success('Item deleted');
+      toast.success(t('labor', 'itemDeleted'));
     } catch (error) {
       console.error('Error deleting item:', error);
       toast.error('Error deleting item', {
@@ -291,19 +293,19 @@ export default function LaborListView() {
   };
 
   const buildLaborPdfColumns = (includeSection: boolean) => [
-    ...(includeSection ? [{ key: 'sectionName', label: 'Section' }] : []),
-    { key: 'work', label: 'Work' },
-    { key: 'qty', label: 'Qty' },
-    { key: 'unit', label: 'Unit' },
-    { key: 'unitNet', label: 'Unit Price' },
-    { key: 'totalNet', label: 'Total' },
-    ...(exportOptions.includeNotes ? [{ key: 'notes', label: 'Notes' }] : []),
-    ...(exportOptions.includeReferenceLink ? [{ key: 'referenceLink', label: 'Reference Link' }] : []),
+    ...(includeSection ? [{ key: 'sectionName', label: t('labor', 'section') }] : []),
+    { key: 'work', label: t('labor', 'work') },
+    { key: 'qty', label: t('labor', 'qty') },
+    { key: 'unit', label: t('labor', 'unit') },
+    { key: 'unitNet', label: t('labor', 'pricePerUnit', { currency: currencySymbol }) },
+    { key: 'totalNet', label: t('labor', 'total') },
+    ...(exportOptions.includeNotes ? [{ key: 'notes', label: t('labor', 'notes') }] : []),
+    ...(exportOptions.includeReferenceLink ? [{ key: 'referenceLink', label: t('labor', 'referenceLink') }] : []),
   ];
 
   const handleExportPDF = async () => {
     if (laborExportRows.length === 0) {
-      toast.info('Add labor items before exporting.');
+      toast.info(t('labor', 'addLaborItemsBeforeExporting'));
       return;
     }
 
@@ -330,17 +332,17 @@ export default function LaborListView() {
             ...(exportOptions.includeReferenceLink ? { referenceLink: row.referenceLink } : {}),
           })),
         })),
-        subtitle: `Items: ${laborExportRows.length} | Total: ${formatMoney(
+        subtitle: t('labor', 'itemsSubtitle', { count: laborExportRows.length, total: formatMoney(
           exportSourceItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0),
           currencySymbol,
-        )}`,
-        title: `Labor - ${project.name}`,
+        ) }),
+        title: `${t('labor', 'labor')} - ${project.name}`,
       });
       setIsExportModalOpen(false);
-      toast.success('PDF exported successfully!');
+      toast.success(t('labor', 'pdfExported'));
     } catch (error) {
       console.error('Labor PDF export error:', error);
-      toast.error('Failed to export labor PDF', {
+      toast.error(t('labor', 'failedToExportLaborPdf'), {
         description: toUserFacingErrorMessage(error),
       });
     }
@@ -348,7 +350,7 @@ export default function LaborListView() {
 
   const handleExportCSV = () => {
     if (laborExportRows.length === 0) {
-      toast.info('Add labor items before exporting.');
+      toast.info(t('labor', 'addLaborItemsBeforeExporting'));
       return;
     }
 
@@ -358,12 +360,12 @@ export default function LaborListView() {
       rows: laborExportRows.map((row) => getLaborExportCsvRow(row, flatLaborColumnOptions)),
     });
     setIsExportModalOpen(false);
-    toast.success('CSV exported successfully!');
+    toast.success(t('labor', 'csvExported'));
   };
 
   const handleExportXlsx = async () => {
     if (laborExportRows.length === 0) {
-      toast.info('Add labor items before exporting.');
+      toast.info(t('labor', 'addLaborItemsBeforeExporting'));
       return;
     }
 
@@ -372,11 +374,11 @@ export default function LaborListView() {
       sheets: [
         {
           generatedOn: format(new Date(), 'yyyy-MM-dd HH:mm'),
-          name: 'Labor',
-          subtitle: `Items: ${laborExportRows.length} | Total: ${formatMoney(
+          name: t('labor', 'labor'),
+          subtitle: t('labor', 'itemsSubtitle', { count: laborExportRows.length, total: formatMoney(
             exportSourceItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0),
             currencySymbol,
-          )}`,
+          ) }),
           tables: exportOptions.groupBySections
             ? laborExportSections.map((section, index) => ({
                 accentColor: getSectionAccentColor(index),
@@ -388,15 +390,15 @@ export default function LaborListView() {
                 {
                   headers: getLaborExportHeaders(flatLaborColumnOptions),
                   rows: laborExportRows.map((row) => getLaborExportCsvRow(row, flatLaborColumnOptions)),
-                  title: 'Items',
+                  title: t('labor', 'items'),
                 },
               ],
-          title: `Labor - ${project.name}`,
+          title: `${t('labor', 'labor')} - ${project.name}`,
         },
       ],
     });
     setIsExportModalOpen(false);
-    toast.success('Excel exported successfully!');
+    toast.success(t('labor', 'excelExported'));
   };
 
   return (
@@ -451,10 +453,10 @@ export default function LaborListView() {
 
                   <Select value={sectionFilter} onValueChange={setSectionFilter}>
                     <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-card px-5 shadow-none">
-                      <SelectValue placeholder="Section" />
+                      <SelectValue placeholder={t('labor', 'section')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All sections</SelectItem>
+                      <SelectItem value="all">{t('labor', 'allSections')}</SelectItem>
                       {availableSections.map((section) => (
                         <SelectItem key={section} value={section}>
                           {getSectionOptionLabel(section)}
@@ -465,10 +467,10 @@ export default function LaborListView() {
 
                   <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
                     <SelectTrigger className="h-11 min-w-[210px] rounded-full border-border/70 bg-card px-5 shadow-none">
-                      <SelectValue placeholder="Assignee" />
+                      <SelectValue placeholder={t('labor', 'assignee')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All assignees</SelectItem>
+                      <SelectItem value="all">{t('labor', 'allAssignees')}</SelectItem>
                       {availableAssignees.map((assigneeId) => (
                         <SelectItem key={assigneeId} value={assigneeId}>
                           {getAssignedMemberName(assigneeId) || assigneeId}
@@ -487,13 +489,13 @@ export default function LaborListView() {
                       className="h-11 rounded-full border border-border/70 px-4"
                     >
                       <XIcon className="mr-2 h-4 w-4" />
-                      Clear filters
+                      {t('labor', 'clearFilters')}
                     </Button>
                   ) : null}
 
                   <div className="rounded-2xl border border-border/60 bg-secondary/70 px-4 py-2.5">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                      Labor total
+                      {t('labor', 'laborTotal')}
                     </div>
                     <div className="mt-1 text-[1.6rem] font-semibold leading-none tracking-[-0.03em] text-foreground">
                       {formatCurrency(visibleGrandTotal, project.currency)}
@@ -510,7 +512,7 @@ export default function LaborListView() {
                   <InputGroupInput
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search work items, notes, assignee, or link"
+                    placeholder={t('labor', 'searchPlaceholder')}
                     className="h-11 rounded-full pr-4"
                   />
                 </InputGroup>
@@ -518,17 +520,17 @@ export default function LaborListView() {
                 <div className="flex flex-wrap items-center gap-2">
                   {searchQuery ? (
                     <Badge variant="outline" className="rounded-full border-border/60 px-3 py-1.5">
-                      Search: {searchQuery}
+                      {t('labor', 'search', { query: searchQuery })}
                     </Badge>
                   ) : null}
                   {sectionFilter !== 'all' ? (
                     <Badge variant="outline" className="rounded-full border-border/60 px-3 py-1.5">
-                      Section: {getSectionOptionLabel(sectionFilter)}
+                      {t('labor', 'sectionFilter', { name: getSectionOptionLabel(sectionFilter) })}
                     </Badge>
                   ) : null}
                   {assigneeFilter !== 'all' ? (
                     <Badge variant="outline" className="rounded-full border-border/60 px-3 py-1.5">
-                      Assignee: {getAssignedMemberName(assigneeFilter) || assigneeFilter}
+                      {t('labor', 'assigneeFilter', { name: getAssignedMemberName(assigneeFilter) || assigneeFilter })}
                     </Badge>
                   ) : null}
                 </div>
@@ -557,9 +559,9 @@ export default function LaborListView() {
 
           {visibleSectionEntries.length === 0 ? (
             <div className="vibe-panel border-dashed px-8 py-14 text-center">
-              <h3 className="text-lg font-semibold text-foreground">No labor items match the current view</h3>
+              <h3 className="text-lg font-semibold text-foreground">{t('labor', 'noLaborItemsMatch')}</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                Adjust your filters or clear the current search to bring labor items back into view.
+                {t('labor', 'adjustFilters')}
               </p>
               {hasActiveFilters ? (
                 <Button
@@ -568,7 +570,7 @@ export default function LaborListView() {
                   onClick={resetFilters}
                   className="mt-4 rounded-full border-border/70 bg-card"
                 >
-                  Reset filters
+                  {t('labor', 'resetFilters')}
                 </Button>
               ) : (
                 <Button
@@ -577,7 +579,7 @@ export default function LaborListView() {
                   onClick={() => setShowMainAddForm(true)}
                   className="mt-4 rounded-full border-border/70 bg-card"
                 >
-                  Add labor item
+                  {t('labor', 'addLaborItem')}
                 </Button>
               )}
             </div>
@@ -586,7 +588,7 @@ export default function LaborListView() {
           {filteredItems.length > 0 ? (
             <div className="mt-8 flex flex-wrap items-center justify-end gap-2">
               <Badge variant="secondary" className="rounded-full border border-border/60 bg-secondary/70 px-4 py-2 text-sm font-semibold">
-                Visible total: {formatCurrency(visibleGrandTotal, project.currency)}
+                {t('labor', 'visibleTotal', { total: formatCurrency(visibleGrandTotal, project.currency) })}
               </Badge>
             </div>
           ) : null}

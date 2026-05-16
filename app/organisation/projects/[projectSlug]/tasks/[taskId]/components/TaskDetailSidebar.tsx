@@ -35,6 +35,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useI18n } from "@/lib/i18n";
 
 interface TaskStatusSetting {
   name: string;
@@ -77,6 +78,7 @@ export default function TaskDetailSidebar({
   onDelete,
   className,
 }: TaskDetailSidebarProps) {
+  const { t } = useI18n();
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [tagsInput, setTagsInput] = useState(task.tags?.join(", ") || "");
   const [isAllDay, setIsAllDay] = useState(true);
@@ -180,9 +182,9 @@ export default function TaskDetailSidebar({
         taskId: task._id,
         [field]: value,
       });
-      toast.success("Changes saved");
+      toast.success(t("taskDetail", "changesSaved"));
     } catch (error) {
-      toast.error("Error saving changes", {
+      toast.error(t("taskDetail", "errorSavingChanges"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -202,7 +204,7 @@ export default function TaskDetailSidebar({
         typeof nextEndDate === "number" &&
         nextEndDate < nextStartDate
       ) {
-        toast.error("End date cannot be earlier than start date.");
+        toast.error(t("taskDetail", "endDateBeforeStartDate"));
         return;
       }
 
@@ -210,9 +212,9 @@ export default function TaskDetailSidebar({
         taskId: task._id,
         startDate: nextStartDate,
       });
-      toast.success("Start date updated");
+      toast.success(t("taskDetail", "startDateUpdated"));
     } catch (error) {
-      toast.error("Error updating start date", {
+      toast.error(t("taskDetail", "errorUpdatingStartDate"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -232,7 +234,7 @@ export default function TaskDetailSidebar({
         typeof nextEndDate === "number" &&
         nextEndDate < nextStartDate
       ) {
-        toast.error("End date cannot be earlier than start date.");
+        toast.error(t("taskDetail", "endDateBeforeStartDate"));
         return;
       }
 
@@ -240,9 +242,9 @@ export default function TaskDetailSidebar({
         taskId: task._id,
         endDate: nextEndDate,
       });
-      toast.success("End date updated");
+      toast.success(t("taskDetail", "endDateUpdated"));
     } catch (error) {
-      toast.error("Error updating end date", {
+      toast.error(t("taskDetail", "errorUpdatingEndDate"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -259,10 +261,10 @@ export default function TaskDetailSidebar({
   const handleDeleteTask = async () => {
     try {
       await deleteTask({ taskId: task._id });
-      toast.success("Task deleted");
+      toast.success(t("taskDetail", "taskDeleted"));
       onDelete();
     } catch (error) {
-      toast.error("Error deleting task", {
+      toast.error(t("taskDetail", "errorDeletingTask"), {
         description: toUserFacingErrorMessage(error),
       });
     }
@@ -286,10 +288,12 @@ export default function TaskDetailSidebar({
           ? getEndTimestamp(new Date(task.endDate), { allDay: checked })
           : undefined,
       });
-      toast.success(checked ? "Time removed" : "Time enabled");
+      toast.success(
+        checked ? t("taskDetail", "timeRemoved") : t("taskDetail", "timeEnabled"),
+      );
     } catch (error) {
       setIsAllDay(!checked);
-      toast.error("Error updating time settings", {
+      toast.error(t("taskDetail", "errorUpdatingTimeSettings"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -317,9 +321,9 @@ export default function TaskDetailSidebar({
       }
 
       await updateTask(payload);
-      toast.success("Start time updated");
+      toast.success(t("taskDetail", "startTimeUpdated"));
     } catch (error) {
-      toast.error("Error updating start time", {
+      toast.error(t("taskDetail", "errorUpdatingStartTime"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -337,9 +341,9 @@ export default function TaskDetailSidebar({
         taskId: task._id,
         endDate: timestampWithTime(new Date(task.endDate), value),
       });
-      toast.success("End time updated");
+      toast.success(t("taskDetail", "endTimeUpdated"));
     } catch (error) {
-      toast.error("Error updating end time", {
+      toast.error(t("taskDetail", "errorUpdatingEndTime"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -373,13 +377,13 @@ export default function TaskDetailSidebar({
   return (
     <Card className={cn("sticky top-24", className)}>
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">Task Details</CardTitle>
-        <p className="text-sm text-muted-foreground">Edit fields directly</p>
+        <CardTitle className="text-lg font-semibold">{t("taskDetail", "taskDetails")}</CardTitle>
+        <p className="text-sm text-muted-foreground">{t("taskDetail", "editFieldsDirectly")}</p>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         {/* Status */}
         <div>
-          <Label className="text-sm font-medium">Status</Label>
+          <Label className="text-sm font-medium">{t("taskDetail", "status")}</Label>
           <Select 
             value={task.status} 
             onValueChange={(value) => handleUpdate('status', value)}
@@ -398,28 +402,28 @@ export default function TaskDetailSidebar({
 
         {/* Priority */}
         <div>
-          <Label className="text-sm font-medium">Priority</Label>
+          <Label className="text-sm font-medium">{t("taskDetail", "priority")}</Label>
           <Select
             value={task.priority || 'none'}
             onValueChange={(value) => handleUpdate('priority', value === 'none' ? null : value)}
             disabled={isUpdating === 'priority'}
           >
             <SelectTrigger className="mt-1">
-              <SelectValue placeholder="No priority set" />
+              <SelectValue placeholder={t("taskDetail", "noPrioritySet")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">⚪ No priority</SelectItem>
-              <SelectItem value="low">🟢 Low</SelectItem>
-              <SelectItem value="medium">🟡 Medium</SelectItem>
-              <SelectItem value="high">🟠 High</SelectItem>
-              <SelectItem value="urgent">🔴 Urgent</SelectItem>
+              <SelectItem value="none">⚪ {t("taskDetail", "noPriority")}</SelectItem>
+              <SelectItem value="low">🟢 {t("taskDetail", "low")}</SelectItem>
+              <SelectItem value="medium">🟡 {t("taskDetail", "medium")}</SelectItem>
+              <SelectItem value="high">🟠 {t("taskDetail", "high")}</SelectItem>
+              <SelectItem value="urgent">🔴 {t("taskDetail", "urgent")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         {/* Assigned To */}
         <div>
-          <Label className="text-sm font-medium flex items-center"><User className="mr-2 h-4 w-4"/>Assigned to</Label>
+          <Label className="text-sm font-medium flex items-center"><User className="mr-2 h-4 w-4"/>{t("taskDetail", "assignedTo")}</Label>
            <Select
             value={task.assignedTo || 'none'}
             onValueChange={(value) => handleUpdate('assignedTo', value === 'none' ? null : value)}
@@ -436,12 +440,12 @@ export default function TaskDetailSidebar({
                       <span>{assignedMember.name}</span>
                     </>
                   ) : (
-                    <span className="text-muted-foreground">No assignee</span>
+                    <span className="text-muted-foreground">{t("taskDetail", "noAssignee")}</span>
                   )}
                 </div>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">No assignee</SelectItem>
+              <SelectItem value="none">{t("taskDetail", "noAssignee")}</SelectItem>
               {teamMembers?.map((member: TeamMemberWithUser) => (
                 <SelectItem key={member.clerkUserId} value={member.clerkUserId!}>
                   <div className="flex items-center gap-2">
@@ -459,34 +463,34 @@ export default function TaskDetailSidebar({
 
         {/* Start Date */}
         <div>
-          <Label className="text-sm font-medium">Start Date</Label>
+          <Label className="text-sm font-medium">{t("taskDetail", "startDate")}</Label>
           <DatePicker
             date={task.startDate ? new Date(task.startDate) : undefined}
             onDateChange={handleStartDateUpdate}
-            placeholder="Set start date"
+            placeholder={t("taskDetail", "setStartDate")}
             className="mt-1"
           />
           {isUpdating === 'startDate' && (
             <div className="flex items-center mt-1 text-sm text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin mr-1" />
-              Updating...
+              {t("taskDetail", "updating")}
             </div>
           )}
         </div>
 
         {/* End Date */}
         <div>
-          <Label className="text-sm font-medium">End Date</Label>
+          <Label className="text-sm font-medium">{t("taskDetail", "endDate")}</Label>
           <DatePicker
             date={task.endDate ? new Date(task.endDate) : undefined}
             onDateChange={handleEndDateUpdate}
-            placeholder="Set end date"
+            placeholder={t("taskDetail", "setEndDate")}
             className="mt-1"
           />
           {isUpdating === 'endDate' && (
             <div className="flex items-center mt-1 text-sm text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin mr-1" />
-              Updating...
+              {t("taskDetail", "updating")}
             </div>
           )}
         </div>
@@ -494,7 +498,7 @@ export default function TaskDetailSidebar({
         <div className="flex flex-col gap-3 rounded-lg border p-4">
           <div className="flex items-center justify-between">
             <Label htmlFor="task-all-day" className="text-sm font-medium cursor-pointer">
-              All day
+              {t("taskDetail", "allDay")}
             </Label>
             <Checkbox
               id="task-all-day"
@@ -507,7 +511,7 @@ export default function TaskDetailSidebar({
           {isUpdating === "dateTime" && (
             <div className="flex items-center text-sm text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin mr-1" />
-              Updating...
+              {t("taskDetail", "updating")}
             </div>
           )}
 
@@ -515,7 +519,7 @@ export default function TaskDetailSidebar({
             <div className="flex flex-col gap-3">
               <div className={hasEndTime ? "grid grid-cols-1 gap-3 sm:grid-cols-2" : "grid grid-cols-1"}>
                 <div>
-                  <Label className="text-sm text-muted-foreground">Start Time</Label>
+                  <Label className="text-sm text-muted-foreground">{t("taskDetail", "startTime")}</Label>
                   <Input
                     type="time"
                     value={startTime}
@@ -534,7 +538,7 @@ export default function TaskDetailSidebar({
 
                 {hasEndTime && (
                   <div>
-                    <Label className="text-sm text-muted-foreground">End Time</Label>
+                    <Label className="text-sm text-muted-foreground">{t("taskDetail", "endTime")}</Label>
                     <Input
                       type="time"
                       value={endTime}
@@ -561,7 +565,7 @@ export default function TaskDetailSidebar({
                   onCheckedChange={(checked) => handleHasEndTimeChange(Boolean(checked))}
                 />
                 <Label htmlFor="task-has-end-time" className="text-sm font-normal cursor-pointer">
-                  Specify end time
+                  {t("taskDetail", "specifyEndTime")}
                 </Label>
               </div>
             </div>
@@ -570,14 +574,14 @@ export default function TaskDetailSidebar({
 
         {/* Tags */}
         <div>
-          <Label className="text-sm font-medium flex items-center"><Tags className="mr-2 h-4 w-4"/>Tags</Label>
+          <Label className="text-sm font-medium flex items-center"><Tags className="mr-2 h-4 w-4"/>{t("taskDetail", "tags")}</Label>
           <div className="flex items-center gap-2 mt-1">
             <Input
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
               onBlur={handleTagsUpdate}
               onKeyDown={(e) => e.key === 'Enter' && handleTagsUpdate()}
-              placeholder="Add tags, comma separated"
+              placeholder={t("taskDetail", "tagsPlaceholder")}
               className="flex-grow"
             />
           </div>
@@ -594,20 +598,20 @@ export default function TaskDetailSidebar({
             <AlertDialogTrigger asChild>
                 <Button variant="outline" className="w-full">
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Delete Task
+                    {t("taskDetail", "deleteTask")}
                 </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure you want to delete this task?</AlertDialogTitle>
+                    <AlertDialogTitle>{t("taskDetail", "deleteTaskTitle")}</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the task and all associated data.
+                        {t("taskDetail", "deleteTaskDescription")}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel>{t("taskDetail", "cancel")}</AlertDialogCancel>
                     <AlertDialogAction onClick={handleDeleteTask} className={cn(buttonVariants({ variant: "destructive" }))}>
-                        Delete
+                        {t("taskDetail", "delete")}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

@@ -67,6 +67,7 @@ import {
   resolveOrganizationTaxSettings,
 } from "@/lib/organizationTax";
 import { cn, getCurrencySymbol } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 type ClientPanelItem = Doc<"clientPanelItems">;
 type ClientPanelSection = Doc<"clientPanelSections">;
@@ -291,14 +292,17 @@ const getLeadOption = (item: ClientPanelItem, options: ClientPanelItem[]) => {
   );
 };
 
-const getChoiceLabel = (selectionMode: ShoppingGroup["selectionMode"]) => {
+const getChoiceLabel = (
+  selectionMode: ShoppingGroup["selectionMode"],
+  t: ReturnType<typeof useI18n>["t"],
+) => {
   if (selectionMode === "single") {
-    return "Choose 1 option";
+    return t("clientPanel", "chooseOneOption");
   }
   if (selectionMode === "multiple") {
-    return "Choose any options";
+    return t("clientPanel", "chooseAnyOptions");
   }
-  return "Included";
+  return t("clientPanel", "included");
 };
 
 const getInitialSelectedOptionIds = (
@@ -323,8 +327,8 @@ const getInitialSelectedOptionIds = (
   return [];
 };
 
-const getQtyLabel = (item: ClientPanelItem) =>
-  `Qty: ${item.quantity} ${item.unit || "pcs"}`;
+const getQtyLabel = (item: ClientPanelItem, t: ReturnType<typeof useI18n>["t"]) =>
+  t("clientPanel", "qty", { quantity: `${item.quantity} ${item.unit || "pcs"}` });
 
 const getSelectedIdsForGroup = (
   group: ShoppingGroup,
@@ -388,10 +392,15 @@ const formatPortalDate = (timestamp?: number) => {
 const formatTaskStatus = (status: PublicTask["status"]) =>
   status.replace(/_/g, " ").toUpperCase();
 
-const formatMoodboardSectionLabel = (section?: string) => {
+const formatMoodboardSectionLabel = (
+  section: string | undefined,
+  t: ReturnType<typeof useI18n>["t"],
+) => {
   const normalized = section?.trim();
-  if (!normalized) return "Moodboard";
-  return /^\d+$/.test(normalized) ? `Section ${normalized}` : normalized;
+  if (!normalized) return t("clientPanel", "moodboard");
+  return /^\d+$/.test(normalized)
+    ? t("clientPanel", "section", { section: normalized })
+    : normalized;
 };
 
 const getOrCreatePublicRespondentKey = (accessToken: string) => {
@@ -620,6 +629,7 @@ function ClientPanelLoading() {
 }
 
 export default function PublicClientPanelPage() {
+  const { t } = useI18n();
   const params = useParams<{ accessToken: string }>();
   const accessToken = params.accessToken;
   const [respondentKey, setRespondentKey] = useState<string | null>(null);
@@ -810,10 +820,10 @@ export default function PublicClientPanelPage() {
         }: ${formatAmount(breakdown[kind], currencySymbol)}`,
     );
   };
-  const shoppingPdfPriceColumns = [{ key: "totalNet", label: "Net" }];
+  const shoppingPdfPriceColumns = [{ key: "totalNet", label: t("clientPanel", "net") }];
   const laborPdfPriceColumns = [
-    { key: "unitNet", label: "Unit Net" },
-    { key: "totalNet", label: "Net" },
+    { key: "unitNet", label: t("clientPanel", "unitNet") },
+    { key: "totalNet", label: t("clientPanel", "net") },
   ];
   const moodboardSections = useMemo(() => {
     const grouped = new Map<
@@ -846,7 +856,7 @@ export default function PublicClientPanelPage() {
 
       grouped.set(sectionId, {
         sectionId,
-        sectionLabel: formatMoodboardSectionLabel(file.moodboardSection),
+        sectionLabel: formatMoodboardSectionLabel(file.moodboardSection, t),
         sectionOrder: Number.MAX_SAFE_INTEGER,
         files: [file],
       });
@@ -869,7 +879,7 @@ export default function PublicClientPanelPage() {
           a.sectionOrder - b.sectionOrder ||
           a.sectionLabel.localeCompare(b.sectionLabel),
       );
-  }, [moodboardFiles, publishedMoodboardSections]);
+  }, [moodboardFiles, publishedMoodboardSections, t]);
 
   useEffect(() => {
     if (!accessToken || typeof window === "undefined") return;
@@ -954,7 +964,7 @@ export default function PublicClientPanelPage() {
     const seenSetIds = new Set<string>();
 
     for (const item of sortedItems) {
-      const sectionKey = item.sectionName?.trim() || "No Section";
+      const sectionKey = item.sectionName?.trim() || t("clientPanel", "noSection");
       const existing = grouped.get(sectionKey) ?? [];
 
       if (item.setId) {
@@ -993,7 +1003,7 @@ export default function PublicClientPanelPage() {
     }
 
     return grouped;
-  }, [items, sections]);
+  }, [items, sections, t]);
 
   const sectionSummaries = Array.from(shoppingGroupsBySection.entries()).map(
     ([sectionName, groups]) => {
@@ -1099,8 +1109,9 @@ export default function PublicClientPanelPage() {
     for (const item of laborItems) {
       const key = item.sectionId ? String(item.sectionId) : "__none__";
       const name = item.sectionId
-        ? sectionNameById.get(String(item.sectionId)) || "No Category"
-        : "No Category";
+        ? sectionNameById.get(String(item.sectionId)) ||
+          t("clientPanel", "noCategory")
+        : t("clientPanel", "noCategory");
       ensureBucket(key, name).items.push(item);
     }
 
@@ -1117,15 +1128,15 @@ export default function PublicClientPanelPage() {
           .sort((left, right) => left.name.localeCompare(right.name)),
       }))
       .sort((left, right) => {
-        if (left.name === "No Category") return 1;
-        if (right.name === "No Category") return -1;
+        if (left.name === t("clientPanel", "noCategory")) return 1;
+        if (right.name === t("clientPanel", "noCategory")) return -1;
         const leftOrder = sectionOrder.get(left.key) ?? Number.MAX_SAFE_INTEGER;
         const rightOrder =
           sectionOrder.get(right.key) ?? Number.MAX_SAFE_INTEGER;
         if (leftOrder !== rightOrder) return leftOrder - rightOrder;
         return left.name.localeCompare(right.name);
       });
-  }, [laborItems, laborSections]);
+  }, [laborItems, laborSections, t]);
   const laborExportSections = useMemo(
     () =>
       laborSectionEntries.map((section) => ({
@@ -1166,86 +1177,86 @@ export default function PublicClientPanelPage() {
     settings.showShoppingList
       ? {
           id: "portal-materials",
-          label: "Shopping List",
+          label: t("clientPanel", "shoppingList"),
           count: materialsItemCount,
           icon: ShoppingCart,
-          eyebrow: "Materials",
+          eyebrow: t("clientPanel", "materials"),
         }
       : null,
     settings.showSurveys
       ? {
           id: "portal-surveys",
-          label: "Surveys",
+          label: t("clientPanel", "surveys"),
           count: surveys.length,
           icon: ClipboardList,
-          eyebrow: "Forms",
+          eyebrow: t("clientPanel", "forms"),
         }
       : null,
     settings.showFiles
       ? {
           id: "portal-files",
-          label: "Files",
+          label: t("clientPanel", "files"),
           count: files.length,
           icon: FolderOpen,
-          eyebrow: "Assets",
+          eyebrow: t("clientPanel", "assets"),
         }
       : null,
     settings.showMoodboard
       ? {
           id: "portal-moodboard",
-          label: "Moodboard",
+          label: t("clientPanel", "moodboard"),
           count: moodboardFiles.length,
           icon: ImageIcon,
-          eyebrow: "Inspiration",
+          eyebrow: t("clientPanel", "inspiration"),
         }
       : null,
     settings.showTasks
       ? {
           id: "portal-tasks",
-          label: "Tasks",
+          label: t("clientPanel", "tasks"),
           count: tasks.length,
           icon: CheckSquare2,
-          eyebrow: "Plan",
+          eyebrow: t("clientPanel", "plan"),
         }
       : null,
     settings.showLabor
       ? {
           id: "portal-labor",
-          label: "Labor",
+          label: t("clientPanel", "labor"),
           count: laborItems.length,
           icon: Hammer,
-          eyebrow: "Work",
+          eyebrow: t("clientPanel", "work"),
         }
       : null,
     settings.showContacts
       ? {
           id: "portal-contacts",
-          label: "Contacts",
+          label: t("clientPanel", "contacts"),
           count: contacts.length,
           icon: Users,
-          eyebrow: "People",
+          eyebrow: t("clientPanel", "people"),
         }
       : null,
     settings.showPayments
       ? {
           id: "portal-payments",
-          label: "Payments",
+          label: t("clientPanel", "payments"),
           count: payments.length,
           icon: Wallet,
-          eyebrow: "Finance",
+          eyebrow: t("clientPanel", "finance"),
         }
       : null,
     settings.showBudget
       ? {
           id: "portal-budget",
-          label: "Budget",
+          label: t("clientPanel", "budget"),
           count: publicBudgetSummary
             ? 4
             : typeof project?.budget === "number"
               ? 1
               : 0,
           icon: Banknote,
-          eyebrow: "Overview",
+          eyebrow: t("clientPanel", "overview"),
         }
       : null,
   ].filter(
@@ -1281,7 +1292,7 @@ export default function PublicClientPanelPage() {
       });
       window.open(result.url, "_blank", "noopener,noreferrer");
     } catch (error) {
-      toast.error("Could not download invoice PDF", {
+      toast.error(t("clientPanel", "invoiceDownloadFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -1298,7 +1309,7 @@ export default function PublicClientPanelPage() {
       });
       window.open(result.url, "_blank", "noopener,noreferrer");
     } catch (error) {
-      toast.error("Could not open payment link", {
+      toast.error(t("clientPanel", "paymentLinkOpenFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -1335,9 +1346,9 @@ export default function PublicClientPanelPage() {
         respondentName: cleanedRespondentName,
       });
 
-      toast.success(`Feedback saved for "${item.name}"`);
+      toast.success(t("clientPanel", "feedbackSaved", { item: item.name }));
     } catch (error) {
-      toast.error("Failed to save shopping item feedback", {
+      toast.error(t("clientPanel", "shoppingFeedbackSaveFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -1390,7 +1401,7 @@ export default function PublicClientPanelPage() {
         ...current,
         [itemId]: false,
       }));
-      toast.error("Failed to save comment", {
+      toast.error(t("clientPanel", "commentSaveFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     }
@@ -1446,9 +1457,9 @@ export default function PublicClientPanelPage() {
         respondentName: cleanedRespondentName,
       });
 
-      toast.success(`Feedback saved for "${item.name}"`);
+      toast.success(t("clientPanel", "feedbackSaved", { item: item.name }));
     } catch (error) {
-      toast.error("Failed to save labor feedback", {
+      toast.error(t("clientPanel", "laborFeedbackSaveFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -1493,7 +1504,7 @@ export default function PublicClientPanelPage() {
       }, 1800);
     } catch (error) {
       setSavingLaborCommentIds((current) => ({ ...current, [itemId]: false }));
-      toast.error("Failed to save labor comment", {
+      toast.error(t("clientPanel", "laborCommentSaveFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     }
@@ -1557,29 +1568,32 @@ export default function PublicClientPanelPage() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="text-xs">
-              Client feedback
+              {t("clientPanel", "clientFeedback")}
             </Badge>
             {item.customerDecision ? (
               <Badge variant="outline" className={cn("text-xs", decisionTone)}>
-                {item.customerDecision === "accepted" ? "Accepted" : "Rejected"}
+                {item.customerDecision === "accepted"
+                  ? t("clientPanel", "accepted")
+                  : t("clientPanel", "rejected")}
               </Badge>
             ) : settings.allowShoppingItemDecisions ? (
               <span className="text-xs text-muted-foreground">
-                Awaiting decision
+                {t("clientPanel", "awaitingDecision")}
               </span>
             ) : settings.allowShoppingItemComments ? (
               <span className="text-xs text-muted-foreground">
-                Comments enabled
+                {t("clientPanel", "commentsEnabled")}
               </span>
             ) : (
               <span className="text-xs text-muted-foreground">
-                Feedback disabled
+                {t("clientPanel", "feedbackDisabled")}
               </span>
             )}
             {item.customerDecisionUpdatedAt ? (
               <span className="text-xs text-muted-foreground">
-                Updated{" "}
-                {new Date(item.customerDecisionUpdatedAt).toLocaleString()}
+                {t("clientPanel", "updatedAt", {
+                  date: new Date(item.customerDecisionUpdatedAt).toLocaleString(),
+                })}
               </span>
             ) : null}
           </div>
@@ -1596,7 +1610,7 @@ export default function PublicClientPanelPage() {
                       disabled={isSaving}
                     >
                       <MoreHorizontal data-icon="inline-start" />
-                      {isSaving ? "Saving..." : "Change"}
+                      {isSaving ? t("clientPanel", "saving") : t("clientPanel", "change")}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
@@ -1610,7 +1624,7 @@ export default function PublicClientPanelPage() {
                         }
                       >
                         <CheckCircle2 data-icon="inline-start" />
-                        Mark as accepted
+                        {t("clientPanel", "markAccepted")}
                       </DropdownMenuItem>
                     ) : null}
                     {item.customerDecision !== "rejected" ? (
@@ -1620,7 +1634,7 @@ export default function PublicClientPanelPage() {
                         }
                       >
                         <XCircle data-icon="inline-start" />
-                        Mark as rejected
+                        {t("clientPanel", "markRejected")}
                       </DropdownMenuItem>
                     ) : null}
                   </DropdownMenuContent>
@@ -1637,7 +1651,7 @@ export default function PublicClientPanelPage() {
                     disabled={isSaving}
                   >
                     <CheckCircle2 data-icon="inline-start" />
-                    {isSaving ? "Saving..." : "Approve"}
+                    {isSaving ? t("clientPanel", "saving") : t("clientPanel", "approve")}
                   </Button>
                   <Button
                     type="button"
@@ -1649,7 +1663,7 @@ export default function PublicClientPanelPage() {
                     disabled={isSaving}
                   >
                     <XCircle data-icon="inline-start" />
-                    Reject
+                    {t("clientPanel", "reject")}
                   </Button>
                 </>
               )
@@ -1667,10 +1681,10 @@ export default function PublicClientPanelPage() {
                 }
               >
                 {isCommentExpanded
-                  ? "Hide editor"
+                  ? t("clientPanel", "hideEditor")
                   : hasSavedComment
-                    ? "Edit comment"
-                    : "Add comment"}
+                    ? t("clientPanel", "editComment")
+                    : t("clientPanel", "addComment")}
               </Button>
             ) : null}
           </div>
@@ -1689,7 +1703,7 @@ export default function PublicClientPanelPage() {
                 htmlFor={`shopping-item-comment-${itemId}`}
                 className="text-sm font-medium"
               >
-                Optional comment
+                {t("clientPanel", "optionalComment")}
               </Label>
               <Textarea
                 id={`shopping-item-comment-${itemId}`}
@@ -1698,14 +1712,14 @@ export default function PublicClientPanelPage() {
                   handleShoppingItemCommentChange(item, event.target.value)
                 }
                 rows={3}
-                placeholder="Add context, preferences or constraints for this item..."
+                placeholder={t("clientPanel", "shoppingCommentPlaceholder")}
               />
               <div className="text-xs text-muted-foreground">
                 {isCommentSaving
-                  ? "Saving comment..."
+                  ? t("clientPanel", "savingComment")
                   : isCommentSaved
-                    ? "Comment saved"
-                    : "Comment autosaves"}
+                    ? t("clientPanel", "commentSaved")
+                    : t("clientPanel", "commentAutosaves")}
               </div>
             </div>
           ) : null}
@@ -1742,21 +1756,24 @@ export default function PublicClientPanelPage() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="text-xs">
-              Client feedback
+              {t("clientPanel", "clientFeedback")}
             </Badge>
             {item.customerDecision ? (
               <Badge variant="outline" className={cn("text-xs", decisionTone)}>
-                {item.customerDecision === "accepted" ? "Accepted" : "Rejected"}
+                {item.customerDecision === "accepted"
+                  ? t("clientPanel", "accepted")
+                  : t("clientPanel", "rejected")}
               </Badge>
             ) : (
               <span className="text-xs text-muted-foreground">
-                Awaiting decision
+                {t("clientPanel", "awaitingDecision")}
               </span>
             )}
             {item.customerDecisionUpdatedAt ? (
               <span className="text-xs text-muted-foreground">
-                Updated{" "}
-                {new Date(item.customerDecisionUpdatedAt).toLocaleString()}
+                {t("clientPanel", "updatedAt", {
+                  date: new Date(item.customerDecisionUpdatedAt).toLocaleString(),
+                })}
               </span>
             ) : null}
           </div>
@@ -1772,7 +1789,7 @@ export default function PublicClientPanelPage() {
                     disabled={isSaving}
                   >
                     <MoreHorizontal data-icon="inline-start" />
-                    {isSaving ? "Saving..." : "Change"}
+                    {isSaving ? t("clientPanel", "saving") : t("clientPanel", "change")}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
@@ -1786,7 +1803,7 @@ export default function PublicClientPanelPage() {
                       }
                     >
                       <CheckCircle2 data-icon="inline-start" />
-                      Mark as accepted
+                      {t("clientPanel", "markAccepted")}
                     </DropdownMenuItem>
                   ) : null}
                   {item.customerDecision !== "rejected" ? (
@@ -1796,7 +1813,7 @@ export default function PublicClientPanelPage() {
                       }
                     >
                       <XCircle data-icon="inline-start" />
-                      Mark as rejected
+                      {t("clientPanel", "markRejected")}
                     </DropdownMenuItem>
                   ) : null}
                 </DropdownMenuContent>
@@ -1813,7 +1830,7 @@ export default function PublicClientPanelPage() {
                   disabled={isSaving}
                 >
                   <CheckCircle2 data-icon="inline-start" />
-                  {isSaving ? "Saving..." : "Approve"}
+                  {isSaving ? t("clientPanel", "saving") : t("clientPanel", "approve")}
                 </Button>
                 <Button
                   type="button"
@@ -1825,7 +1842,7 @@ export default function PublicClientPanelPage() {
                   disabled={isSaving}
                 >
                   <XCircle data-icon="inline-start" />
-                  Reject
+                  {t("clientPanel", "reject")}
                 </Button>
               </>
             )}
@@ -1842,10 +1859,10 @@ export default function PublicClientPanelPage() {
             >
               <ClipboardList data-icon="inline-start" />
               {isCommentExpanded
-                ? "Hide editor"
+                ? t("clientPanel", "hideEditor")
                 : hasSavedComment
-                  ? "Edit comment"
-                  : "Add comment"}
+                  ? t("clientPanel", "editComment")
+                  : t("clientPanel", "addComment")}
             </Button>
           </div>
         </div>
@@ -1863,7 +1880,7 @@ export default function PublicClientPanelPage() {
                 htmlFor={`labor-item-comment-${itemId}`}
                 className="text-sm font-medium"
               >
-                Optional comment
+                {t("clientPanel", "optionalComment")}
               </Label>
               <Textarea
                 id={`labor-item-comment-${itemId}`}
@@ -1871,12 +1888,16 @@ export default function PublicClientPanelPage() {
                 onChange={(event) =>
                   handleLaborItemCommentChange(item, event.target.value)
                 }
-                placeholder="Add context for the project team"
+                placeholder={t("clientPanel", "laborCommentPlaceholder")}
                 rows={3}
               />
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                {isCommentSaving ? <span>Saving comment...</span> : null}
-                {isCommentSaved ? <span>Comment saved</span> : null}
+                {isCommentSaving ? (
+                  <span>{t("clientPanel", "savingComment")}</span>
+                ) : null}
+                {isCommentSaved ? (
+                  <span>{t("clientPanel", "commentSaved")}</span>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -1887,7 +1908,7 @@ export default function PublicClientPanelPage() {
 
   const handleExportMaterialsPdf = async () => {
     if (!project || shoppingExportRows.length === 0) {
-      toast.info("No shopping list items available for export.");
+      toast.info(t("clientPanel", "noShoppingExport"));
       return;
     }
 
@@ -1896,14 +1917,16 @@ export default function PublicClientPanelPage() {
       const dateStamp = new Date().toISOString().slice(0, 10);
       await exportSectionedTablePdf({
         columns: [
-          { key: "product", label: "Product" },
-          { key: "qty", label: "Qty" },
+          { key: "product", label: t("clientPanel", "product") },
+          { key: "qty", label: t("clientPanel", "qtyLabel") },
           ...(settings.showPrice ? shoppingPdfPriceColumns : []),
-          { key: "status", label: "Status" },
+          { key: "status", label: t("clientPanel", "status") },
           ...(settings.showSupplier
-            ? [{ key: "supplier", label: "Supplier" }]
+            ? [{ key: "supplier", label: t("clientPanel", "supplier") }]
             : []),
-          ...(settings.showNotes ? [{ key: "notes", label: "Notes" }] : []),
+          ...(settings.showNotes
+            ? [{ key: "notes", label: t("clientPanel", "notes") }]
+            : []),
         ],
         fileName: `shopping-list-${sanitizeFileName(project.name)}-${dateStamp}.pdf`,
         generatedOn: new Date().toLocaleString(),
@@ -1926,14 +1949,19 @@ export default function PublicClientPanelPage() {
           })),
         })),
         subtitle: settings.showPrice
-          ? `Items: ${shoppingExportRows.length} | ${formatTaxBreakdownSummary(grandTotal)}`
-          : `Items: ${shoppingExportRows.length}`,
-        title: `Shopping List - ${project.name}`,
+          ? t("clientPanel", "generatedItemsTaxSubtitle", {
+              count: shoppingExportRows.length,
+              tax: formatTaxBreakdownSummary(grandTotal),
+            })
+          : t("clientPanel", "generatedItemsSubtitle", {
+              count: shoppingExportRows.length,
+            }),
+        title: t("clientPanel", "shoppingListTitle", { project: project.name }),
       });
-      toast.success("Shopping list PDF exported.");
+      toast.success(t("clientPanel", "shoppingPdfExported"));
     } catch (error) {
       console.error("Shopping list PDF export error:", error);
-      toast.error("Failed to export shopping list PDF.", {
+      toast.error(t("clientPanel", "shoppingPdfExportFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -1943,7 +1971,7 @@ export default function PublicClientPanelPage() {
 
   const handleExportMaterialsCsv = () => {
     if (!project || shoppingExportRows.length === 0) {
-      toast.info("No shopping list items available for export.");
+      toast.info(t("clientPanel", "noShoppingExport"));
       return;
     }
 
@@ -1972,12 +2000,12 @@ export default function PublicClientPanelPage() {
         ),
       ),
     });
-    toast.success("Shopping list CSV exported.");
+    toast.success(t("clientPanel", "shoppingCsvExported"));
   };
 
   const handleExportLaborPdf = async () => {
     if (!project || laborExportRows.length === 0) {
-      toast.info("No labor entries available for export.");
+      toast.info(t("clientPanel", "noLaborExport"));
       return;
     }
 
@@ -1986,11 +2014,11 @@ export default function PublicClientPanelPage() {
       const dateStamp = new Date().toISOString().slice(0, 10);
       await exportSectionedTablePdf({
         columns: [
-          { key: "work", label: "Work" },
-          { key: "qty", label: "Qty" },
-          { key: "unit", label: "Unit" },
+          { key: "work", label: t("clientPanel", "work") },
+          { key: "qty", label: t("clientPanel", "qtyLabel") },
+          { key: "unit", label: t("clientPanel", "unitLabel") },
           ...laborPdfPriceColumns,
-          { key: "notes", label: "Notes" },
+          { key: "notes", label: t("clientPanel", "notes") },
         ],
         fileName: `labor-${sanitizeFileName(project.name)}-${dateStamp}.pdf`,
         generatedOn: new Date().toLocaleString(),
@@ -2010,15 +2038,18 @@ export default function PublicClientPanelPage() {
             notes: row.notes,
           })),
         })),
-        subtitle: `Items: ${laborExportRows.length} | ${formatTaxBreakdownSummary(
-          laborItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0),
-        )}`,
-        title: `Labor - ${project.name}`,
+        subtitle: t("clientPanel", "generatedItemsTaxSubtitle", {
+          count: laborExportRows.length,
+          tax: formatTaxBreakdownSummary(
+            laborItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0),
+          ),
+        }),
+        title: t("clientPanel", "laborTitle", { project: project.name }),
       });
-      toast.success("Labor PDF exported.");
+      toast.success(t("clientPanel", "laborPdfExported"));
     } catch (error) {
       console.error("Labor PDF export error:", error);
-      toast.error("Failed to export labor PDF.", {
+      toast.error(t("clientPanel", "laborPdfExportFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -2028,7 +2059,7 @@ export default function PublicClientPanelPage() {
 
   const handleExportLaborCsv = () => {
     if (!project || laborExportRows.length === 0) {
-      toast.info("No labor entries available for export.");
+      toast.info(t("clientPanel", "noLaborExport"));
       return;
     }
 
@@ -2055,7 +2086,7 @@ export default function PublicClientPanelPage() {
         ),
       ),
     });
-    toast.success("Labor CSV exported.");
+    toast.success(t("clientPanel", "laborCsvExported"));
   };
 
   const handleSelectSetItems = async (
@@ -2077,7 +2108,7 @@ export default function PublicClientPanelPage() {
         selectedItemIds: nextSelectedIds as Id<"shoppingListItems">[],
         respondentName: respondentName.trim() || undefined,
       });
-      toast.success("Choice saved");
+      toast.success(t("clientPanel", "choiceSaved"));
     } catch (error) {
       if (previousValue) {
         setLocalSelection((prev) => ({ ...prev, [group.key]: previousValue }));
@@ -2088,7 +2119,7 @@ export default function PublicClientPanelPage() {
           return next;
         });
       }
-      toast.error("Failed to save choice", {
+      toast.error(t("clientPanel", "choiceSaveFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -2118,8 +2149,8 @@ export default function PublicClientPanelPage() {
     if (!respondentKey) return;
     const maxPublicUploadBytes = 25 * 1024 * 1024;
     if (file.size > maxPublicUploadBytes) {
-      toast.error("File is too large", {
-        description: "Maximum upload size is 25 MB.",
+      toast.error(t("clientPanel", "fileTooLarge"), {
+        description: t("clientPanel", "maxUploadSize"),
       });
       return;
     }
@@ -2146,7 +2177,7 @@ export default function PublicClientPanelPage() {
       });
 
       if (!uploadResponse.ok) {
-        throw new Error("Upload failed");
+        throw new Error(t("clientPanel", "uploadFailed"));
       }
 
       const fileAnswer = await addPublicSurveyFile({
@@ -2161,9 +2192,9 @@ export default function PublicClientPanelPage() {
       });
 
       updateSurveyAnswer(String(survey._id), String(question._id), fileAnswer);
-      toast.success("File uploaded");
+      toast.success(t("clientPanel", "fileUploaded"));
     } catch (error) {
-      toast.error("Could not upload file", {
+      toast.error(t("clientPanel", "fileUploadFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -2182,7 +2213,9 @@ export default function PublicClientPanelPage() {
     if (!respondentKey) return;
     const cleanedRespondentName = respondentName.trim();
     if (!cleanedRespondentName) {
-      toast.error(`Please enter who is answering survey "${survey.title}".`);
+      toast.error(
+        t("clientPanel", "enterSurveyRespondent", { title: survey.title }),
+      );
       return;
     }
 
@@ -2203,8 +2236,11 @@ export default function PublicClientPanelPage() {
     }
 
     if (missingRequired.length > 0) {
-      toast.error("Please answer all required questions", {
-        description: `${missingRequired.length} required question${missingRequired.length === 1 ? "" : "s"} missing.`,
+      toast.error(t("clientPanel", "answerRequiredQuestions"), {
+        description: t("clientPanel", "missingRequiredQuestions", {
+          count: missingRequired.length,
+          plural: missingRequired.length === 1 ? "" : "s",
+        }),
       });
       return;
     }
@@ -2235,7 +2271,7 @@ export default function PublicClientPanelPage() {
         answers: payload,
         metadata,
       });
-      toast.success("Survey submitted");
+      toast.success(t("clientPanel", "surveySubmitted"));
       setOpenSurveyId(null);
       setSurveyAnswers((prev) => {
         const next = { ...prev };
@@ -2248,7 +2284,7 @@ export default function PublicClientPanelPage() {
         return next;
       });
     } catch (error) {
-      toast.error("Could not submit survey", {
+      toast.error(t("clientPanel", "surveySubmitFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -2263,12 +2299,12 @@ export default function PublicClientPanelPage() {
       sectionSummaries.length > 0
     ) {
       return {
-        label: "Export shopping list",
-        busyLabel: isExportingMaterialsPdf ? "Exporting PDF..." : null,
+        label: t("clientPanel", "exportShoppingList"),
+        busyLabel: isExportingMaterialsPdf ? t("clientPanel", "exportingPdf") : null,
         items: [
           {
             key: "shopping-csv",
-            label: "Download CSV",
+            label: t("clientPanel", "downloadCsv"),
             icon: FileSpreadsheet,
             action: handleExportMaterialsCsv,
             disabled: false,
@@ -2276,8 +2312,8 @@ export default function PublicClientPanelPage() {
           {
             key: "shopping-pdf",
             label: isExportingMaterialsPdf
-              ? "Exporting PDF..."
-              : "Download PDF",
+              ? t("clientPanel", "exportingPdf")
+              : t("clientPanel", "downloadPdf"),
             icon: Download,
             action: () => void handleExportMaterialsPdf(),
             disabled: isExportingMaterialsPdf,
@@ -2292,19 +2328,21 @@ export default function PublicClientPanelPage() {
       laborItems.length > 0
     ) {
       return {
-        label: "Export labor",
-        busyLabel: isExportingLaborPdf ? "Exporting PDF..." : null,
+        label: t("clientPanel", "exportLabor"),
+        busyLabel: isExportingLaborPdf ? t("clientPanel", "exportingPdf") : null,
         items: [
           {
             key: "labor-csv",
-            label: "Download CSV",
+            label: t("clientPanel", "downloadCsv"),
             icon: FileSpreadsheet,
             action: handleExportLaborCsv,
             disabled: false,
           },
           {
             key: "labor-pdf",
-            label: isExportingLaborPdf ? "Exporting PDF..." : "Download PDF",
+            label: isExportingLaborPdf
+              ? t("clientPanel", "exportingPdf")
+              : t("clientPanel", "downloadPdf"),
             icon: Download,
             action: () => void handleExportLaborPdf(),
             disabled: isExportingLaborPdf,
@@ -2324,9 +2362,11 @@ export default function PublicClientPanelPage() {
     return (
       <div className="mx-auto flex min-h-[55vh] max-w-xl items-center justify-center px-4 text-center">
         <div>
-          <h1 className="mb-2 text-2xl font-semibold">Invalid link</h1>
+          <h1 className="mb-2 text-2xl font-semibold">
+            {t("clientPanel", "invalidLinkTitle")}
+          </h1>
           <p className="text-muted-foreground">
-            This client portal link is invalid or no longer active.
+            {t("clientPanel", "invalidLinkDescription")}
           </p>
         </div>
       </div>
@@ -2340,12 +2380,12 @@ export default function PublicClientPanelPage() {
           <div className="flex items-center gap-3">
             <ClipboardList className="h-8 w-8 text-primary" />
             <h1 className="text-4xl font-medium tracking-tight font-serif text-foreground md:text-5xl">
-              Customer Portal
+              {t("clientPanel", "customerPortal")}
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-primary">
-              For project: {project.name}
+              {t("clientPanel", "forProject", { project: project.name })}
             </span>
             {settings.showShoppingList &&
             settings.showPrice &&
@@ -2355,12 +2395,12 @@ export default function PublicClientPanelPage() {
                   primaryAmountKind,
                   organizationTaxSettings,
                 )}{" "}
-                total: {formatPrimaryDisplayAmount(grandTotal)}
+                {t("clientPanel", "total")} {formatPrimaryDisplayAmount(grandTotal)}
               </span>
             ) : null}
           </div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground/34">
-            Shared sections
+            {t("clientPanel", "sharedSections")}
           </p>
           {sectionCards.length > 0 ? (
             <>
@@ -2414,7 +2454,9 @@ export default function PublicClientPanelPage() {
                                 : "text-foreground/42",
                             )}
                           >
-                            {section.count} items
+                            {t("clientPanel", "items", {
+                              count: section.count,
+                            })}
                           </span>
                         </div>
                       </div>
@@ -2462,8 +2504,7 @@ export default function PublicClientPanelPage() {
 
       {panelData.version === 0 ? (
         <div className="mb-8 rounded-2xl border border-border bg-card px-5 py-4 text-sm text-muted-foreground">
-          This portal has not been updated yet. Ask the project team to click
-          Update portal in project settings.
+          {t("clientPanel", "portalNotUpdated")}
         </div>
       ) : null}
 
@@ -2471,14 +2512,16 @@ export default function PublicClientPanelPage() {
         <div className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8">
           <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
             <h2 className="text-xl font-medium font-serif text-foreground sm:text-2xl">
-              Files
+              {t("clientPanel", "files")}
             </h2>
             <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-              {files.length} files
+              {t("clientPanel", "filesCount", { count: files.length })}
             </span>
           </div>
           {files.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No files shared.</p>
+            <p className="text-sm text-muted-foreground">
+              {t("clientPanel", "noFiles")}
+            </p>
           ) : (
             <div className="flex flex-col gap-3">
               {files.map((file) => (
@@ -2501,7 +2544,9 @@ export default function PublicClientPanelPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label={`Open ${file.name}`}
+                      aria-label={t("clientPanel", "openFile", {
+                        name: file.name,
+                      })}
                     >
                       <ExternalLink className="h-4 w-4" />
                     </a>
@@ -2509,7 +2554,9 @@ export default function PublicClientPanelPage() {
                       href={file.url}
                       download={file.name}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label={`Download ${file.name}`}
+                      aria-label={t("clientPanel", "downloadFile", {
+                        name: file.name,
+                      })}
                     >
                       <Download className="h-4 w-4" />
                     </a>
@@ -2526,15 +2573,17 @@ export default function PublicClientPanelPage() {
           <div className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8">
             <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
               <h2 className="text-xl font-medium font-serif text-foreground sm:text-2xl">
-                Moodboard
+                {t("clientPanel", "moodboard")}
               </h2>
               <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-                {moodboardFiles.length} items
+                {t("clientPanel", "items", {
+                  count: moodboardFiles.length,
+                })}
               </span>
             </div>
             {moodboardFiles.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No moodboard items shared.
+                {t("clientPanel", "noMoodboardItems")}
               </p>
             ) : (
               <div className="flex flex-col gap-12">
@@ -2545,7 +2594,9 @@ export default function PublicClientPanelPage() {
                         {section.sectionLabel}
                       </h3>
                       <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-[11px] font-medium text-muted-foreground">
-                        {section.files.length} items
+                        {t("clientPanel", "items", {
+                          count: section.files.length,
+                        })}
                       </span>
                     </div>
 
@@ -2562,7 +2613,9 @@ export default function PublicClientPanelPage() {
                                 type="button"
                                 onClick={() => setSelectedMoodboardFile(file)}
                                 className="block w-full"
-                                aria-label={`Preview ${file.name}`}
+                                aria-label={t("clientPanel", "previewFile", {
+                                  name: file.name,
+                                })}
                               >
                                 <img
                                   src={file.url}
@@ -2578,7 +2631,7 @@ export default function PublicClientPanelPage() {
                                 rel="noopener noreferrer"
                                 className="block rounded-lg border border-border/70 bg-muted p-3 text-xs text-muted-foreground"
                               >
-                                Preview unavailable
+                                {t("clientPanel", "previewUnavailable")}
                               </a>
                             )}
 
@@ -2588,7 +2641,9 @@ export default function PublicClientPanelPage() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-card/90 text-muted-foreground hover:bg-muted hover:text-foreground"
-                                aria-label={`Open ${file.name}`}
+                                aria-label={t("clientPanel", "openFile", {
+                                  name: file.name,
+                                })}
                               >
                                 <ExternalLink className="h-4 w-4" />
                               </a>
@@ -2596,7 +2651,9 @@ export default function PublicClientPanelPage() {
                                 href={file.url}
                                 download={file.name}
                                 className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-card/90 text-muted-foreground hover:bg-muted hover:text-foreground"
-                                aria-label={`Download ${file.name}`}
+                                aria-label={t("clientPanel", "downloadFile", {
+                                  name: file.name,
+                                })}
                               >
                                 <Download className="h-4 w-4" />
                               </a>
@@ -2636,7 +2693,7 @@ export default function PublicClientPanelPage() {
       respondentKey &&
       publicSurveysData === undefined ? (
         <div className="mb-10 rounded-3xl border border-border bg-card px-5 py-6 text-sm text-muted-foreground">
-          Loading surveys...
+          {t("clientPanel", "loadingSurveys")}
         </div>
       ) : null}
 
@@ -2647,19 +2704,20 @@ export default function PublicClientPanelPage() {
           <div className="mb-7 flex flex-col gap-3 border-b border-border/70 pb-6 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="font-serif text-2xl font-medium text-foreground">
-                Surveys
+                {t("clientPanel", "surveys")}
               </h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Share your feedback directly in the portal. Responses are sent
-                to the project team.
+                {t("clientPanel", "surveysDescription")}
               </p>
             </div>
             <span className="inline-flex w-fit items-center justify-center rounded-full border border-border bg-secondary px-3 py-1 text-xs font-medium text-muted-foreground">
-              {surveys.length} available
+              {t("clientPanel", "availableCount", { count: surveys.length })}
             </span>
           </div>
           {surveys.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No surveys shared.</p>
+            <p className="text-sm text-muted-foreground">
+              {t("clientPanel", "noSurveys")}
+            </p>
           ) : (
             <div className="flex flex-col gap-5">
               {surveys.map((survey) => {
@@ -2692,13 +2750,13 @@ export default function PublicClientPanelPage() {
                               variant="outline"
                               className="border-destructive/20 bg-destructive/10 text-[10px] text-destructive"
                             >
-                              Required
+                              {t("clientPanel", "required")}
                             </Badge>
                           ) : null}
                           {survey.hasSubmitted ? (
                             <Badge variant="outline" className="text-[10px]">
                               <CheckCircle2 data-icon="inline-start" />
-                              Submitted
+                              {t("clientPanel", "submitted")}
                             </Badge>
                           ) : null}
                         </div>
@@ -2708,10 +2766,14 @@ export default function PublicClientPanelPage() {
                           </p>
                         ) : null}
                         <p className="text-xs text-muted-foreground">
-                          {survey.questions.length} question
-                          {survey.questions.length === 1 ? "" : "s"}
+                          {t("clientPanel", "questionsCount", {
+                            count: survey.questions.length,
+                            plural: survey.questions.length === 1 ? "" : "s",
+                          })}
                           {survey.submittedAt
-                            ? ` · last submitted ${new Date(survey.submittedAt).toLocaleString()}`
+                            ? ` · ${t("clientPanel", "lastSubmitted", {
+                                date: new Date(survey.submittedAt).toLocaleString(),
+                              })}`
                             : ""}
                         </p>
                       </div>
@@ -2723,10 +2785,10 @@ export default function PublicClientPanelPage() {
                           onClick={() => handleOpenSurvey(surveyId)}
                         >
                           {isOpen
-                            ? "Hide"
+                            ? t("clientPanel", "hide")
                             : survey.hasSubmitted
-                              ? "Submit another"
-                              : "Fill survey"}
+                              ? t("clientPanel", "submitAnother")
+                              : t("clientPanel", "fillSurvey")}
                         </Button>
                       </div>
                     </div>
@@ -2738,7 +2800,9 @@ export default function PublicClientPanelPage() {
                             htmlFor={`respondent-name-${surveyId}`}
                             className="text-sm font-medium text-foreground"
                           >
-                            Who is answering survey "{survey.title}"?
+                            {t("clientPanel", "respondentQuestion", {
+                              title: survey.title,
+                            })}
                           </Label>
                           <Input
                             id={`respondent-name-${surveyId}`}
@@ -2746,7 +2810,7 @@ export default function PublicClientPanelPage() {
                             onChange={(event) =>
                               setRespondentName(event.target.value)
                             }
-                            placeholder="Your name"
+                            placeholder={t("clientPanel", "yourName")}
                             maxLength={120}
                             className="mt-2 bg-background"
                           />
@@ -2765,14 +2829,16 @@ export default function PublicClientPanelPage() {
                                   variant="outline"
                                   className="rounded-full bg-secondary text-[11px]"
                                 >
-                                  Question {index + 1}
+                                  {t("clientPanel", "questionLabel", {
+                                    number: index + 1,
+                                  })}
                                 </Badge>
                                 {question.isRequired ? (
                                   <Badge
                                     variant="outline"
                                     className="rounded-full border-destructive/20 bg-destructive/10 text-[11px] text-destructive"
                                   >
-                                    Required
+                                    {t("clientPanel", "required")}
                                   </Badge>
                                 ) : null}
                               </div>
@@ -2796,7 +2862,7 @@ export default function PublicClientPanelPage() {
                                         event.target.value,
                                       )
                                     }
-                                    placeholder="Your answer"
+                                    placeholder={t("clientPanel", "yourAnswer")}
                                     rows={4}
                                     className="bg-background"
                                   />
@@ -2814,7 +2880,7 @@ export default function PublicClientPanelPage() {
                                         event.target.value,
                                       )
                                     }
-                                    placeholder="Your answer"
+                                    placeholder={t("clientPanel", "yourAnswer")}
                                     className="bg-background"
                                   />
                                 )
@@ -3006,7 +3072,7 @@ export default function PublicClientPanelPage() {
                                       id={`${questionId}-yes`}
                                       className="h-5 w-5"
                                     />
-                                    <span>Yes</span>
+                                    <span>{t("clientPanel", "yes")}</span>
                                   </Label>
                                   <Label
                                     htmlFor={`${questionId}-no`}
@@ -3022,7 +3088,7 @@ export default function PublicClientPanelPage() {
                                       id={`${questionId}-no`}
                                       className="h-5 w-5"
                                     />
-                                    <span>No</span>
+                                    <span>{t("clientPanel", "no")}</span>
                                   </Label>
                                 </RadioGroup>
                               ) : null}
@@ -3052,7 +3118,7 @@ export default function PublicClientPanelPage() {
                                       Number.isNaN(parsed) ? undefined : parsed,
                                     );
                                   }}
-                                  placeholder="Enter number"
+                                  placeholder={t("clientPanel", "enterNumber")}
                                   className="max-w-xs bg-background"
                                 />
                               ) : null}
@@ -3109,13 +3175,13 @@ export default function PublicClientPanelPage() {
                                             <Upload className="h-4 w-4 shrink-0 text-muted-foreground" />
                                             <span className="truncate">
                                               {fileAnswer?.fileName ||
-                                                "Choose file"}
+                                                t("clientPanel", "chooseFile")}
                                             </span>
                                           </span>
                                           <span className="shrink-0 text-xs text-muted-foreground">
                                             {isUploading
-                                              ? "Uploading..."
-                                              : "Browse"}
+                                              ? t("clientPanel", "uploading")
+                                              : t("clientPanel", "browse")}
                                           </span>
                                         </Label>
                                         {fileAnswer?.fileName ? (
@@ -3163,7 +3229,7 @@ export default function PublicClientPanelPage() {
                                         ) : null}
                                         {isUploading ? (
                                           <p className="text-xs text-muted-foreground">
-                                            Uploading file...
+                                            {t("clientPanel", "uploadingFile")}
                                           </p>
                                         ) : null}
                                       </>
@@ -3187,7 +3253,9 @@ export default function PublicClientPanelPage() {
                             }
                           >
                             <Send data-icon="inline-start" />
-                            {isSubmitting ? "Submitting..." : "Submit survey"}
+                            {isSubmitting
+                              ? t("clientPanel", "submitting")
+                              : t("clientPanel", "submitSurvey")}
                           </Button>
                         </div>
                       </div>
@@ -3204,14 +3272,16 @@ export default function PublicClientPanelPage() {
         <div className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8">
           <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
             <h2 className="text-xl font-medium font-serif text-foreground sm:text-2xl">
-              Tasks
+              {t("clientPanel", "tasks")}
             </h2>
             <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-              {tasks.length} items
+              {t("clientPanel", "items", { count: tasks.length })}
             </span>
           </div>
           {tasks.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No tasks shared.</p>
+            <p className="text-sm text-muted-foreground">
+              {t("clientPanel", "noTasks")}
+            </p>
           ) : (
             <div className="flex flex-col gap-3">
               {tasks.map((task) => (
@@ -3239,8 +3309,10 @@ export default function PublicClientPanelPage() {
                     </p>
                   ) : null}
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Start: {formatPortalDate(task.startDate)} · End:{" "}
-                    {formatPortalDate(task.endDate)}
+                    {t("clientPanel", "startEnd", {
+                      start: formatPortalDate(task.startDate),
+                      end: formatPortalDate(task.endDate),
+                    })}
                   </p>
                 </div>
               ))}
@@ -3253,7 +3325,7 @@ export default function PublicClientPanelPage() {
         <div>
           {laborItems.length === 0 ? (
             <div className="mb-10 rounded-3xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-              No labor entries shared.
+              {t("clientPanel", "noLabor")}
             </div>
           ) : (
             laborSectionEntries.map((section) => {
@@ -3312,15 +3384,21 @@ export default function PublicClientPanelPage() {
                                 )}
                               >
                                 {item.customerDecision === "accepted"
-                                  ? "Accepted"
-                                  : "Rejected"}
+                                  ? t("clientPanel", "accepted")
+                                  : t("clientPanel", "rejected")}
                               </Badge>
                             ) : null
                           }
                           metadata={
                             <>
-                              <span>Qty: {item.quantity}</span>
-                              <span>Unit: {item.unit}</span>
+                              <span>
+                                {t("clientPanel", "qty", {
+                                  quantity: item.quantity,
+                                })}
+                              </span>
+                              <span>
+                                {t("clientPanel", "unit", { unit: item.unit })}
+                              </span>
                               {getPriceMetadataLabels(
                                 item.unitPrice,
                                 "unit",
@@ -3353,12 +3431,12 @@ export default function PublicClientPanelPage() {
                                   className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-3 py-1 text-xs text-foreground hover:bg-muted/80"
                                 >
                                   <ExternalLink className="h-3 w-3" />
-                                  Link
+                                  {t("clientPanel", "link")}
                                 </a>
                               ) : null}
                               {item.attachmentFileId ? (
                                 <Badge variant="outline" className="text-xs">
-                                  Attachment in Files/labor
+                                  {t("clientPanel", "attachmentInFiles")}
                                 </Badge>
                               ) : null}
                             </>
@@ -3370,7 +3448,7 @@ export default function PublicClientPanelPage() {
                       {sectionTotal > 0 ? (
                         <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-muted/15 px-4 py-3">
                           <span className="text-sm font-medium text-foreground">
-                            Section Total
+                            {t("clientPanel", "sectionTotal")}
                           </span>
                           <span className="text-sm font-semibold text-foreground">
                             {formatTaxBreakdownSummary(sectionTotal)}
@@ -3380,7 +3458,9 @@ export default function PublicClientPanelPage() {
                     </div>
                   ) : (
                     <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 py-8 text-center text-muted-foreground">
-                      <p className="text-sm">No labor items in this section</p>
+                      <p className="text-sm">
+                        {t("clientPanel", "noLaborInSection")}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -3394,14 +3474,16 @@ export default function PublicClientPanelPage() {
         <div className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8">
           <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
             <h2 className="text-xl font-medium font-serif text-foreground sm:text-2xl">
-              Contacts
+              {t("clientPanel", "contacts")}
             </h2>
             <span className="inline-flex items-center justify-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-              {contacts.length} items
+              {t("clientPanel", "items", { count: contacts.length })}
             </span>
           </div>
           {contacts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No contacts shared.</p>
+            <p className="text-sm text-muted-foreground">
+              {t("clientPanel", "noContacts")}
+            </p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {contacts.map((contact) => (
@@ -3431,7 +3513,7 @@ export default function PublicClientPanelPage() {
                   ) : null}
                   {contact.projectRole ? (
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Role: {contact.projectRole}
+                      {t("clientPanel", "role", { role: contact.projectRole })}
                     </p>
                   ) : null}
                 </div>
@@ -3445,14 +3527,16 @@ export default function PublicClientPanelPage() {
         <div className="mb-10 rounded-3xl border border-border bg-card p-4 shadow-sm sm:rounded-3xl sm:p-8">
           <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8 sm:gap-4">
             <h2 className="text-xl font-medium font-serif text-foreground sm:text-2xl">
-              Budget
+              {t("clientPanel", "budget")}
             </h2>
           </div>
           {publicBudgetSummary ? (
             <div className="flex flex-col gap-5">
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-xl border border-border/70 bg-card p-5">
-                  <p className="text-sm text-muted-foreground">Budget</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t("clientPanel", "budget")}
+                  </p>
                   <div className="mt-2 flex items-center gap-3">
                     <Banknote className="h-5 w-5 text-primary" />
                     <p className="text-xl font-medium font-serif text-foreground">
@@ -3461,7 +3545,9 @@ export default function PublicClientPanelPage() {
                   </div>
                 </div>
                 <div className="rounded-xl border border-border/70 bg-card p-5">
-                  <p className="text-sm text-muted-foreground">Planned cost</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t("clientPanel", "plannedCost")}
+                  </p>
                   <p className="mt-2 text-xl font-medium font-serif text-foreground">
                     {formatAmount(
                       publicBudgetSummary.plannedCost,
@@ -3469,13 +3555,15 @@ export default function PublicClientPanelPage() {
                     )}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {publicBudgetSummary.projectedUtilizationPercent ?? 0}% of
-                    budget
+                    {t("clientPanel", "ofBudget", {
+                      percent:
+                        publicBudgetSummary.projectedUtilizationPercent ?? 0,
+                    })}
                   </p>
                 </div>
                 <div className="rounded-xl border border-border/70 bg-card p-5">
                   <p className="text-sm text-muted-foreground">
-                    Committed cost
+                    {t("clientPanel", "committedCost")}
                   </p>
                   <p className="mt-2 text-xl font-medium font-serif text-foreground">
                     {formatAmount(
@@ -3484,11 +3572,13 @@ export default function PublicClientPanelPage() {
                     )}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Approved and scheduled spend
+                    {t("clientPanel", "approvedScheduledSpend")}
                   </p>
                 </div>
                 <div className="rounded-xl border border-border/70 bg-card p-5">
-                  <p className="text-sm text-muted-foreground">Actual cost</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t("clientPanel", "actualCost")}
+                  </p>
                   <p className="mt-2 text-xl font-medium font-serif text-foreground">
                     {formatAmount(
                       publicBudgetSummary.actualCost,
@@ -3496,8 +3586,9 @@ export default function PublicClientPanelPage() {
                     )}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {publicBudgetSummary.utilizationPercent ?? 0}% of budget
-                    used
+                    {t("clientPanel", "ofBudgetUsed", {
+                      percent: publicBudgetSummary.utilizationPercent ?? 0,
+                    })}
                   </p>
                 </div>
               </div>
@@ -3507,10 +3598,10 @@ export default function PublicClientPanelPage() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-base font-medium text-foreground">
-                        Budget balance
+                        {t("clientPanel", "budgetBalance")}
                       </p>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Remaining budget against actual and projected spending.
+                        {t("clientPanel", "budgetBalanceDescription")}
                       </p>
                     </div>
                     <div
@@ -3521,14 +3612,14 @@ export default function PublicClientPanelPage() {
                       }`}
                     >
                       {publicBudgetSummary.variance < 0
-                        ? "Over budget"
-                        : "Within budget"}
+                        ? t("clientPanel", "overBudget")
+                        : t("clientPanel", "withinBudget")}
                     </div>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <div className="rounded-lg bg-muted px-4 py-3">
                       <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                        Remaining now
+                        {t("clientPanel", "remainingNow")}
                       </p>
                       <p className="mt-2 text-lg font-medium text-foreground">
                         {formatAmount(
@@ -3539,7 +3630,7 @@ export default function PublicClientPanelPage() {
                     </div>
                     <div className="rounded-lg bg-muted px-4 py-3">
                       <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                        Projected remaining
+                        {t("clientPanel", "projectedRemaining")}
                       </p>
                       <p className="mt-2 text-lg font-medium text-foreground">
                         {formatAmount(
@@ -3566,19 +3657,19 @@ export default function PublicClientPanelPage() {
                     </div>
                   ) : (
                     <p className="mt-4 text-sm text-muted-foreground">
-                      No active budget alerts.
+                      {t("clientPanel", "noBudgetAlerts")}
                     </p>
                   )}
                 </div>
 
                 <div className="rounded-xl border border-border/70 bg-card p-5">
                   <p className="text-base font-medium text-foreground">
-                    Estimates and payments
+                    {t("clientPanel", "estimatesPayments")}
                   </p>
                   <div className="mt-4 flex flex-col gap-3 text-sm">
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-muted-foreground">
-                        Accepted estimates
+                        {t("clientPanel", "acceptedEstimates")}
                       </span>
                       <span className="font-medium text-foreground">
                         {formatAmount(
@@ -3589,7 +3680,7 @@ export default function PublicClientPanelPage() {
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-muted-foreground">
-                        Scheduled payments
+                        {t("clientPanel", "scheduledPayments")}
                       </span>
                       <span className="font-medium text-foreground">
                         {formatAmount(
@@ -3600,7 +3691,7 @@ export default function PublicClientPanelPage() {
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-muted-foreground">
-                        Collected payments
+                        {t("clientPanel", "collectedPayments")}
                       </span>
                       <span className="font-medium text-foreground">
                         {formatAmount(
@@ -3611,7 +3702,7 @@ export default function PublicClientPanelPage() {
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-muted-foreground">
-                        Outstanding payments
+                        {t("clientPanel", "outstandingPayments")}
                       </span>
                       <span className="font-medium text-foreground">
                         {formatAmount(
@@ -3627,11 +3718,13 @@ export default function PublicClientPanelPage() {
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="rounded-xl border border-border/70 bg-card p-5">
                   <p className="text-base font-medium text-foreground">
-                    Materials
+                    {t("clientPanel", "materials")}
                   </p>
                   <div className="mt-4 flex flex-col gap-3 text-sm">
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">Planned</span>
+                      <span className="text-muted-foreground">
+                        {t("clientPanel", "planned")}
+                      </span>
                       <span className="font-medium text-foreground">
                         {formatAmount(
                           publicBudgetSummary.breakdown.shopping.planned,
@@ -3640,7 +3733,9 @@ export default function PublicClientPanelPage() {
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">Committed</span>
+                      <span className="text-muted-foreground">
+                        {t("clientPanel", "committed")}
+                      </span>
                       <span className="font-medium text-foreground">
                         {formatAmount(
                           publicBudgetSummary.breakdown.shopping.committed,
@@ -3649,7 +3744,9 @@ export default function PublicClientPanelPage() {
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">Actual</span>
+                      <span className="text-muted-foreground">
+                        {t("clientPanel", "actual")}
+                      </span>
                       <span className="font-medium text-foreground">
                         {formatAmount(
                           publicBudgetSummary.breakdown.shopping.actual,
@@ -3661,10 +3758,14 @@ export default function PublicClientPanelPage() {
                 </div>
 
                 <div className="rounded-xl border border-border/70 bg-card p-5">
-                  <p className="text-base font-medium text-foreground">Labor</p>
+                  <p className="text-base font-medium text-foreground">
+                    {t("clientPanel", "labor")}
+                  </p>
                   <div className="mt-4 flex flex-col gap-3 text-sm">
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">Planned</span>
+                      <span className="text-muted-foreground">
+                        {t("clientPanel", "planned")}
+                      </span>
                       <span className="font-medium text-foreground">
                         {formatAmount(
                           publicBudgetSummary.breakdown.labor.planned,
@@ -3673,7 +3774,9 @@ export default function PublicClientPanelPage() {
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">Committed</span>
+                      <span className="text-muted-foreground">
+                        {t("clientPanel", "committed")}
+                      </span>
                       <span className="font-medium text-foreground">
                         {formatAmount(
                           publicBudgetSummary.breakdown.labor.committed,
@@ -3682,7 +3785,9 @@ export default function PublicClientPanelPage() {
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">Actual</span>
+                      <span className="text-muted-foreground">
+                        {t("clientPanel", "actual")}
+                      </span>
                       <span className="font-medium text-foreground">
                         {formatAmount(
                           publicBudgetSummary.breakdown.labor.actual,
@@ -3778,8 +3883,10 @@ export default function PublicClientPanelPage() {
                         </span>
                         <span>
                           {payment.dueDate
-                            ? `Due ${new Date(payment.dueDate).toLocaleDateString()}`
-                            : "No due date"}
+                            ? t("clientPanel", "dueDate", {
+                                date: new Date(payment.dueDate).toLocaleDateString(),
+                              })
+                            : t("clientPanel", "noDueDate")}
                         </span>
                         {payment.paidAt ? (
                           <span>
@@ -3799,7 +3906,7 @@ export default function PublicClientPanelPage() {
                         <div className="rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground">
                           <p className="font-medium">
                             {payment.bankAccountHolder ||
-                              "Bank transfer details"}
+                              t("clientPanel", "bankTransferDetails")}
                           </p>
                           {payment.bankName ? (
                             <p className="text-muted-foreground">
@@ -3838,8 +3945,8 @@ export default function PublicClientPanelPage() {
                         >
                           <ExternalLink data-icon="inline-start" />
                           {openingPaymentId === payment._id
-                            ? "Opening..."
-                            : "Pay online"}
+                            ? t("clientPanel", "opening")
+                            : t("clientPanel", "payOnline")}
                         </Button>
                       ) : null}
                       {payment.hasInvoicePdf ? (
@@ -3860,10 +3967,10 @@ export default function PublicClientPanelPage() {
                             <Download data-icon="inline-start" />
                           )}
                           {downloadingPaymentId === payment._id
-                            ? "Opening..."
+                            ? t("clientPanel", "opening")
                             : payment.status === "paid"
-                              ? "Download invoice"
-                              : "Download PDF"}
+                              ? t("clientPanel", "downloadInvoice")
+                              : t("clientPanel", "downloadPdf")}
                         </Button>
                       ) : null}
                     </div>
@@ -3879,7 +3986,7 @@ export default function PublicClientPanelPage() {
         <div>
           {sectionSummaries.length === 0 ? (
             <div className="rounded-3xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-              No shopping items available yet.
+              {t("clientPanel", "noShoppingItems")}
             </div>
           ) : (
             sectionSummaries.map(({ sectionName, itemCount, total }) => {
@@ -3900,7 +4007,7 @@ export default function PublicClientPanelPage() {
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <span className="inline-flex items-center justify-center rounded-full border border-black/7 bg-white/72 px-3 py-1 text-xs font-medium text-foreground/52">
-                          {itemCount} items
+                          {t("clientPanel", "items", { count: itemCount })}
                         </span>
                         {settings.showPrice ? (
                           <span className="inline-flex items-center justify-center rounded-full border border-black/7 bg-white/72 px-3 py-1 text-xs font-medium text-foreground/76">
@@ -3945,13 +4052,13 @@ export default function PublicClientPanelPage() {
                                   entry.sourceItemId === option.sourceItemId,
                               ) ? (
                                 <Badge variant="secondary" className="text-xs">
-                                  Not counted in total
+                                  {t("clientPanel", "notCounted")}
                                 </Badge>
                               ) : null
                             }
                             metadata={
                               <>
-                                <span>{getQtyLabel(option)}</span>
+                                <span>{getQtyLabel(option, t)}</span>
                                 {settings.showPrice
                                   ? getPriceMetadataLabels(
                                       option.unitPrice,
@@ -4019,13 +4126,15 @@ export default function PublicClientPanelPage() {
                                   {group.title}
                                 </h3>
                                 <Badge variant="outline" className="text-xs">
-                                  Alternative group
+                                  {t("clientPanel", "alternativeGroup")}
                                 </Badge>
                                 <Badge variant="secondary" className="text-xs">
-                                  {group.items.length} options
+                                  {t("clientPanel", "options", {
+                                    count: group.items.length,
+                                  })}
                                 </Badge>
                                 <Badge variant="secondary" className="text-xs">
-                                  {getChoiceLabel(group.selectionMode)}
+                                  {getChoiceLabel(group.selectionMode, t)}
                                 </Badge>
                               </div>
                             </div>
@@ -4075,7 +4184,9 @@ export default function PublicClientPanelPage() {
                                             );
                                           }}
                                         >
-                                          {isSelected ? "Included" : "Include"}
+                                          {isSelected
+                                            ? t("clientPanel", "included")
+                                            : t("clientPanel", "include")}
                                         </Button>
                                       ) : (
                                         <Button
@@ -4088,8 +4199,8 @@ export default function PublicClientPanelPage() {
                                           }
                                         >
                                           {isSelected
-                                            ? "Selected"
-                                            : "Choose this option"}
+                                            ? t("clientPanel", "selected")
+                                            : t("clientPanel", "chooseThisOption")}
                                         </Button>
                                       )}
                                     </div>
@@ -4115,15 +4226,15 @@ export default function PublicClientPanelPage() {
                                             className="border-primary/30 bg-primary/10 text-primary"
                                           >
                                             {group.selectionMode === "multiple"
-                                              ? "Included"
-                                              : "Selected option"}
+                                              ? t("clientPanel", "included")
+                                              : t("clientPanel", "selectedOption")}
                                           </Badge>
                                         ) : null}
                                         <Badge
                                           variant="outline"
                                           className="text-xs"
                                         >
-                                          Alternative
+                                          {t("clientPanel", "alternative")}
                                         </Badge>
                                         {!countedItems.some(
                                           (entry) =>
@@ -4134,14 +4245,14 @@ export default function PublicClientPanelPage() {
                                             variant="secondary"
                                             className="text-xs"
                                           >
-                                            Not counted in total
+                                            {t("clientPanel", "notCounted")}
                                           </Badge>
                                         ) : null}
                                       </>
                                     }
                                     metadata={
                                       <>
-                                        <span>{getQtyLabel(option)}</span>
+                                        <span>{getQtyLabel(option, t)}</span>
                                         {settings.showPrice
                                           ? getPriceMetadataLabels(
                                               option.unitPrice,
@@ -4183,8 +4294,8 @@ export default function PublicClientPanelPage() {
                                         {isSelected ? (
                                           <Badge className="bg-primary text-white hover:bg-primary">
                                             {group.selectionMode === "multiple"
-                                              ? "Included"
-                                              : "Selected"}
+                                              ? t("clientPanel", "included")
+                                              : t("clientPanel", "selected")}
                                           </Badge>
                                         ) : null}
                                         {optionStatusLabel ? (
@@ -4217,7 +4328,7 @@ export default function PublicClientPanelPage() {
 
                           {savingItemId === group.key ? (
                             <p className="pt-3 text-xs text-muted-foreground">
-                              Saving selection...
+                              {t("clientPanel", "savingSelection")}
                             </p>
                           ) : null}
                         </div>
@@ -4233,7 +4344,7 @@ export default function PublicClientPanelPage() {
 
       {sectionCards.length === 0 ? (
         <div className="rounded-3xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-          No portal sections are shared right now.
+          {t("clientPanel", "noPortalSections")}
         </div>
       ) : null}
 
@@ -4254,7 +4365,7 @@ export default function PublicClientPanelPage() {
             ))}
             <div className="flex items-center justify-between border-t border-border pt-4">
               <span className="text-xl font-medium text-foreground">
-                Grand Total
+                {t("clientPanel", "grandTotal")}
               </span>
               <span className="text-2xl font-medium text-foreground">
                 {formatTaxBreakdownSummary(grandTotal)}

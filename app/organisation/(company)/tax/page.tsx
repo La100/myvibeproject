@@ -7,6 +7,7 @@ import { Check, Percent } from "lucide-react";
 import { toast } from "sonner";
 
 import { apiAny } from "@/lib/convexApiAny";
+import { useI18n } from "@/lib/i18n";
 import {
   DEFAULT_ORGANIZATION_TAX_SETTINGS,
   resolveOrganizationTaxSettings,
@@ -28,6 +29,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 export default function TaxPage() {
   const { organization } = useOrganization();
+  const { t } = useI18n();
   const [taxEnabled, setTaxEnabled] = useState(false);
   const [taxLabel, setTaxLabel] = useState(
     DEFAULT_ORGANIZATION_TAX_SETTINGS.taxLabel,
@@ -66,12 +68,12 @@ export default function TaxPage() {
     const normalizedRate = Number.parseFloat(taxRate);
 
     if (!normalizedLabel) {
-      toast.error("Tax label is required");
+      toast.error(t("taxPage", "toastLabelRequired"));
       return;
     }
 
     if (!Number.isFinite(normalizedRate) || normalizedRate < 0 || normalizedRate > 100) {
-      toast.error("Tax rate must be between 0 and 100");
+      toast.error(t("taxPage", "toastRateInvalid"));
       return;
     }
 
@@ -85,9 +87,9 @@ export default function TaxPage() {
           taxLabel: normalizedLabel,
         },
       });
-      toast.success("Tax settings updated");
+      toast.success(t("taxPage", "toastUpdated"));
     } catch (error) {
-      toast.error("Failed to update tax settings", {
+      toast.error(t("taxPage", "toastUpdateFailed"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -106,24 +108,24 @@ export default function TaxPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Tax</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">{t("taxPage", "title")}</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Configure the default tax behavior used by commercial documents across the workspace.
+          {t("taxPage", "description")}
         </p>
       </div>
 
       <Card className="clean-surface">
         <CardContent className="flex flex-col gap-6 p-6">
           <div className="flex flex-col gap-1">
-            <h2 className="text-2xl font-medium text-foreground">Workspace default</h2>
+            <h2 className="text-2xl font-medium text-foreground">{t("taxPage", "workspaceDefault")}</h2>
             <p className="text-sm text-muted-foreground">
-              This default is used for estimations and invoice flows. Documents keep their own tax snapshot after creation.
+              {t("taxPage", "workspaceDefaultDescription")}
             </p>
           </div>
 
           <div className="grid gap-5 lg:grid-cols-2">
             <div className="grid gap-2">
-              <Label htmlFor="tax-enabled">Enable default tax</Label>
+              <Label htmlFor="tax-enabled">{t("taxPage", "enableDefaultTax")}</Label>
               <Select
                 value={taxEnabled ? "enabled" : "disabled"}
                 onValueChange={(value) => setTaxEnabled(value === "enabled")}
@@ -132,24 +134,24 @@ export default function TaxPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="enabled">Enabled</SelectItem>
-                  <SelectItem value="disabled">Disabled</SelectItem>
+                  <SelectItem value="enabled">{t("taxPage", "enabled")}</SelectItem>
+                  <SelectItem value="disabled">{t("taxPage", "disabled")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="tax-label">Tax label</Label>
+              <Label htmlFor="tax-label">{t("taxPage", "taxLabel")}</Label>
               <Input
                 id="tax-label"
                 value={taxLabel}
                 onChange={(event) => setTaxLabel(event.target.value)}
-                placeholder="VAT"
+                placeholder={t("taxPage", "taxLabelPlaceholder")}
               />
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="tax-rate">Default rate (%)</Label>
+              <Label htmlFor="tax-rate">{t("taxPage", "defaultRate")}</Label>
               <Input
                 id="tax-rate"
                 type="number"
@@ -158,7 +160,7 @@ export default function TaxPage() {
                 step="0.01"
                 value={taxRate}
                 onChange={(event) => setTaxRate(event.target.value)}
-                placeholder="23"
+                placeholder={t("taxPage", "taxRatePlaceholder")}
               />
             </div>
 
@@ -167,19 +169,19 @@ export default function TaxPage() {
           {taxEnabled ? (
             <div className="rounded-2xl border border-border/60 bg-secondary/70 px-4 py-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium text-foreground">Current default</span>
+                <span className="text-sm font-medium text-foreground">{t("taxPage", "currentDefault")}</span>
                 <Badge>{taxLabel.trim() || DEFAULT_ORGANIZATION_TAX_SETTINGS.taxLabel}</Badge>
                 <Badge variant="secondary">
                   {Number.parseFloat(taxRate || "0").toFixed(2)}%
                 </Badge>
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
-                Internal planning screens stay net. Outgoing documents reuse this tax default.
+                {t("taxPage", "currentDefaultDescription")}
               </p>
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-border/70 bg-secondary/70 px-4 py-4 text-sm text-muted-foreground">
-              No default tax is active. Documents can still be created without tax.
+              {t("taxPage", "noDefaultTax")}
             </div>
           )}
 
@@ -189,16 +191,16 @@ export default function TaxPage() {
                 <Percent className="h-4 w-4 text-muted-foreground" />
               </div>
               <div className="flex flex-col gap-1">
-                <p className="text-sm font-medium text-foreground">Tax stays lightweight</p>
+                <p className="text-sm font-medium text-foreground">{t("taxPage", "lightweightTitle")}</p>
                 <p className="text-sm text-muted-foreground">
-                  Shopping and labor stay internal planning tools. Estimations and invoice drafts reuse this tax rate when needed.
+                  {t("taxPage", "lightweightDescription")}
                 </p>
               </div>
             </div>
 
             <Button onClick={handleSave} disabled={submitting}>
               <Check className="mr-2 h-4 w-4" />
-              Save tax settings
+              {t("taxPage", "save")}
             </Button>
           </div>
         </CardContent>

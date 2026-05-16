@@ -1,35 +1,40 @@
+"use client";
+
 import Link from "next/link";
 import { Instagram } from "lucide-react";
 import Logo from "../Logo";
+import { useI18n } from "@/lib/i18n";
 
 const footerLinks = [
   {
-    title: "Product",
+    titleKey: "product",
     links: [
-      { label: "Overview", href: "/#product" },
-      { label: "Workflow", href: "/#workflow" },
-      { label: "Web Clipper", href: "/#web-clipper" },
-      { label: "Client Portal", href: "/#client-collaboration" },
+      { labelKey: "overview", href: "/#product" },
+      { labelKey: "workflow", href: "/#workflow" },
+      { labelKey: "webClipper", href: "/#web-clipper" },
+      { labelKey: "clientPortal", href: "/#client-collaboration" },
     ],
   },
   {
-    title: "Resources",
+    titleKey: "resources",
     links: [
-      { label: "Studio Memory", href: "/#resources" },
-      { label: "Pricing", href: "/#pricing" },
-      { label: "FAQ", href: "/#faq" },
+      { labelKey: "studioMemory", href: "/#resources" },
+      { labelKey: "pricing", href: "/#pricing" },
+      { labelKey: "faq", href: "/#faq" },
     ],
   },
   {
-    title: "Legal",
+    titleKey: "legal",
     links: [
-      { label: "Privacy", href: "/privacy" },
-      { label: "Terms", href: "/terms" },
+      { labelKey: "privacy", href: "/privacy" },
+      { labelKey: "terms", href: "/terms" },
     ],
   },
 ];
 
 export function Footer() {
+  const { t } = useI18n();
+
   return (
     <footer className="border-t border-border/40 pt-16 pb-10 px-6">
       <div className="mx-auto max-w-[1440px] sm:px-10">
@@ -43,23 +48,23 @@ export function Footer() {
               />
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Run architectural projects with AI-powered workflows.
+              {t("landingFooter", "tagline")}
             </p>
           </div>
 
           {footerLinks.map((column) => (
-            <div key={column.title} className="md:col-span-1">
+            <div key={column.titleKey} className="md:col-span-1">
               <h4 className="text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-5">
-                {column.title}
+                {t("landingFooter", column.titleKey)}
               </h4>
               <ul className="space-y-3">
                 {column.links.map((link) => (
-                  <li key={link.label}>
+                  <li key={link.labelKey}>
                     <Link
                       href={link.href}
                       className="text-sm text-foreground/70 hover:text-foreground transition-colors"
                     >
-                      {link.label}
+                      {t("landingFooter", link.labelKey)}
                     </Link>
                   </li>
                 ))}
@@ -70,8 +75,7 @@ export function Footer() {
 
         <div className="flex flex-col gap-4 md:flex-row justify-between items-center pt-6 border-t border-border/30">
           <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} Myvibe project Inc. All rights
-            reserved.
+            {t("landingFooter", "copyright", { year: new Date().getFullYear() })}
           </p>
           <Link
             href="https://www.instagram.com/myvibeproject/"

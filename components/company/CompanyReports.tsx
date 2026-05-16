@@ -44,6 +44,7 @@ import {
   type ReportSectionKey,
 } from "@/components/company/ReportsExportDialog";
 import { downloadCsvFile } from "@/lib/csvExport";
+import { useI18n } from "@/lib/i18n";
 import {
   addBrandHeader,
   addDocumentMeta,
@@ -72,24 +73,17 @@ const SHOPPING_STATUSES = [
 ] as const;
 
 const TIME_RANGE_CONFIG = {
-  "7d": { days: 7, label: "Last 7 days" },
-  "30d": { days: 30, label: "Last 30 days" },
-  "90d": { days: 90, label: "Last 3 months" },
-  "1y": { days: 365, label: "Last year" },
-} as const satisfies Record<string, { days: number; label: string }>;
+  "7d": { days: 7, labelKey: "last7Days" },
+  "30d": { days: 30, labelKey: "last30Days" },
+  "90d": { days: 90, labelKey: "last3Months" },
+  "1y": { days: 365, labelKey: "lastYear" },
+} as const;
 
 const ALL_REPORT_SECTIONS: Record<ReportSectionKey, boolean> = {
   overview: true,
   projects: true,
   tasks: true,
   financial: true,
-};
-
-const REPORT_SECTION_LABELS: Record<ReportSectionKey, string> = {
-  overview: "Overview",
-  projects: "Projects",
-  tasks: "Tasks",
-  financial: "Financial",
 };
 
 const REPORT_SECTION_ORDER: ReportSectionKey[] = [
@@ -128,6 +122,7 @@ function downloadUrl(url: string, fileName?: string) {
 
 export default function CompanyReports() {
   const { organization, isLoaded } = useOrganization();
+  const { t } = useI18n();
   const [timeRange, setTimeRange] = useState<string>("30d");
   const [activeTab, setActiveTab] = useState<ReportSectionKey>("overview");
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -143,6 +138,13 @@ export default function CompanyReports() {
   const timeRangeConfig =
     TIME_RANGE_CONFIG[timeRange as keyof typeof TIME_RANGE_CONFIG] ??
     TIME_RANGE_CONFIG["30d"];
+  const timeRangeLabel = t("companyReports", timeRangeConfig.labelKey);
+  const reportSectionLabels: Record<ReportSectionKey, string> = {
+    overview: t("companyReports", "overview"),
+    projects: t("companyReports", "projects"),
+    tasks: t("companyReports", "tasks"),
+    financial: t("companyReports", "financial"),
+  };
 
   const team = useQuery(
     apiAny.teams.getTeamByClerkOrg,
@@ -190,8 +192,8 @@ export default function CompanyReports() {
     return (
       <AppLoadingState
         variant="section"
-        title="Loading reports"
-        description="Loading organization reporting data."
+        title={t("companyReports", "loadingTitle")}
+        description={t("companyReports", "loadingDescription")}
       />
     );
   }
@@ -396,22 +398,22 @@ export default function CompanyReports() {
   };
 
   const overviewExportRows = [
-    ["Total Projects", totalProjects],
-    ["Active Projects", activeProjects],
-    ["Active Team Members", teamMembersCount],
-    ["Total Budget", formatMoney(totalBudget)],
-    ["Total Tasks", totalTasks],
-    ["Completed Tasks", completedTasks],
-    ["Tasks In Progress", inProgressTasks],
-    ["Completion Rate", `${completionRate.toFixed(1)}%`],
-    ["Overdue Tasks", overdueTasks],
-    [`New Projects (${timeRangeConfig.label})`, recentProjectsCount],
+    [t("companyReports", "totalProjects"), totalProjects],
+    [t("companyReports", "activeProjects"), activeProjects],
+    [t("companyReports", "activeTeamMembers"), teamMembersCount],
+    [t("companyReports", "totalBudget"), formatMoney(totalBudget)],
+    [t("companyReports", "totalTasks"), totalTasks],
+    [t("companyReports", "completedTasks"), completedTasks],
+    [t("companyReports", "tasksInProgress"), inProgressTasks],
+    [t("companyReports", "completionRate"), `${completionRate.toFixed(1)}%`],
+    [t("companyReports", "overdueTasks"), overdueTasks],
+    [`${t("companyReports", "newProjects")} (${timeRangeLabel})`, recentProjectsCount],
     [
-      `Recorded Activity (${timeRangeConfig.label})`,
+      `${t("companyReports", "recordedActivity")} (${timeRangeLabel})`,
       activityMetrics?.activityEvents ?? 0,
     ],
     [
-      `Active Collaborators (${timeRangeConfig.label})`,
+      `${t("companyReports", "activeCollaborators")} (${timeRangeLabel})`,
       activityMetrics?.activeCollaborators ?? 0,
     ],
   ] as Array<[string, string | number]>;
@@ -472,7 +474,7 @@ export default function CompanyReports() {
         task.status.replaceAll("_", " "),
         task.priority || "-",
         dueDate ? new Date(dueDate).toLocaleDateString() : "-",
-        isOverdue ? "Yes" : "No",
+        isOverdue ? t("companyReports", "yes") : t("companyReports", "no"),
       ];
     });
 
@@ -484,20 +486,20 @@ export default function CompanyReports() {
   ]);
 
   const financialSummaryRows = [
-    ["Total Budget", formatMoney(totalBudget)],
-    ["Shopping List", formatMoney(totalShoppingCost)],
-    ["Ordered Items", formatMoney(orderedShoppingCost)],
-    ["Issued Invoices", String(invoiceTotals.invoiceCount)],
-    ["Paid Invoices", String(invoiceTotals.paidCount)],
-    ["Open Invoices", String(invoiceTotals.openCount)],
-    ["Overdue Invoices", String(invoiceTotals.overdueCount)],
-    ["Issued Volume", summarizeCurrencyValues(invoiceCurrencySummary, "total")],
+    [t("companyReports", "totalBudget"), formatMoney(totalBudget)],
+    [t("companyReports", "shoppingList"), formatMoney(totalShoppingCost)],
+    [t("companyReports", "orderedItems"), formatMoney(orderedShoppingCost)],
+    [t("companyReports", "issuedInvoices"), String(invoiceTotals.invoiceCount)],
+    [t("companyReports", "paidInvoices"), String(invoiceTotals.paidCount)],
+    [t("companyReports", "openInvoices"), String(invoiceTotals.openCount)],
+    [t("companyReports", "overdueInvoices"), String(invoiceTotals.overdueCount)],
+    [t("companyReports", "issuedVolume"), summarizeCurrencyValues(invoiceCurrencySummary, "total")],
     [
-      "Paid Volume",
+      t("companyReports", "paidVolume"),
       summarizeCurrencyValues(invoiceCurrencySummary, "paidTotal"),
     ],
     [
-      "Outstanding Volume",
+      t("companyReports", "outstandingVolume"),
       summarizeCurrencyValues(invoiceCurrencySummary, "openTotal"),
     ],
   ] as Array<[string, string]>;
@@ -523,7 +525,7 @@ export default function CompanyReports() {
       : "-",
     invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : "-",
     invoice.paidAt ? new Date(invoice.paidAt).toLocaleDateString() : "-",
-    invoice.hasInvoicePdf ? "Yes" : "No",
+    invoice.hasInvoicePdf ? t("companyReports", "yes") : t("companyReports", "no"),
   ]);
 
   const shoppingStatusExportRows = shoppingByStatus.map((entry) => [
@@ -549,9 +551,9 @@ export default function CompanyReports() {
     if (section === "overview") {
       return [
         {
-          headers: ["Metric", "Value"],
+          headers: [t("companyReports", "metric"), t("companyReports", "value")],
           rows: overviewExportRows,
-          title: "Overview Summary",
+          title: t("companyReports", "overviewSummary"),
         },
       ];
     }
@@ -559,25 +561,25 @@ export default function CompanyReports() {
     if (section === "projects") {
       return [
         {
-          headers: ["Status", "Projects", "Share"],
+          headers: [t("companyReports", "status"), t("companyReports", "projects"), t("companyReports", "share")],
           rows: projectStatusExportRows,
-          title: "Project Status Distribution",
+          title: t("companyReports", "projectStatusDistribution"),
         },
         ...(exportOptions.includeDetails
           ? [
               {
                 headers: [
-                  "Project",
-                  "Customer",
-                  "Status",
-                  "Progress",
-                  "Tasks",
-                  "Budget",
-                  "Start",
-                  "Created",
+                  t("companyReports", "projects"),
+                  t("companyReports", "customer"),
+                  t("companyReports", "status"),
+                  t("companyReports", "progress"),
+                  t("companyReports", "tasks"),
+                  t("companyReports", "totalBudget"),
+                  t("companyReports", "start"),
+                  t("companyReports", "created"),
                 ],
                 rows: projectDetailExportRows,
-                title: "Project Details",
+                title: t("companyReports", "projectDetails"),
               },
             ]
           : []),
@@ -587,28 +589,28 @@ export default function CompanyReports() {
     if (section === "tasks") {
       return [
         {
-          headers: ["Status", "Tasks", "Share"],
+          headers: [t("companyReports", "status"), t("companyReports", "tasks"), t("companyReports", "share")],
           rows: taskStatusExportRows,
-          title: "Task Status Breakdown",
+          title: t("companyReports", "taskStatusBreakdown"),
         },
         ...(exportOptions.includeDetails
           ? [
               {
-                headers: ["Task", "Project", "Priority", "Due"],
+                headers: [t("companyReports", "task"), t("companyReports", "projects"), t("companyReports", "priority"), t("companyReports", "due")],
                 rows: overdueTaskExportRows,
-                title: "Overdue Tasks",
+                title: t("companyReports", "overdueTasks"),
               },
               {
                 headers: [
-                  "Task",
-                  "Project",
-                  "Status",
-                  "Priority",
-                  "Due",
-                  "Overdue",
+                  t("companyReports", "task"),
+                  t("companyReports", "projects"),
+                  t("companyReports", "status"),
+                  t("companyReports", "priority"),
+                  t("companyReports", "due"),
+                  t("companyReports", "overdueLabel"),
                 ],
                 rows: taskDetailExportRows,
-                title: "Task Details",
+                title: t("companyReports", "taskDetails"),
               },
             ]
           : []),
@@ -617,49 +619,49 @@ export default function CompanyReports() {
 
     return [
       {
-        headers: ["Metric", "Value"],
+        headers: [t("companyReports", "metric"), t("companyReports", "value")],
         rows: financialSummaryRows,
-        title: "Financial Summary",
+        title: t("companyReports", "financialSummary"),
       },
       {
         headers: [
-          "Currency",
-          "Invoices",
-          "Issued",
-          "Paid",
-          "Outstanding",
-          "Overdue",
+          t("companyReports", "currency"),
+          t("companyReports", "issuedInvoices"),
+          t("companyReports", "issued"),
+          t("companyReports", "paid"),
+          t("companyReports", "outstanding"),
+          t("companyReports", "overdue"),
         ],
         rows: invoiceCurrencyExportRows,
-        title: "Invoices by Currency",
+        title: t("companyReports", "invoicesByCurrency"),
       },
       {
-        headers: ["Status", "Items", "Total"],
+        headers: [t("companyReports", "status"), t("companyReports", "items"), t("companyReports", "total")],
         rows: shoppingStatusExportRows,
-        title: "Shopping List by Status",
+        title: t("companyReports", "shoppingListByStatus"),
       },
       ...(exportOptions.includeDetails
         ? [
             {
               headers: [
-                "Invoice",
-                "Project",
-                "Customer",
-                "Status",
-                "Currency",
-                "Total",
-                "Issued",
-                "Due",
-                "Paid",
-                "PDF",
+                t("companyReports", "invoice"),
+                t("companyReports", "projects"),
+                t("companyReports", "customer"),
+                t("companyReports", "status"),
+                t("companyReports", "currency"),
+                t("companyReports", "total"),
+                t("companyReports", "issued"),
+                t("companyReports", "due"),
+                t("companyReports", "paid"),
+                t("companyReports", "pdf"),
               ],
               rows: invoiceDetailExportRows,
-              title: "Issued Invoices",
+              title: t("companyReports", "issuedInvoices"),
             },
             {
-              headers: ["Project", "Status", "Currency", "Budget"],
+              headers: [t("companyReports", "projects"), t("companyReports", "status"), t("companyReports", "currency"), t("companyReports", "totalBudget")],
               rows: topBudgetExportRows,
-              title: "Top Projects by Budget",
+              title: t("companyReports", "topProjectsByBudget"),
             },
           ]
         : []),
@@ -688,7 +690,7 @@ export default function CompanyReports() {
       (section) => exportOptions.sections[section],
     );
     if (selectedSections.length === 0) {
-      toast.error("Select at least one section to export.");
+      toast.error(t("companyReports", "selectSectionToast"));
       return;
     }
 
@@ -701,7 +703,7 @@ export default function CompanyReports() {
       rows.push([title]);
       rows.push(headers);
       if (body.length === 0) {
-        rows.push(["No data"]);
+        rows.push([t("companyReports", "noData")]);
       } else {
         rows.push(...body.map((row) => row.map((cell) => String(cell))));
       }
@@ -709,27 +711,31 @@ export default function CompanyReports() {
     };
 
     if (exportOptions.sections.overview) {
-      addTable("Overview Summary", ["Metric", "Value"], overviewExportRows);
+      addTable(
+        t("companyReports", "overviewSummary"),
+        [t("companyReports", "metric"), t("companyReports", "value")],
+        overviewExportRows,
+      );
     }
 
     if (exportOptions.sections.projects) {
       addTable(
-        "Project Status Distribution",
-        ["Status", "Projects", "Share"],
+        t("companyReports", "projectStatusDistribution"),
+        [t("companyReports", "status"), t("companyReports", "projects"), t("companyReports", "share")],
         projectStatusExportRows,
       );
       if (exportOptions.includeDetails) {
         addTable(
-          "Project Details",
+          t("companyReports", "projectDetails"),
           [
-            "Project",
-            "Customer",
-            "Status",
-            "Progress",
-            "Tasks",
-            "Budget",
-            "Start",
-            "Created",
+            t("companyReports", "projects"),
+            t("companyReports", "customer"),
+            t("companyReports", "status"),
+            t("companyReports", "progress"),
+            t("companyReports", "tasks"),
+            t("companyReports", "totalBudget"),
+            t("companyReports", "start"),
+            t("companyReports", "created"),
           ],
           projectDetailExportRows,
         );
@@ -738,56 +744,60 @@ export default function CompanyReports() {
 
     if (exportOptions.sections.tasks) {
       addTable(
-        "Task Status Breakdown",
-        ["Status", "Tasks", "Share"],
+        t("companyReports", "taskStatusBreakdown"),
+        [t("companyReports", "status"), t("companyReports", "tasks"), t("companyReports", "share")],
         taskStatusExportRows,
       );
       if (exportOptions.includeDetails) {
         addTable(
-          "Overdue Tasks",
-          ["Task", "Project", "Priority", "Due"],
+          t("companyReports", "overdueTasks"),
+          [t("companyReports", "task"), t("companyReports", "projects"), t("companyReports", "priority"), t("companyReports", "due")],
           overdueTaskExportRows,
         );
         addTable(
-          "Task Details",
-          ["Task", "Project", "Status", "Priority", "Due", "Overdue"],
+          t("companyReports", "taskDetails"),
+          [t("companyReports", "task"), t("companyReports", "projects"), t("companyReports", "status"), t("companyReports", "priority"), t("companyReports", "due"), t("companyReports", "overdueLabel")],
           taskDetailExportRows,
         );
       }
     }
 
     if (exportOptions.sections.financial) {
-      addTable("Financial Summary", ["Metric", "Value"], financialSummaryRows);
       addTable(
-        "Invoices by Currency",
-        ["Currency", "Invoices", "Issued", "Paid", "Outstanding", "Overdue"],
+        t("companyReports", "financialSummary"),
+        [t("companyReports", "metric"), t("companyReports", "value")],
+        financialSummaryRows,
+      );
+      addTable(
+        t("companyReports", "invoicesByCurrency"),
+        [t("companyReports", "currency"), t("companyReports", "issuedInvoices"), t("companyReports", "issued"), t("companyReports", "paid"), t("companyReports", "outstanding"), t("companyReports", "overdue")],
         invoiceCurrencyExportRows,
       );
       addTable(
-        "Shopping List by Status",
-        ["Status", "Items", "Total"],
+        t("companyReports", "shoppingListByStatus"),
+        [t("companyReports", "status"), t("companyReports", "items"), t("companyReports", "total")],
         shoppingStatusExportRows,
       );
       if (exportOptions.includeDetails) {
         addTable(
-          "Issued Invoices",
+          t("companyReports", "issuedInvoices"),
           [
-            "Invoice",
-            "Project",
-            "Customer",
-            "Status",
-            "Currency",
-            "Total",
-            "Issued",
-            "Due",
-            "Paid",
-            "PDF",
+            t("companyReports", "invoice"),
+            t("companyReports", "projects"),
+            t("companyReports", "customer"),
+            t("companyReports", "status"),
+            t("companyReports", "currency"),
+            t("companyReports", "total"),
+            t("companyReports", "issued"),
+            t("companyReports", "due"),
+            t("companyReports", "paid"),
+            t("companyReports", "pdf"),
           ],
           invoiceDetailExportRows,
         );
         addTable(
-          "Top Projects by Budget",
-          ["Project", "Status", "Currency", "Budget"],
+          t("companyReports", "topProjectsByBudget"),
+          [t("companyReports", "projects"), t("companyReports", "status"), t("companyReports", "currency"), t("companyReports", "totalBudget")],
           topBudgetExportRows,
         );
       }
@@ -803,7 +813,10 @@ export default function CompanyReports() {
     );
     setIsExportModalOpen(false);
     toast.success(
-      `Exported ${selectedSections.map((section) => REPORT_SECTION_LABELS[section]).join(", ")} as CSV.`,
+      t("companyReports", "exportedSections", {
+        sections: selectedSections.map((section) => reportSectionLabels[section]).join(", "),
+        format: "CSV",
+      }),
     );
   };
 
@@ -812,7 +825,7 @@ export default function CompanyReports() {
       (section) => exportOptions.sections[section],
     );
     if (selectedSections.length === 0) {
-      toast.error("Select at least one section to export.");
+      toast.error(t("companyReports", "selectSectionToast"));
       return;
     }
 
@@ -820,18 +833,21 @@ export default function CompanyReports() {
       fileName: `reports-${sanitizeFileName(organization.name || "organization")}-${fileDate}.xlsx`,
       sheets: selectedSections.map((section, index) => ({
         generatedOn: generatedOnLabel,
-        name: REPORT_SECTION_LABELS[section],
-        subtitle: `${timeRangeConfig.label} | ${REPORT_SECTION_LABELS[section]}`,
+        name: reportSectionLabels[section],
+        subtitle: `${timeRangeLabel} | ${reportSectionLabels[section]}`,
         tables: buildReportTablesForSection(section).map((table) => ({
           ...table,
           accentColor: getSectionAccentColor(index),
         })),
-        title: `${organization.name || "Organization"} Reports`,
+        title: `${organization.name || t("companyReports", "organization")} ${t("companyReports", "reportsDocumentTitle")}`,
       })),
     });
     setIsExportModalOpen(false);
     toast.success(
-      `Exported ${selectedSections.map((section) => REPORT_SECTION_LABELS[section]).join(", ")} as Excel.`,
+      t("companyReports", "exportedSections", {
+        sections: selectedSections.map((section) => reportSectionLabels[section]).join(", "),
+        format: "Excel",
+      }),
     );
   };
 
@@ -840,7 +856,7 @@ export default function CompanyReports() {
       (section) => exportOptions.sections[section],
     );
     if (selectedSections.length === 0) {
-      toast.error("Select at least one section to export.");
+      toast.error(t("companyReports", "selectSectionToast"));
       return;
     }
 
@@ -861,14 +877,14 @@ export default function CompanyReports() {
     doc.setFont(pdfFontFamily, "normal");
 
     let yPosition = await addBrandHeader(doc, {
-      teamName: team?.name || organization.name || "Organization",
+      teamName: team?.name || organization.name || t("companyReports", "organization"),
       teamImageUrl: team?.imageUrl,
       fontFamily: pdfFontFamily,
     });
 
     yPosition = addDocumentMeta(doc, {
-      title: "Reports",
-      subtitle: `${timeRangeConfig.label} | ${selectedSections.map((section) => REPORT_SECTION_LABELS[section]).join(", ")}`,
+      title: t("companyReports", "reportsDocumentTitle"),
+      subtitle: `${timeRangeLabel} | ${selectedSections.map((section) => reportSectionLabels[section]).join(", ")}`,
       generatedOn: generatedOnLabel,
       startY: yPosition,
       fontFamily: pdfFontFamily,
@@ -905,7 +921,7 @@ export default function CompanyReports() {
           ? body
           : [
               Array.from({ length: head[0]?.length || 1 }, (_, index) =>
-                index === 0 ? "No data" : "",
+                index === 0 ? t("companyReports", "noData") : "",
               ),
             ];
       await renderPdfTable(doc, {
@@ -929,8 +945,11 @@ export default function CompanyReports() {
     };
 
     if (exportOptions.sections.overview) {
-      renderSectionTitle("Overview", "Organization summary");
-      await renderTable([["Metric", "Value"]], overviewExportRows, {
+      renderSectionTitle(
+        t("companyReports", "overview"),
+        t("companyReports", "organizationSummary"),
+      );
+      await renderTable([[t("companyReports", "metric"), t("companyReports", "value")]], overviewExportRows, {
         columnStyles: {
           0: { cellWidth: 90 },
           1: { cellWidth: "auto" },
@@ -939,9 +958,12 @@ export default function CompanyReports() {
     }
 
     if (exportOptions.sections.projects) {
-      renderSectionTitle("Projects", "Status distribution");
+      renderSectionTitle(
+        t("companyReports", "projects"),
+        t("companyReports", "statusDistribution"),
+      );
       await renderTable(
-        [["Status", "Projects", "Share"]],
+        [[t("companyReports", "status"), t("companyReports", "projects"), t("companyReports", "share")]],
         projectStatusExportRows,
         {
           columnStyles: {
@@ -952,18 +974,18 @@ export default function CompanyReports() {
       );
 
       if (exportOptions.includeDetails) {
-        renderSectionTitle("Project Details");
+        renderSectionTitle(t("companyReports", "projectDetails"));
         await renderTable(
           [
             [
-              "Project",
-              "Customer",
-              "Status",
-              "Progress",
-              "Tasks",
-              "Budget",
-              "Start",
-              "Created",
+              t("companyReports", "projects"),
+              t("companyReports", "customer"),
+              t("companyReports", "status"),
+              t("companyReports", "progress"),
+              t("companyReports", "tasks"),
+              t("companyReports", "totalBudget"),
+              t("companyReports", "start"),
+              t("companyReports", "created"),
             ],
           ],
           projectDetailExportRows,
@@ -984,8 +1006,11 @@ export default function CompanyReports() {
     }
 
     if (exportOptions.sections.tasks) {
-      renderSectionTitle("Tasks", "Status breakdown");
-      await renderTable([["Status", "Tasks", "Share"]], taskStatusExportRows, {
+      renderSectionTitle(
+        t("companyReports", "tasks"),
+        t("companyReports", "statusBreakdown"),
+      );
+      await renderTable([[t("companyReports", "status"), t("companyReports", "tasks"), t("companyReports", "share")]], taskStatusExportRows, {
         columnStyles: {
           1: { halign: "right" },
           2: { halign: "right" },
@@ -993,9 +1018,9 @@ export default function CompanyReports() {
       });
 
       if (exportOptions.includeDetails) {
-        renderSectionTitle("Overdue Tasks");
+        renderSectionTitle(t("companyReports", "overdueTasks"));
         await renderTable(
-          [["Task", "Project", "Priority", "Due"]],
+          [[t("companyReports", "task"), t("companyReports", "projects"), t("companyReports", "priority"), t("companyReports", "due")]],
           overdueTaskExportRows,
           {
             columnStyles: {
@@ -1007,9 +1032,9 @@ export default function CompanyReports() {
           },
         );
 
-        renderSectionTitle("Task Details");
+        renderSectionTitle(t("companyReports", "taskDetails"));
         await renderTable(
-          [["Task", "Project", "Status", "Priority", "Due", "Overdue"]],
+          [[t("companyReports", "task"), t("companyReports", "projects"), t("companyReports", "status"), t("companyReports", "priority"), t("companyReports", "due"), t("companyReports", "overdueLabel")]],
           taskDetailExportRows,
           {
             columnStyles: {
@@ -1026,15 +1051,18 @@ export default function CompanyReports() {
     }
 
     if (exportOptions.sections.financial) {
-      renderSectionTitle("Financial", "Budget and procurement summary");
-      await renderTable([["Metric", "Value"]], financialSummaryRows, {
+      renderSectionTitle(
+        t("companyReports", "financial"),
+        t("companyReports", "budgetProcurementSummary"),
+      );
+      await renderTable([[t("companyReports", "metric"), t("companyReports", "value")]], financialSummaryRows, {
         columnStyles: {
           0: { cellWidth: 90 },
           1: { cellWidth: "auto", halign: "right" },
         },
       });
       await renderTable(
-        [["Currency", "Invoices", "Issued", "Paid", "Outstanding", "Overdue"]],
+        [[t("companyReports", "currency"), t("companyReports", "issuedInvoices"), t("companyReports", "issued"), t("companyReports", "paid"), t("companyReports", "outstanding"), t("companyReports", "overdue")]],
         invoiceCurrencyExportRows,
         {
           columnStyles: {
@@ -1047,7 +1075,7 @@ export default function CompanyReports() {
         },
       );
       await renderTable(
-        [["Status", "Items", "Total"]],
+        [[t("companyReports", "status"), t("companyReports", "items"), t("companyReports", "total")]],
         shoppingStatusExportRows,
         {
           columnStyles: {
@@ -1058,20 +1086,20 @@ export default function CompanyReports() {
       );
 
       if (exportOptions.includeDetails) {
-        renderSectionTitle("Issued Invoices");
+        renderSectionTitle(t("companyReports", "issuedInvoices"));
         await renderTable(
           [
             [
-              "Invoice",
-              "Project",
-              "Customer",
-              "Status",
-              "Currency",
-              "Total",
-              "Issued",
-              "Due",
-              "Paid",
-              "PDF",
+              t("companyReports", "invoice"),
+              t("companyReports", "projects"),
+              t("companyReports", "customer"),
+              t("companyReports", "status"),
+              t("companyReports", "currency"),
+              t("companyReports", "total"),
+              t("companyReports", "issued"),
+              t("companyReports", "due"),
+              t("companyReports", "paid"),
+              t("companyReports", "pdf"),
             ],
           ],
           invoiceDetailExportRows,
@@ -1091,9 +1119,9 @@ export default function CompanyReports() {
           },
         );
 
-        renderSectionTitle("Top Projects by Budget");
+        renderSectionTitle(t("companyReports", "topProjectsByBudget"));
         await renderTable(
-          [["Project", "Status", "Currency", "Budget"]],
+          [[t("companyReports", "projects"), t("companyReports", "status"), t("companyReports", "currency"), t("companyReports", "totalBudget")]],
           topBudgetExportRows,
           {
             columnStyles: {
@@ -1113,7 +1141,10 @@ export default function CompanyReports() {
     );
     setIsExportModalOpen(false);
     toast.success(
-      `Exported ${selectedSections.map((section) => REPORT_SECTION_LABELS[section]).join(", ")} as PDF.`,
+      t("companyReports", "exportedSections", {
+        sections: selectedSections.map((section) => reportSectionLabels[section]).join(", "),
+        format: "PDF",
+      }),
     );
   };
 
@@ -1129,7 +1160,7 @@ export default function CompanyReports() {
       }
     } catch (error) {
       console.error("Reports export failed:", error);
-      toast.error("Failed to export reports.", {
+      toast.error(t("companyReports", "failedExportReports"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -1139,7 +1170,7 @@ export default function CompanyReports() {
 
   const handleInvoiceCsvExport = async () => {
     if (issuedInvoices.length === 0) {
-      toast.error("No issued invoices to export.");
+      toast.error(t("companyReports", "noInvoicesExport"));
       return;
     }
 
@@ -1148,23 +1179,27 @@ export default function CompanyReports() {
       downloadCsvFile({
         fileName: `invoice-register-${sanitizeFileName(organization.name || "organization")}-${fileDate}.csv`,
         headers: [
-          "Invoice",
-          "Project",
-          "Customer",
-          "Status",
-          "Currency",
-          "Total",
-          "Issued",
-          "Due",
-          "Paid",
-          "PDF",
+          t("companyReports", "invoice"),
+          t("companyReports", "projects"),
+          t("companyReports", "customer"),
+          t("companyReports", "status"),
+          t("companyReports", "currency"),
+          t("companyReports", "total"),
+          t("companyReports", "issued"),
+          t("companyReports", "due"),
+          t("companyReports", "paid"),
+          t("companyReports", "pdf"),
         ],
         rows: invoiceDetailExportRows,
       });
-      toast.success(`Exported ${issuedInvoices.length} invoices as CSV.`);
+      toast.success(
+        t("companyReports", "exportedInvoicesCsv", {
+          count: issuedInvoices.length,
+        }),
+      );
     } catch (error) {
       console.error("Invoice CSV export failed:", error);
-      toast.error("Failed to export invoices CSV.", {
+      toast.error(t("companyReports", "failedInvoicesCsv"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -1174,7 +1209,7 @@ export default function CompanyReports() {
 
   const handleInvoicePdfBatchDownload = async () => {
     if (issuedInvoices.length === 0) {
-      toast.error("No issued invoices to download.");
+      toast.error(t("companyReports", "noInvoicesDownload"));
       return;
     }
 
@@ -1194,13 +1229,19 @@ export default function CompanyReports() {
         await new Promise((resolve) => window.setTimeout(resolve, 180));
       }
 
-      toast.success(`Started downloading ${successCount} invoice PDFs.`);
+      toast.success(
+        t("companyReports", "startedDownloadingPdfs", {
+          count: successCount,
+        }),
+      );
     } catch (error) {
       console.error("Invoice PDF batch download failed:", error);
-      toast.error("Failed during invoice PDF download.", {
+      toast.error(t("companyReports", "failedInvoicePdfDownload"), {
         description:
           successCount > 0
-            ? `${successCount} files were already started before the error.`
+            ? t("companyReports", "filesStartedBeforeError", {
+                count: successCount,
+              })
             : toUserFacingErrorMessage(error),
       });
     } finally {
@@ -1211,7 +1252,7 @@ export default function CompanyReports() {
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Reports</h1>
+        <h1 className="text-2xl font-semibold">{t("companyReports", "title")}</h1>
 
         <div className="flex items-center gap-3">
           <Select value={timeRange} onValueChange={setTimeRange}>
@@ -1220,15 +1261,15 @@ export default function CompanyReports() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="30d">Last 30 days</SelectItem>
-              <SelectItem value="90d">Last 3 months</SelectItem>
-              <SelectItem value="1y">Last year</SelectItem>
+              <SelectItem value="7d">{t("companyReports", "last7Days")}</SelectItem>
+              <SelectItem value="30d">{t("companyReports", "last30Days")}</SelectItem>
+              <SelectItem value="90d">{t("companyReports", "last3Months")}</SelectItem>
+              <SelectItem value="1y">{t("companyReports", "lastYear")}</SelectItem>
             </SelectContent>
           </Select>
           <Button onClick={openExportModal} variant="outline">
             <Download className="mr-2 h-4 w-4" />
-            Export
+            {t("companyReports", "export")}
           </Button>
         </div>
       </div>
@@ -1239,10 +1280,10 @@ export default function CompanyReports() {
         onValueChange={(value) => setActiveTab(value as ReportSectionKey)}
       >
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="projects">Projects</TabsTrigger>
-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
-          <TabsTrigger value="financial">Financial</TabsTrigger>
+          <TabsTrigger value="overview">{t("companyReports", "overview")}</TabsTrigger>
+          <TabsTrigger value="projects">{t("companyReports", "projects")}</TabsTrigger>
+          <TabsTrigger value="tasks">{t("companyReports", "tasks")}</TabsTrigger>
+          <TabsTrigger value="financial">{t("companyReports", "financial")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-6">
@@ -1251,14 +1292,16 @@ export default function CompanyReports() {
               <Card className="h-full min-h-[8.75rem] bg-card">
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                   <CardTitle className="text-sm font-medium">
-                    Total Projects
+                    {t("companyReports", "totalProjects")}
                   </CardTitle>
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{totalProjects}</div>
                   <p className="text-xs text-muted-foreground">
-                    {activeProjects} currently active
+                    {t("companyReports", "currentlyActive", {
+                      count: activeProjects,
+                    })}
                   </p>
                 </CardContent>
               </Card>
@@ -1266,7 +1309,7 @@ export default function CompanyReports() {
               <Card className="h-full min-h-[8.75rem] bg-card">
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                   <CardTitle className="text-sm font-medium">
-                    Total Budget
+                    {t("companyReports", "totalBudget")}
                   </CardTitle>
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
@@ -1275,7 +1318,7 @@ export default function CompanyReports() {
                     {formatMoney(totalBudget)}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Across the full project portfolio
+                    {t("companyReports", "fullPortfolio")}
                   </p>
                 </CardContent>
               </Card>
@@ -1283,7 +1326,7 @@ export default function CompanyReports() {
               <Card className="h-full min-h-[8.75rem] bg-card">
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                   <CardTitle className="text-sm font-medium">
-                    Task Completion
+                    {t("companyReports", "completionRate")}
                   </CardTitle>
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
@@ -1292,7 +1335,10 @@ export default function CompanyReports() {
                     {completionRate.toFixed(1)}%
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {completedTasks} completed, {inProgressTasks} in progress
+                    {t("companyReports", "taskCompletionSummary", {
+                      completed: completedTasks,
+                      inProgress: inProgressTasks,
+                    })}
                   </p>
                 </CardContent>
               </Card>
@@ -1300,7 +1346,7 @@ export default function CompanyReports() {
               <Card className="h-full min-h-[8.75rem] bg-card">
                 <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                   <CardTitle className="text-sm font-medium">
-                    Overdue Tasks
+                    {t("companyReports", "overdueTasks")}
                   </CardTitle>
                   <Clock className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
@@ -1308,10 +1354,10 @@ export default function CompanyReports() {
                   <div className="text-2xl font-bold">{overdueTasks}</div>
                   <p className="text-xs text-muted-foreground">
                     {overdueTasks > 0 ? (
-                      <span className="text-destructive">Action required</span>
+                      <span className="text-destructive">{t("companyReports", "actionRequired")}</span>
                     ) : (
                       <span className="text-foreground">
-                        No delays detected
+                        {t("companyReports", "noDelaysDetected")}
                       </span>
                     )}
                   </p>
@@ -1321,27 +1367,27 @@ export default function CompanyReports() {
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <FinancialCard
-                title="Active Team Members"
+                title={t("companyReports", "activeTeamMembers")}
                 value={String(teamMembersCount)}
-                subtitle="Current organization members"
+                subtitle={t("companyReports", "currentMembers")}
                 icon={<Users className="h-4 w-4 text-muted-foreground" />}
               />
               <FinancialCard
-                title="New Projects"
+                title={t("companyReports", "newProjects")}
                 value={String(recentProjectsCount)}
-                subtitle={timeRangeConfig.label}
+                subtitle={timeRangeLabel}
                 icon={<FolderPlus className="h-4 w-4 text-muted-foreground" />}
               />
               <FinancialCard
-                title="Recorded Activity"
+                title={t("companyReports", "recordedActivity")}
                 value={String(activityMetrics?.activityEvents ?? 0)}
-                subtitle={timeRangeConfig.label}
+                subtitle={timeRangeLabel}
                 icon={<Activity className="h-4 w-4 text-muted-foreground" />}
               />
               <FinancialCard
-                title="Active Collaborators"
+                title={t("companyReports", "activeCollaborators")}
                 value={String(activityMetrics?.activeCollaborators ?? 0)}
-                subtitle={timeRangeConfig.label}
+                subtitle={timeRangeLabel}
                 icon={<Users className="h-4 w-4 text-muted-foreground" />}
               />
             </div>
@@ -1352,9 +1398,9 @@ export default function CompanyReports() {
           <div className="flex flex-col gap-6">
             <Card className="bg-card">
               <CardHeader>
-                <CardTitle>Project Status Distribution</CardTitle>
+                <CardTitle>{t("companyReports", "projectStatusDistribution")}</CardTitle>
                 <CardDescription>
-                  Breakdown of projects by current status
+                  {t("companyReports", "projectStatusDescription")}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1400,9 +1446,9 @@ export default function CompanyReports() {
 
             <Card className="bg-card">
               <CardHeader>
-                <CardTitle>All Projects</CardTitle>
+                <CardTitle>{t("companyReports", "allProjects")}</CardTitle>
                 <CardDescription>
-                  Progress, budget, and schedule overview
+                  {t("companyReports", "allProjectsDescription")}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1443,7 +1489,7 @@ export default function CompanyReports() {
                             <div className="flex flex-col gap-2">
                               <div className="flex items-center justify-between text-sm">
                                 <span className="text-muted-foreground">
-                                  Progress
+                                  {t("companyReports", "progress")}
                                 </span>
                                 <span className="font-medium">
                                   {Math.round(progress)}%
@@ -1456,22 +1502,28 @@ export default function CompanyReports() {
                                 />
                               </div>
                               <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                <span>{projectTasks.length} tasks</span>
+                                <span>
+                                  {t("companyReports", "tasksCount", {
+                                    count: projectTasks.length,
+                                  })}
+                                </span>
                                 {typeof project.budget === "number" ? (
                                   <span>
-                                    Budget:{" "}
-                                    {formatMoney(
-                                      project.budget,
-                                      project.currency || activeCurrency,
-                                    )}
+                                    {t("companyReports", "budgetWithValue", {
+                                      value: formatMoney(
+                                        project.budget,
+                                        project.currency || activeCurrency,
+                                      ),
+                                    })}
                                   </span>
                                 ) : null}
                                 {project.startDate ? (
                                   <span>
-                                    Start:{" "}
-                                    {new Date(
-                                      project.startDate,
-                                    ).toLocaleDateString()}
+                                    {t("companyReports", "startWithDate", {
+                                      date: new Date(
+                                        project.startDate,
+                                      ).toLocaleDateString(),
+                                    })}
                                   </span>
                                 ) : null}
                               </div>
@@ -1481,7 +1533,7 @@ export default function CompanyReports() {
                       })
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
-                      No projects yet
+                      {t("companyReports", "noProjectsYet")}
                     </div>
                   )}
                 </div>
@@ -1494,8 +1546,8 @@ export default function CompanyReports() {
           <div className="flex flex-col gap-6">
             <Card className="bg-card">
               <CardHeader>
-                <CardTitle>Task Status Breakdown</CardTitle>
-                <CardDescription>Current status of all tasks</CardDescription>
+                <CardTitle>{t("companyReports", "taskStatusBreakdown")}</CardTitle>
+                <CardDescription>{t("companyReports", "taskStatusDescription")}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col gap-4">
@@ -1535,10 +1587,10 @@ export default function CompanyReports() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <AlertCircle className="h-5 w-5 text-destructive" />
-                    Overdue Tasks
+                    {t("companyReports", "overdueTasks")}
                   </CardTitle>
                   <CardDescription>
-                    Tasks that need immediate attention
+                    {t("companyReports", "overdueTasksDescription")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -1552,10 +1604,11 @@ export default function CompanyReports() {
                           <p className="font-medium">{task.title}</p>
                           <p className="text-xs text-muted-foreground">
                             {projectById.get(String(task.projectId))?.name} •
-                            Due{" "}
-                            {new Date(
-                              (task.endDate || task.startDate)!,
-                            ).toLocaleDateString()}
+                            {t("companyReports", "dueWithDate", {
+                              date: new Date(
+                                (task.endDate || task.startDate)!,
+                              ).toLocaleDateString(),
+                            })}
                           </p>
                         </div>
                         <Badge
@@ -1565,7 +1618,7 @@ export default function CompanyReports() {
                               : "secondary"
                           }
                         >
-                          {task.priority || "medium"}
+                          {task.priority || t("companyReports", "medium")}
                         </Badge>
                       </div>
                     ))}
@@ -1580,27 +1633,34 @@ export default function CompanyReports() {
           <div className="flex flex-col gap-6">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <FinancialCard
-                title="Total Budget"
+                title={t("companyReports", "totalBudget")}
                 value={formatMoney(totalBudget)}
-                subtitle={`Across ${totalProjects} projects`}
+                subtitle={t("companyReports", "acrossProjects", {
+                  count: totalProjects,
+                })}
                 icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
               />
               <FinancialCard
-                title="Shopping List"
+                title={t("companyReports", "shoppingList")}
                 value={formatMoney(totalShoppingCost)}
-                subtitle={`${shoppingList.length} items planned`}
+                subtitle={t("companyReports", "plannedItems", {
+                  count: shoppingList.length,
+                })}
                 icon={<BarChart3 className="h-4 w-4 text-muted-foreground" />}
               />
               <FinancialCard
-                title="Ordered Items"
+                title={t("companyReports", "orderedItems")}
                 value={formatMoney(orderedShoppingCost)}
-                subtitle="Already ordered/delivered"
+                subtitle={t("companyReports", "alreadyOrderedDelivered")}
                 icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />}
               />
               <FinancialCard
-                title="Issued Invoices"
+                title={t("companyReports", "issuedInvoices")}
                 value={String(invoiceTotals.invoiceCount)}
-                subtitle={`${invoiceTotals.paidCount} paid • ${invoiceTotals.openCount} open`}
+                subtitle={t("companyReports", "paidOpenSummary", {
+                  paid: invoiceTotals.paidCount,
+                  open: invoiceTotals.openCount,
+                })}
                 icon={<Receipt className="h-4 w-4 text-muted-foreground" />}
               />
             </div>
@@ -1608,9 +1668,9 @@ export default function CompanyReports() {
             <Card className="bg-card">
               <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <CardTitle>Invoices Across All Projects</CardTitle>
+                  <CardTitle>{t("companyReports", "invoicesAcrossProjects")}</CardTitle>
                   <CardDescription>
-                    Issued invoices register with organization totals
+                    {t("companyReports", "invoicesAcrossProjectsDescription")}
                   </CardDescription>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -1623,8 +1683,8 @@ export default function CompanyReports() {
                   >
                     <FileText className="mr-2 h-4 w-4" />
                     {isExportingInvoicesCsv
-                      ? "Exporting CSV..."
-                      : "Export invoices CSV"}
+                      ? t("companyReports", "exportingCsv")
+                      : t("companyReports", "exportInvoicesCsv")}
                   </Button>
                   <Button
                     onClick={() => void handleInvoicePdfBatchDownload()}
@@ -1635,15 +1695,15 @@ export default function CompanyReports() {
                   >
                     <Download className="mr-2 h-4 w-4" />
                     {isDownloadingInvoicePdfs
-                      ? "Preparing PDFs..."
-                      : "Download all PDFs"}
+                      ? t("companyReports", "preparingPdfs")
+                      : t("companyReports", "downloadAllPdfs")}
                   </Button>
                 </div>
               </CardHeader>
               <CardContent className="flex flex-col gap-6">
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                   <FinancialCard
-                    title="Paid"
+                    title={t("companyReports", "paid")}
                     value={String(invoiceTotals.paidCount)}
                     subtitle={summarizeCurrencyValues(
                       invoiceCurrencySummary,
@@ -1652,7 +1712,7 @@ export default function CompanyReports() {
                     icon={<Receipt className="h-4 w-4 text-muted-foreground" />}
                   />
                   <FinancialCard
-                    title="Open"
+                    title={t("companyReports", "open")}
                     value={String(invoiceTotals.openCount)}
                     subtitle={summarizeCurrencyValues(
                       invoiceCurrencySummary,
@@ -1661,7 +1721,7 @@ export default function CompanyReports() {
                     icon={<Clock className="h-4 w-4 text-muted-foreground" />}
                   />
                   <FinancialCard
-                    title="Overdue"
+                    title={t("companyReports", "overdue")}
                     value={String(invoiceTotals.overdueCount)}
                     subtitle={summarizeCurrencyValues(
                       invoiceCurrencySummary,
@@ -1673,7 +1733,9 @@ export default function CompanyReports() {
                   />
                   <FinancialCard
                     title={
-                      hasMultipleInvoiceCurrencies ? "Currencies" : "Issued"
+                      hasMultipleInvoiceCurrencies
+                        ? t("companyReports", "currencies")
+                        : t("companyReports", "issued")
                     }
                     value={
                       hasMultipleInvoiceCurrencies
@@ -1690,7 +1752,7 @@ export default function CompanyReports() {
                               primaryInvoiceCurrencySummary.total,
                               primaryInvoiceCurrencySummary.currency,
                             )
-                          : "No data"
+                          : t("companyReports", "noData")
                     }
                     icon={
                       <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -1708,20 +1770,22 @@ export default function CompanyReports() {
                         <div className="flex items-center justify-between gap-3">
                           <p className="font-medium">{entry.currency}</p>
                           <Badge variant="outline">
-                            {entry.invoiceCount} invoices
+                            {t("companyReports", "invoicesCount", {
+                              count: entry.invoiceCount,
+                            })}
                           </Badge>
                         </div>
                         <div className="mt-3 flex flex-col gap-1 text-sm">
                           <div className="flex items-center justify-between gap-3">
                             <span className="text-muted-foreground">
-                              Issued
+                              {t("companyReports", "issued")}
                             </span>
                             <span className="font-medium">
                               {formatInvoiceMoney(entry.total, entry.currency)}
                             </span>
                           </div>
                           <div className="flex items-center justify-between gap-3">
-                            <span className="text-muted-foreground">Paid</span>
+                            <span className="text-muted-foreground">{t("companyReports", "paid")}</span>
                             <span className="font-medium">
                               {formatInvoiceMoney(
                                 entry.paidTotal,
@@ -1731,7 +1795,7 @@ export default function CompanyReports() {
                           </div>
                           <div className="flex items-center justify-between gap-3">
                             <span className="text-muted-foreground">
-                              Outstanding
+                              {t("companyReports", "outstanding")}
                             </span>
                             <span className="font-medium">
                               {formatInvoiceMoney(
@@ -1742,7 +1806,7 @@ export default function CompanyReports() {
                           </div>
                           <div className="flex items-center justify-between gap-3">
                             <span className="text-muted-foreground">
-                              Overdue
+                              {t("companyReports", "overdue")}
                             </span>
                             <span className="font-medium">
                               {formatInvoiceMoney(
@@ -1759,12 +1823,12 @@ export default function CompanyReports() {
 
                 <div className="rounded-lg border border-border/70 bg-secondary/70">
                   <div className="grid grid-cols-[1.3fr_1.1fr_1fr_0.8fr_0.9fr_0.9fr] gap-3 border-b border-border/70 px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    <span>Invoice</span>
-                    <span>Project / Customer</span>
-                    <span>Status</span>
-                    <span>Total</span>
-                    <span>Issued</span>
-                    <span>Due</span>
+                    <span>{t("companyReports", "invoice")}</span>
+                    <span>{t("companyReports", "projectCustomer")}</span>
+                    <span>{t("companyReports", "status")}</span>
+                    <span>{t("companyReports", "total")}</span>
+                    <span>{t("companyReports", "issued")}</span>
+                    <span>{t("companyReports", "due")}</span>
                   </div>
                   <div className="divide-y divide-border/70">
                     {issuedInvoices.length > 0 ? (
@@ -1784,7 +1848,7 @@ export default function CompanyReports() {
                           <div className="min-w-0">
                             <p className="truncate">{invoice.projectName}</p>
                             <p className="truncate text-xs text-muted-foreground">
-                              {invoice.customerName || "No customer"}
+                              {invoice.customerName || t("companyReports", "noCustomer")}
                             </p>
                           </div>
                           <div className="flex min-w-0 items-center gap-2">
@@ -1800,7 +1864,7 @@ export default function CompanyReports() {
                               {invoice.status.toUpperCase()}
                             </Badge>
                             {invoice.hasInvoicePdf ? (
-                              <Badge variant="outline">PDF</Badge>
+                              <Badge variant="outline">{t("companyReports", "pdf")}</Badge>
                             ) : null}
                           </div>
                           <p className="font-medium">
@@ -1825,7 +1889,7 @@ export default function CompanyReports() {
                       ))
                     ) : (
                       <div className="px-4 py-8 text-sm text-muted-foreground">
-                        No issued invoices yet.
+                        {t("companyReports", "noIssuedInvoicesYet")}
                       </div>
                     )}
                   </div>
@@ -1835,9 +1899,9 @@ export default function CompanyReports() {
 
             <Card className="bg-card">
               <CardHeader>
-                <CardTitle>Shopping List by Status</CardTitle>
+                <CardTitle>{t("companyReports", "shoppingByStatus")}</CardTitle>
                 <CardDescription>
-                  Items and cost by realization status
+                  {t("companyReports", "shoppingByStatusDescription")}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1858,14 +1922,18 @@ export default function CompanyReports() {
                           >
                             {entry.status}
                           </Badge>
-                          <span className="text-sm">{entry.count} items</span>
+                          <span className="text-sm">
+                            {t("companyReports", "itemsCount", {
+                              count: entry.count,
+                            })}
+                          </span>
                         </div>
                         <p className="font-bold">{formatMoney(entry.total)}</p>
                       </div>
                     ))
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
-                      No shopping list items yet
+                      {t("companyReports", "noShoppingItemsYet")}
                     </div>
                   )}
                 </div>
@@ -1874,8 +1942,8 @@ export default function CompanyReports() {
 
             <Card className="bg-card">
               <CardHeader>
-                <CardTitle>Budget Overview</CardTitle>
-                <CardDescription>Top projects by budget</CardDescription>
+                <CardTitle>{t("companyReports", "budgetOverview")}</CardTitle>
+                <CardDescription>{t("companyReports", "topProjectsByBudget")}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col gap-4">
@@ -1925,7 +1993,7 @@ export default function CompanyReports() {
           }))
         }
         onSelectCurrentSection={applyCurrentTabSelection}
-        timeRangeLabel={timeRangeConfig.label}
+        timeRangeLabel={timeRangeLabel}
       />
     </div>
   );

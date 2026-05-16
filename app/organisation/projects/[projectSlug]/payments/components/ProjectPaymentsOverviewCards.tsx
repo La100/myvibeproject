@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useI18n } from "@/lib/i18n";
 import { formatCurrency } from "@/lib/utils";
 
 type ProjectPaymentsOverviewCardsProps = {
@@ -37,12 +38,14 @@ export function ProjectPaymentsOverviewCards({
   outstandingTotal,
   overdueCount,
 }: ProjectPaymentsOverviewCardsProps) {
+  const { t } = useI18n();
+
   return (
     <div className="grid gap-2.5 md:grid-cols-4">
-      <OverviewCard title="Scheduled" value={formatCurrency(scheduledTotal || 0, currency)} />
-      <OverviewCard title="Collected" value={formatCurrency(collectedTotal || 0, currency)} />
-      <OverviewCard title="Outstanding" value={formatCurrency(outstandingTotal || 0, currency)} />
-      <OverviewCard title="Overdue" value={String(overdueCount || 0)} />
+      <OverviewCard title={t("projectPayments", "scheduled")} value={formatCurrency(scheduledTotal || 0, currency)} />
+      <OverviewCard title={t("projectPayments", "collected")} value={formatCurrency(collectedTotal || 0, currency)} />
+      <OverviewCard title={t("projectPayments", "outstanding")} value={formatCurrency(outstandingTotal || 0, currency)} />
+      <OverviewCard title={t("projectPayments", "overdue")} value={String(overdueCount || 0)} />
     </div>
   );
 }

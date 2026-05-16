@@ -16,6 +16,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { ImagePlus, Loader2, Plus, Upload, WandSparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useI18n } from "@/lib/i18n";
 
 interface AddProductFormProps {
   teamId: Id<"teams">;
@@ -66,6 +67,7 @@ export function AddProductForm({
   currencySymbol = "zł",
   cancelHref = "/organisation/product-library",
 }: AddProductFormProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const { user } = useUser();
   const createProduct = useMutation(apiAny.productLibrary.createProduct);
@@ -128,7 +130,7 @@ export function AddProductForm({
     try {
       normalizedUrl = normalizeUrl(rawUrl);
     } catch {
-      toast.error("Invalid product URL");
+      toast.error(t("productLibrary", "invalidProductUrl"));
       return;
     }
 
@@ -152,7 +154,7 @@ export function AddProductForm({
       };
 
       if (!response.ok) {
-        throw new Error(payload.message || "Failed to scrape product details");
+        throw new Error(payload.message || t("productLibrary", "couldNotImport"));
       }
 
       if (payload.name) setField("name", payload.name);
@@ -166,9 +168,9 @@ export function AddProductForm({
       if (payload.imageUrl) setField("imageUrl", payload.imageUrl);
       if (payload.productLink) setField("productLink", payload.productLink);
 
-      toast.success("Product details imported from URL");
+      toast.success(t("productLibrary", "importSuccess"));
     } catch (error) {
-      toast.error("Could not import product details", {
+      toast.error(t("productLibrary", "couldNotImport"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -178,12 +180,12 @@ export function AddProductForm({
 
   const handleImageUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) {
-      toast.error("Please choose an image file");
+      toast.error(t("productLibrary", "pleaseChooseImage"));
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be smaller than 5 MB");
+      toast.error(t("productLibrary", "imageMustBeSmaller"));
       return;
     }
 
@@ -196,8 +198,8 @@ export function AddProductForm({
 
       if (optimized.optimized) {
         const savedKb = Math.max(1, Math.round((optimized.originalSize - optimized.file.size) / 1024));
-        toast.success("Image optimized", {
-          description: `Reduced by about ${savedKb} KB before upload.`,
+        toast.success(t("productLibrary", "imageOptimized"), {
+          description: t("productLibrary", "reducedByKb").replace("{kb}", String(savedKb)),
         });
       }
     } catch {
@@ -228,9 +230,9 @@ export function AddProductForm({
       }
 
       setField("imageUrl", uploadData.publicUrl);
-      toast.success("Image uploaded");
+      toast.success(t("productLibrary", "imageUploaded"));
     } catch (error) {
-      toast.error("Failed to upload image", {
+      toast.error(t("productLibrary", "failedUploadImage"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -254,12 +256,12 @@ export function AddProductForm({
     event.preventDefault();
 
     if (!formData.name.trim()) {
-      toast.error("Product name is required");
+      toast.error(t("productLibrary", "productNameRequired"));
       return;
     }
 
     if (!user?.id) {
-      toast.error("User session is not ready yet");
+      toast.error(t("productLibrary", "userSessionNotReady"));
       return;
     }
 
@@ -268,13 +270,13 @@ export function AddProductForm({
       try {
         normalizedProductLink = normalizeUrl(formData.productLink);
       } catch {
-        toast.error("Invalid product URL");
+        toast.error(t("productLibrary", "invalidProductUrl"));
         return;
       }
     }
 
     if (isImageBusy) {
-      toast.error("Wait for the image upload to finish");
+      toast.error(t("productLibrary", "uploadWait"));
       return;
     }
 
@@ -283,7 +285,7 @@ export function AddProductForm({
       formData.unitPrice.trim() &&
       (typeof parsedUnitPrice !== "number" || !Number.isFinite(parsedUnitPrice) || parsedUnitPrice < 0)
     ) {
-      toast.error("Enter a valid price");
+      toast.error(t("productLibrary", "validPrice"));
       return;
     }
 
@@ -292,7 +294,7 @@ export function AddProductForm({
       formData.weight.trim() &&
       (typeof parsedWeight !== "number" || !Number.isFinite(parsedWeight) || parsedWeight < 0)
     ) {
-      toast.error("Enter a valid weight");
+      toast.error(t("productLibrary", "validWeight"));
       return;
     }
 
@@ -321,11 +323,11 @@ export function AddProductForm({
         createdBy: user.id,
       });
 
-      toast.success("Product added successfully");
+      toast.success(t("productLibrary", "productAdded"));
       router.push("/organisation/product-library");
     } catch (error) {
       console.error("Error creating product:", error);
-      toast.error("Failed to add product", {
+      toast.error(t("productLibrary", "failedAddProduct"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -337,16 +339,16 @@ export function AddProductForm({
     <form onSubmit={handleSubmit} className="mx-auto flex w-full max-w-4xl flex-col gap-10">
       <section className="flex flex-col gap-5">
         <div>
-          <h2 className="text-lg font-semibold">Overview</h2>
+          <h2 className="text-lg font-semibold">{t("productLibrary", "overview")}</h2>
           <p className="text-sm text-muted-foreground">
-            Core product details visible in your team library.
+            {t("productLibrary", "coreDetailsDescription")}
           </p>
         </div>
 
         <div className="flex flex-col gap-5 rounded-lg border bg-card p-6">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="name">Product name</Label>
+              <Label htmlFor="name">{t("productLibrary", "productName")}</Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -357,7 +359,7 @@ export function AddProductForm({
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="category">Category</Label>
+              <Label htmlFor="category">{t("productLibrary", "category")}</Label>
               <Input
                 id="category"
                 value={formData.category}
@@ -367,35 +369,35 @@ export function AddProductForm({
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="brand">Brand</Label>
+              <Label htmlFor="brand">{t("productLibrary", "brand")}</Label>
               <Input
                 id="brand"
                 value={formData.brand}
                 onChange={(event) => setField("brand", event.target.value)}
-                placeholder="Brand name"
+                placeholder={t("productLibrary", "brandName")}
               />
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="model">Model</Label>
+              <Label htmlFor="model">{t("productLibrary", "model")}</Label>
               <Input
                 id="model"
                 value={formData.model}
                 onChange={(event) => setField("model", event.target.value)}
-                placeholder="Model"
+                placeholder={t("productLibrary", "model")}
               />
             </div>
           </div>
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="description">
-              Description <span className="font-normal text-muted-foreground">(Optional)</span>
+              {t("productLibrary", "descriptionOptional")}
             </Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(event) => setField("description", event.target.value)}
-              placeholder="Describe the product, finish, intended use or standout details"
+              placeholder={t("productLibrary", "descriptionPlaceholder")}
               rows={4}
               className="resize-none"
             />
@@ -405,9 +407,9 @@ export function AddProductForm({
 
       <section className="flex flex-col gap-5">
         <div>
-          <h2 className="text-lg font-semibold">Product image</h2>
+          <h2 className="text-lg font-semibold">{t("productLibrary", "productImage")}</h2>
           <p className="text-sm text-muted-foreground">
-            Upload a photo directly or paste a source image URL if you already have one.
+            {t("productLibrary", "productImageDescription")}
           </p>
         </div>
 
@@ -435,10 +437,10 @@ export function AddProductForm({
                 <ImagePlus className="mr-2 h-4 w-4" />
               )}
               {isOptimizingImage
-                ? "Optimizing..."
+                ? t("productLibrary", "optimizing")
                 : isUploadingImage
-                  ? "Uploading..."
-                  : "Upload image"}
+                  ? t("productLibrary", "uploading")
+                  : t("productLibrary", "uploadImage")}
             </Button>
 
             {hasImage ? (
@@ -449,7 +451,7 @@ export function AddProductForm({
                 disabled={isSubmitting || isScraping || isImageBusy}
               >
                 <X className="mr-2 h-4 w-4" />
-                Remove image
+                {t("productLibrary", "removeImage")}
               </Button>
             ) : null}
           </div>
@@ -458,7 +460,7 @@ export function AddProductForm({
             <div className="overflow-hidden rounded-lg border bg-secondary/70">
               <img
                 src={formData.imageUrl}
-                alt="Product preview"
+                alt={t("productLibrary", "productPreview")}
                 className="h-64 w-full object-cover"
               />
             </div>
@@ -466,9 +468,9 @@ export function AddProductForm({
             <div className="flex min-h-56 items-center justify-center rounded-lg border border-dashed bg-secondary/70 px-6 text-center">
               <div className="max-w-sm flex flex-col gap-2">
                 <Upload className="mx-auto h-5 w-5 text-muted-foreground" />
-                <p className="text-sm font-medium">No image selected yet</p>
+                <p className="text-sm font-medium">{t("productLibrary", "noImageSelected")}</p>
                 <p className="text-sm text-muted-foreground">
-                  Uploaded images are compressed automatically before sending.
+                  {t("productLibrary", "uploadCompressed")}
                 </p>
               </div>
             </div>
@@ -476,7 +478,7 @@ export function AddProductForm({
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="imageUrl">
-              Direct image URL <span className="font-normal text-muted-foreground">(Optional)</span>
+              {t("productLibrary", "directImageUrl")}
             </Label>
             <Input
               id="imageUrl"
@@ -485,7 +487,7 @@ export function AddProductForm({
               placeholder="https://..."
             />
             <p className="text-xs text-muted-foreground">
-              Use this only when you want to link an existing hosted image instead of uploading a file.
+              {t("productLibrary", "directImageUrlHelp")}
             </p>
           </div>
         </div>
@@ -493,15 +495,15 @@ export function AddProductForm({
 
       <section className="flex flex-col gap-5">
         <div>
-          <h2 className="text-lg font-semibold">Sourcing</h2>
+          <h2 className="text-lg font-semibold">{t("productLibrary", "sourcing")}</h2>
           <p className="text-sm text-muted-foreground">
-            Store supplier, pricing and purchase data for reuse in projects.
+            {t("productLibrary", "sourcingDescription")}
           </p>
         </div>
 
         <div className="flex flex-col gap-5 rounded-lg border bg-card p-6">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="productLink">Product link</Label>
+            <Label htmlFor="productLink">{t("productLibrary", "productLink")}</Label>
             <div className="flex flex-col gap-3 md:flex-row">
               <Input
                 id="productLink"
@@ -522,37 +524,37 @@ export function AddProductForm({
                 ) : (
                   <WandSparkles className="mr-2 h-4 w-4" />
                 )}
-                {isScraping ? "Scraping..." : "Auto-fill"}
+                {isScraping ? t("productLibrary", "scraping") : t("productLibrary", "autoFill")}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Paste a vendor URL and use auto-fill to import available product data.
+              {t("productLibrary", "pasteVendorUrl")}
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="supplier">Supplier</Label>
+              <Label htmlFor="supplier">{t("productLibrary", "supplier")}</Label>
               <Input
                 id="supplier"
                 value={formData.supplier}
                 onChange={(event) => setField("supplier", event.target.value)}
-                placeholder="Supplier name"
+                placeholder={t("productLibrary", "supplierName")}
               />
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="supplierSku">Supplier SKU</Label>
+              <Label htmlFor="supplierSku">{t("productLibrary", "supplierSku")}</Label>
               <Input
                 id="supplierSku"
                 value={formData.supplierSku}
                 onChange={(event) => setField("supplierSku", event.target.value)}
-                placeholder="Supplier SKU"
+                placeholder={t("productLibrary", "supplierSku")}
               />
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="sku">Internal SKU</Label>
+              <Label htmlFor="sku">{t("productLibrary", "internalSku")}</Label>
               <Input
                 id="sku"
                 value={formData.sku}
@@ -562,7 +564,9 @@ export function AddProductForm({
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="unitPrice">Price ({currencySymbol})</Label>
+              <Label htmlFor="unitPrice">
+                {t("productLibrary", "priceWithCurrency").replace("{currency}", currencySymbol)}
+              </Label>
               <Input
                 id="unitPrice"
                 type="number"
@@ -579,16 +583,16 @@ export function AddProductForm({
 
       <section className="flex flex-col gap-5">
         <div>
-          <h2 className="text-lg font-semibold">Specifications</h2>
+          <h2 className="text-lg font-semibold">{t("productLibrary", "specifications")}</h2>
           <p className="text-sm text-muted-foreground">
-            Capture the practical details your team needs during planning and purchasing.
+            {t("productLibrary", "specificationsDescription")}
           </p>
         </div>
 
         <div className="flex flex-col gap-5 rounded-lg border bg-card p-6">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="dimensions">Dimensions</Label>
+              <Label htmlFor="dimensions">{t("productLibrary", "dimensions")}</Label>
               <Input
                 id="dimensions"
                 value={formData.dimensions}
@@ -598,7 +602,7 @@ export function AddProductForm({
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="weight">Weight (kg)</Label>
+              <Label htmlFor="weight">{t("productLibrary", "weightKg")}</Label>
               <Input
                 id="weight"
                 type="number"
@@ -611,22 +615,22 @@ export function AddProductForm({
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="material">Material</Label>
+              <Label htmlFor="material">{t("productLibrary", "material")}</Label>
               <Input
                 id="material"
                 value={formData.material}
                 onChange={(event) => setField("material", event.target.value)}
-                placeholder="Wood, metal, plastic..."
+                placeholder={t("productLibrary", "materialPlaceholder")}
               />
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="color">Color</Label>
+              <Label htmlFor="color">{t("productLibrary", "color")}</Label>
               <Input
                 id="color"
                 value={formData.color}
                 onChange={(event) => setField("color", event.target.value)}
-                placeholder="White, black, natural..."
+                placeholder={t("productLibrary", "colorPlaceholder")}
               />
             </div>
           </div>
@@ -635,21 +639,21 @@ export function AddProductForm({
 
       <section className="flex flex-col gap-5">
         <div>
-          <h2 className="text-lg font-semibold">Tags & notes</h2>
+          <h2 className="text-lg font-semibold">{t("productLibrary", "tagsAndNotes")}</h2>
           <p className="text-sm text-muted-foreground">
-            Add shortcuts for search and any extra implementation notes for the team.
+            {t("productLibrary", "tagsAndNotesDescription")}
           </p>
         </div>
 
         <div className="flex flex-col gap-5 rounded-lg border bg-card p-6">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="tagInput">Tags</Label>
+            <Label htmlFor="tagInput">{t("productLibrary", "tags")}</Label>
             <div className="flex flex-col gap-3 md:flex-row">
               <Input
                 id="tagInput"
                 value={tagInput}
                 onChange={(event) => setTagInput(event.target.value)}
-                placeholder="Add a tag"
+                placeholder={t("productLibrary", "tagPlaceholder")}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
@@ -660,7 +664,7 @@ export function AddProductForm({
               />
               <Button type="button" variant="outline" onClick={addTag} className="md:min-w-28">
                 <Plus className="mr-2 h-4 w-4" />
-                Add tag
+                {t("productLibrary", "addTag")}
               </Button>
             </div>
 
@@ -673,7 +677,7 @@ export function AddProductForm({
                       type="button"
                       onClick={() => removeTag(tag)}
                       className="rounded-full p-0.5 transition-colors hover:bg-black/10"
-                      aria-label={`Remove ${tag}`}
+                      aria-label={t("productLibrary", "removeTag").replace("{tag}", tag)}
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -685,13 +689,13 @@ export function AddProductForm({
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="notes">
-              Additional notes <span className="font-normal text-muted-foreground">(Optional)</span>
+              {t("productLibrary", "additionalNotes")}
             </Label>
             <Textarea
               id="notes"
               value={formData.notes}
               onChange={(event) => setField("notes", event.target.value)}
-              placeholder="Additional notes, installation guidance or procurement context..."
+              placeholder={t("productLibrary", "additionalNotesPlaceholder")}
               rows={4}
               className="resize-none"
             />
@@ -701,13 +705,13 @@ export function AddProductForm({
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
         <Button asChild type="button" variant="outline">
-          <Link href={cancelHref}>Cancel</Link>
+          <Link href={cancelHref}>{t("productLibrary", "cancel")}</Link>
         </Button>
         <Button
           type="submit"
           disabled={isSubmitting || isScraping || isImageBusy || !formData.name.trim()}
         >
-          {isSubmitting ? "Adding product..." : "Add product"}
+          {isSubmitting ? t("productLibrary", "addProductSubmitting") : t("productLibrary", "addProduct")}
         </Button>
       </div>
     </form>

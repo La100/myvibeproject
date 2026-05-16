@@ -61,7 +61,11 @@ import {
   GPT_IMAGE_TYPICAL_CREDITS,
   formatTokens,
 } from "@/lib/aiPricing";
-import { BILLING_PLANS, type BillingPlanKey } from "@/lib/billingPlans";
+import {
+  BILLING_PLANS,
+  type BillingCurrency,
+  type BillingPlanKey,
+} from "@/lib/billingPlans";
 import { DEFAULT_ORGANIZATION_TAX_SETTINGS } from "@/lib/organizationTax";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import {
@@ -73,6 +77,7 @@ import { trackSubscriptionConversion } from "@/lib/marketingEvents";
 import { OrganizationImagePicker } from "@/components/company/OrganizationImagePicker";
 import { BillingActionErrorDialog } from "@/components/billing/BillingActionErrorDialog";
 import { BillingPlanCard } from "@/components/billing/BillingPlanCard";
+import { useI18n } from "@/lib/i18n";
 
 type SubscriptionInvoice = {
   stripeInvoiceId: string;
@@ -124,20 +129,17 @@ const EMPTY_BILLING_PROFILE: BillingProfileForm = {
 const COMPANY_SETTINGS_SECTIONS = [
   {
     value: "general",
-    label: "General",
-    description: "Workspace identity and core organization profile.",
+    labelKey: "general",
     scope: "workspace",
   },
   {
     value: "billing",
-    label: "Invoices",
-    description: "Seller details and invoice defaults for the workspace.",
+    labelKey: "invoices",
     scope: "workspace",
   },
   {
     value: "notifications",
-    label: "My Notifications",
-    description: "Personal alerts for tasks, comments, and workflow updates.",
+    labelKey: "myNotifications",
     scope: "personal",
   },
 ] as const;
@@ -152,6 +154,7 @@ export default function CompanySettings({
 }: {
   mode?: CompanySettingsMode;
 }) {
+  const { locale, t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { organization, isLoaded } = useOrganization();
@@ -368,24 +371,23 @@ export default function CompanySettings({
               priceId: result.priceId,
             });
           }
-          toast.success("Subscription synced from Stripe.");
+          toast.success(t("companySettings", "subscriptionSynced"));
           router.refresh();
         } else if (showResult) {
-          toast.message("No active Stripe subscription found yet.", {
-            description:
-              "If payment just completed, wait a few seconds and sync again.",
+          toast.message(t("companySettings", "noActiveStripeSubscription"), {
+            description: t("companySettings", "syncAgainDescription"),
           });
         }
       } catch (error) {
         console.error("Failed to sync subscription from Stripe", error);
-        toast.error("Could not sync subscription from Stripe", {
+        toast.error(t("companySettings", "couldNotSyncSubscription"), {
           description: toUserFacingErrorMessage(error),
         });
       } finally {
         setSyncingSubscription(false);
       }
     },
-    [ensureSubscriptionSynced, router, teamData?.teamId],
+    [ensureSubscriptionSynced, router, t, teamData?.teamId],
   );
 
   // Synchronize data from backend
@@ -564,8 +566,8 @@ export default function CompanySettings({
     return (
       <AppLoadingState
         variant="section"
-        title="Opening subscription"
-        description="Preparing billing access."
+        title={t("companySettings", "openingSubscription")}
+        description={t("companySettings", "preparingBillingAccess")}
       />
     );
   }
@@ -574,8 +576,12 @@ export default function CompanySettings({
     return (
       <AppLoadingState
         variant="section"
-        title={isSubscriptionPage ? "Loading subscription" : "Loading settings"}
-        description="Loading organization data."
+        title={
+          isSubscriptionPage
+            ? t("companySettings", "loadingSubscription")
+            : t("companySettings", "loadingSettings")
+        }
+        description={t("companySettings", "loadingOrganizationData")}
       />
     );
   }
@@ -584,12 +590,14 @@ export default function CompanySettings({
     return (
       <div className="flex min-h-[70vh] items-center justify-center p-6">
         <div className="flex w-full max-w-md flex-col gap-4 text-center">
-          <h1 className="text-2xl font-semibold">Select a workspace</h1>
+          <h1 className="text-2xl font-semibold">
+            {t("companySettings", "selectWorkspace")}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            You need an active organization to access{" "}
+            {t("companySettings", "needActiveOrganization")}{" "}
             {isSubscriptionPage
-              ? "organization subscription"
-              : "organization settings"}
+              ? t("companySettings", "organizationSubscription")
+              : t("companySettings", "organizationSettings")}
             .
           </p>
           <Button
@@ -597,7 +605,7 @@ export default function CompanySettings({
             onClick={() => router.replace("/select-organization")}
             className="px-6"
           >
-            Select organization
+            {t("companySettings", "selectOrganization")}
           </Button>
         </div>
       </div>
@@ -608,8 +616,16 @@ export default function CompanySettings({
     return (
       <AppLoadingState
         variant="section"
-        title={isSubscriptionPage ? "Loading subscription" : "Loading settings"}
-        description={repairingTeamState ? "Syncing organization membership." : "Loading team settings."}
+        title={
+          isSubscriptionPage
+            ? t("companySettings", "loadingSubscription")
+            : t("companySettings", "loadingSettings")
+        }
+        description={
+          repairingTeamState
+            ? t("companySettings", "syncingOrganizationMembership")
+            : t("companySettings", "loadingTeamSettings")
+        }
       />
     );
   }
@@ -619,30 +635,31 @@ export default function CompanySettings({
       <div className="flex items-center justify-center min-h-[60vh]">
         <Card className="max-w-lg w-full border-border/40 bg-card">
           <CardHeader>
-            <CardTitle>Couldn&apos;t load organization settings</CardTitle>
+            <CardTitle>{t("companySettings", "couldNotLoadSettings")}</CardTitle>
             <CardDescription>
-              The app couldn&apos;t find your team membership for this
-              organization.
+              {t("companySettings", "couldNotFindMembership")}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <p className="text-sm text-muted-foreground">
-              Click retry to re-sync your organization and permissions.
+              {t("companySettings", "retrySyncDescription")}
             </p>
             <Button
               onClick={async () => {
                 try {
                   await repairTeamMembership();
                   toast.success(
-                    "Organization sync completed. Reloading settings...",
+                    t("companySettings", "organizationSyncCompleted"),
                   );
                 } catch {
-                  toast.error("Could not sync organization membership");
+                  toast.error(t("companySettings", "couldNotSyncMembership"));
                 }
               }}
               disabled={repairingTeamState}
             >
-              {repairingTeamState ? "Syncing..." : "Retry sync"}
+              {repairingTeamState
+                ? t("companySettings", "syncing")
+                : t("companySettings", "retrySync")}
             </Button>
           </CardContent>
         </Card>
@@ -663,8 +680,8 @@ export default function CompanySettings({
     return (
       <AppLoadingState
         variant="section"
-        title="Loading subscription"
-        description="Loading usage, invoices, and plan limits."
+        title={t("companySettings", "loadingSubscription")}
+        description={t("companySettings", "loadingUsageInvoicesLimits")}
       />
     );
   }
@@ -689,9 +706,9 @@ export default function CompanySettings({
             DEFAULT_ORGANIZATION_TAX_SETTINGS.taxLabel,
         },
       });
-      toast.success("Preferences updated successfully");
+      toast.success(t("companySettings", "preferencesUpdated"));
     } catch (error) {
-      toast.error("Failed to update preferences", {
+      toast.error(t("companySettings", "failedToUpdatePreferences"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -707,14 +724,14 @@ export default function CompanySettings({
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast.error("Please choose an image file");
+      toast.error(t("companySettings", "chooseImageFile"));
       event.target.value = "";
       return;
     }
 
     const maxSizeInBytes = 5 * 1024 * 1024;
     if (file.size > maxSizeInBytes) {
-      toast.error("Image must be smaller than 5 MB");
+      toast.error(t("companySettings", "imageTooLarge"));
       event.target.value = "";
       return;
     }
@@ -742,9 +759,9 @@ export default function CompanySettings({
         teamId: teamData.teamId,
         notificationSettings,
       });
-      toast.success("Notification preferences updated");
+      toast.success(t("companySettings", "notificationPreferencesUpdated"));
     } catch (error) {
-      toast.error("Failed to update notification preferences", {
+      toast.error(t("companySettings", "failedToUpdateNotificationPreferences"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -783,9 +800,9 @@ export default function CompanySettings({
       }
       setOrganizationImagePreviewUrl(updatedImageUrl);
       setOrganizationImageFile(null);
-      toast.success("Organization image updated");
+      toast.success(t("companySettings", "organizationImageUpdated"));
     } catch (error) {
-      toast.error("Failed to update organization image", {
+      toast.error(t("companySettings", "failedToUpdateOrganizationImage"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -807,13 +824,13 @@ export default function CompanySettings({
 
     const trimmedName = organizationNameDraft.trim();
     if (!trimmedName) {
-      toast.error("Organization name cannot be empty");
+      toast.error(t("companySettings", "organizationNameEmpty"));
       setOrganizationNameDraft(organization.name || teamData.name || "");
       return;
     }
 
     if (trimmedName.length < 2) {
-      toast.error("Enter at least 2 characters for organization name.");
+      toast.error(t("companySettings", "organizationNameMinLength"));
       return;
     }
 
@@ -829,11 +846,11 @@ export default function CompanySettings({
         orgName: trimmedName,
       });
       setOrganizationNameDraft(trimmedName);
-      toast.success("Organization name updated");
+      toast.success(t("companySettings", "organizationNameUpdated"));
       router.refresh();
     } catch (error) {
       console.error("Failed to update organization name", error);
-      toast.error("Failed to update organization name", {
+      toast.error(t("companySettings", "failedToUpdateOrganizationName"), {
         description: toUserFacingErrorMessage(error),
       });
       setOrganizationNameDraft(organization.name || teamData.name || "");
@@ -855,7 +872,7 @@ export default function CompanySettings({
       if (result.url) {
         window.location.href = result.url;
       } else {
-        toast.error("Failed to open billing portal");
+        toast.error(t("companySettings", "failedToOpenBillingPortal"));
       }
     } catch (error) {
       console.error("Error creating billing portal session:", error);
@@ -872,7 +889,7 @@ export default function CompanySettings({
     if (!teamData?.teamId) return;
 
     if (!priceId) {
-      toast.error("Billing plan is not configured yet.");
+      toast.error(t("companySettings", "billingPlanNotConfigured"));
       return;
     }
 
@@ -887,7 +904,7 @@ export default function CompanySettings({
       if (result.url) {
         window.location.href = result.url;
       } else {
-        toast.error("Failed to open checkout");
+        toast.error(t("companySettings", "failedToOpenCheckout"));
       }
     } catch (error) {
       console.error("Error creating checkout session:", error);
@@ -911,9 +928,9 @@ export default function CompanySettings({
           ),
         },
       });
-      toast.success("Organization billing profile updated");
+      toast.success(t("companySettings", "billingProfileUpdated"));
     } catch (error) {
-      toast.error("Failed to update billing profile", {
+      toast.error(t("companySettings", "failedToUpdateBillingProfile"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -938,21 +955,21 @@ export default function CompanySettings({
   const creditBreakdownItems = [
     {
       key: "assistant",
-      label: "AI Assistant",
+      label: t("companySettings", "aiAssistant"),
       icon: Sparkles,
       color: "text-chart-1",
       barColor: "bg-chart-1",
     },
     {
       key: "visualizations",
-      label: "Visualizations",
+      label: t("companySettings", "visualizations"),
       icon: BarChart3,
       color: "text-chart-2",
       barColor: "bg-chart-2",
     },
     {
       key: "other",
-      label: "Other",
+      label: t("companySettings", "other"),
       icon: AlertCircle,
       color: "text-chart-4",
       barColor: "bg-chart-4",
@@ -968,59 +985,100 @@ export default function CompanySettings({
   const currentPlanKey = subscription?.subscriptionPlan || "free";
   const planStatus = subscription?.subscriptionStatus;
   const canOpenPortal = Boolean(subscription?.stripeCustomerId);
+  const preferredBillingCurrency: BillingCurrency =
+    (subscription?.subscriptionCurrency as BillingCurrency | undefined) ??
+    (locale === "pl" ? "pln" : "usd");
+  const billingSeatQuantity = Math.max(
+    1,
+    Number(subscription?.billingSeatQuantity) || 1,
+  );
+  const formatBillingAmount = (amount: number, currency = preferredBillingCurrency) =>
+    new Intl.NumberFormat(locale === "pl" ? "pl-PL" : "en-US", {
+      style: "currency",
+      currency: currency.toUpperCase(),
+      maximumFractionDigits: 0,
+    }).format(amount);
   const subscriptionLabel =
     planStatus === "trialing"
-      ? "Trial"
-      : subscription?.planDetails?.name || "Free";
+      ? t("companySettings", "trial")
+      : subscription?.planDetails?.name || t("companySettings", "free");
   const subscriptionSubtext =
     planStatus === "trialing"
-      ? "Active trial subscription"
+      ? t("companySettings", "activeTrialSubscription")
       : planStatus === "active"
-        ? "Active subscription"
-        : "No active subscription";
+        ? t("companySettings", "activeSubscription")
+        : t("companySettings", "noActiveSubscription");
   const subscriptionStatusLabel =
     planStatus === "trialing"
-      ? "Trial"
+      ? t("companySettings", "trial")
       : planStatus === "active"
         ? subscription?.cancelAtPeriodEnd
-          ? "Ending"
-          : "Active"
-        : "Free";
+          ? t("companySettings", "ending")
+          : t("companySettings", "active")
+        : t("companySettings", "free");
   const subscriptionPeriodLabel = subscription?.currentPeriodEnd
-    ? `${subscription?.cancelAtPeriodEnd ? "Access until" : "Renews"} ${new Date(
-        subscription.currentPeriodEnd,
-      ).toLocaleDateString("en-US", {
+    ? t(
+        "companySettings",
+        subscription?.cancelAtPeriodEnd ? "accessUntil" : "renews",
+        {
+          date: new Date(subscription.currentPeriodEnd).toLocaleDateString(locale, {
         month: "short",
         day: "numeric",
         year: "numeric",
-      })}`
-    : "Upgrade to unlock higher AI limits and monthly credits.";
-  const checkoutPriceIds: Record<BillingPlanKey, string | null> =
+          }),
+        },
+      )
+    : t("companySettings", "upgradeToUnlockLimits");
+  const checkoutPriceIds: Record<BillingPlanKey, Record<BillingCurrency, string | null>> =
     subscription?.checkoutPlans ?? {
-      ai: null,
-      ai_scale: null,
+      core: { usd: null, pln: null },
+      ai: { usd: null, pln: null },
+      ai_scale: { usd: null, pln: null },
     };
   const currentPlanDetails = BILLING_PLANS.find(
     (plan) => plan.key === currentPlanKey,
   );
-  const currentPlanCredits = currentPlanDetails?.monthlyCredits ?? totalCredits;
+  const getBillingPlanName = (planKey: BillingPlanKey) => {
+    const planNameKeys: Record<BillingPlanKey, string> = {
+      core: "coreName",
+      ai: "aiName",
+      ai_scale: "aiScaleName",
+    };
+    return t("billingPlanCard", planNameKeys[planKey]);
+  };
+  const currentPlanCredits =
+    subscription?.limits?.aiMonthlyTokens ??
+    (currentPlanDetails?.monthlyCreditsPerUser !== undefined
+      ? currentPlanDetails.monthlyCreditsPerUser * billingSeatQuantity
+      : totalCredits);
+  const currentPlanPricePerUser =
+    currentPlanDetails?.prices?.[preferredBillingCurrency] ?? 0;
   const hasActiveSubscription =
     planStatus === "active" || planStatus === "trialing";
   const hasPaidSubscription = hasActiveSubscription && currentPlanKey !== "free";
+  const getPlanRank = (planKey: string) =>
+    BILLING_PLANS.findIndex((candidate) => candidate.key === planKey);
   const availableBillingPlans = BILLING_PLANS.map((plan) => ({
     ...plan,
-    priceId: checkoutPriceIds[plan.key] ?? undefined,
+    priceId: checkoutPriceIds[plan.key]?.[preferredBillingCurrency] ?? undefined,
   })).filter((plan) => Boolean(plan.priceId));
   const upgradeBillingPlans = availableBillingPlans.filter(
     (plan) =>
-      plan.key !== currentPlanKey && plan.monthlyCredits > currentPlanCredits,
+      plan.key !== currentPlanKey &&
+      getPlanRank(plan.key) > getPlanRank(currentPlanKey),
   );
   const visibleBillingPlans = hasPaidSubscription
     ? upgradeBillingPlans
     : availableBillingPlans;
   const recommendedPlan =
     availableBillingPlans.find(
-      (plan) => plan.key === (currentPlanKey === "ai" ? "ai_scale" : "ai"),
+      (plan) =>
+        plan.key ===
+        (currentPlanKey === "free"
+          ? "core"
+          : currentPlanKey === "core"
+            ? "ai"
+            : "ai_scale"),
     ) ||
     availableBillingPlans[0] ||
     null;
@@ -1042,17 +1100,22 @@ export default function CompanySettings({
         message={billingActionError}
         onClose={() => setBillingActionError(null)}
       />
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 py-4">
+      <div
+        className={cn(
+          "mx-auto flex w-full flex-col gap-6 py-4",
+          isSubscriptionPage ? "max-w-7xl" : "max-w-5xl",
+        )}
+      >
         {isSubscriptionPage ? (
           <div className="flex flex-col gap-2">
             <h1 className="clean-title text-4xl font-medium tracking-tight text-foreground md:text-5xl">
-              Subscription
+              {t("companySettings", "subscription")}
             </h1>
           </div>
         ) : (
           <div className="flex flex-col gap-1">
             <h1 className="clean-title text-[1.65rem] font-medium tracking-tight text-foreground md:text-[1.9rem]">
-              Settings
+              {t("companySettings", "settings")}
             </h1>
           </div>
         )}
@@ -1066,7 +1129,7 @@ export default function CompanySettings({
           >
             <div
               className={cn(
-                "flex flex-col gap-5 rounded-3xl border border-border/70 bg-card p-5 sm:p-6",
+                "flex flex-col gap-4",
                 hasPaidSubscription ? "order-3" : "order-1",
               )}
             >
@@ -1074,22 +1137,23 @@ export default function CompanySettings({
                 <div className="flex flex-col gap-2">
                   <Badge variant="secondary">
                     {hasPaidSubscription
-                      ? "Upgrade options"
-                      : "Subscription options"}
+                      ? t("companySettings", "upgradeOptions")
+                      : t("companySettings", "subscriptionOptions")}
                   </Badge>
                   <div className="flex flex-col gap-1">
                     <h2 className="text-xl font-semibold tracking-tight">
                       {hasPaidSubscription
-                        ? "Need more capacity?"
-                        : "Choose the plan for your team"}
+                        ? t("companySettings", "needMoreCapacity")
+                        : t("companySettings", "choosePlan")}
                     </h2>
                     {hasPaidSubscription ? (
                       <p className="max-w-2xl text-sm text-muted-foreground">
-                        Your current plan is active. Upgrade only if this
-                        workspace needs a higher monthly credit pool or larger
-                        team limits.
+                        {t("companySettings", "currentPlanActiveDescription")}
                       </p>
                     ) : null}
+                    <p className="max-w-2xl text-sm text-muted-foreground">
+                      {t("companySettings", "seatBillingNote")}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1097,8 +1161,10 @@ export default function CompanySettings({
               {visibleBillingPlans.length > 0 ? (
                 <div
                   className={cn(
-                    "grid gap-6",
-                    visibleBillingPlans.length > 1 && "xl:grid-cols-2",
+                    "grid gap-4",
+                    visibleBillingPlans.length === 2 && "xl:grid-cols-2",
+                    visibleBillingPlans.length > 2 &&
+                      "xl:grid-cols-3",
                   )}
                 >
                   {visibleBillingPlans.map((plan) => {
@@ -1108,10 +1174,10 @@ export default function CompanySettings({
                       recommendedPlan?.key === plan.key &&
                       currentPlanKey === "free";
                     const availabilityLabel = isCurrentPlan
-                      ? "Current plan"
+                      ? t("companySettings", "currentPlan")
                       : plan.key === "ai_scale"
-                        ? "Best value"
-                        : "Available";
+                        ? t("companySettings", "bestValue")
+                        : t("companySettings", "available");
                     const availabilityVariant =
                       isCurrentPlan || plan.key === "ai_scale"
                         ? "secondary"
@@ -1125,51 +1191,68 @@ export default function CompanySettings({
                         availabilityVariant={availabilityVariant}
                         isCurrentPlan={isCurrentPlan}
                         isRecommended={isRecommended}
+                        currency={preferredBillingCurrency}
+                        locale={locale}
+                        seatCount={billingSeatQuantity}
                         footer={
                           isCurrentPlan && canOpenPortal ? (
-                            <Button
-                              onClick={handleManageSubscription}
-                              disabled={isBillingActionPending}
-                              variant="outline"
-                              className="w-full"
-                            >
+	                            <Button
+	                              onClick={handleManageSubscription}
+	                              disabled={isBillingActionPending}
+	                              variant="outline"
+	                              className="w-full"
+	                            >
                               {billingAction === "portal" ? (
                                 <>
                                   <Loader2
                                     data-icon="inline-start"
                                     className="animate-spin"
                                   />
-                                  Opening billing...
+                                  {t("companySettings", "openingBilling")}
                                 </>
                               ) : (
                                 <>
                                   <CreditCard data-icon="inline-start" />
-                                  Manage plan
+                                  {t("companySettings", "managePlan")}
                                 </>
                               )}
                             </Button>
                           ) : canUpgradeToPlan ? (
-                            <Button
-                              onClick={() =>
-                                void handleStartCheckout(plan.key, plan.priceId)
-                              }
-                              disabled={isBillingActionPending}
-                              className="w-full"
-                            >
+	                            <Button
+	                              onClick={() =>
+	                                void handleStartCheckout(plan.key, plan.priceId)
+	                              }
+	                              disabled={isBillingActionPending}
+	                              className={cn(
+	                                "w-full",
+	                                plan.key === "ai_scale" || isRecommended
+	                                  ? "h-11"
+	                                  : "h-10",
+	                              )}
+	                              variant={
+	                                plan.key === "ai_scale" || isRecommended
+	                                  ? "default"
+	                                  : "outline"
+	                              }
+	                            >
                               {billingAction === plan.key ? (
                                 <>
                                   <Loader2
                                     data-icon="inline-start"
                                     className="animate-spin"
                                   />
-                                  Opening checkout...
+                                  {t("companySettings", "openingCheckout")}
                                 </>
                               ) : (
                                 <>
                                   <Coins data-icon="inline-start" />
                                   {currentPlanKey === "free"
-                                    ? `Choose ${plan.name}`
-                                    : `Upgrade to ${plan.name}`}
+                                    ? t("companySettings", "choosePlanName", {
+                                        plan: getBillingPlanName(plan.key),
+                                      })
+                                    : t("companySettings", "upgradeToPlanName", {
+                                        plan: getBillingPlanName(plan.key),
+                                      })}
                                 </>
                               )}
                             </Button>
@@ -1179,7 +1262,7 @@ export default function CompanySettings({
                               variant="outline"
                               className="w-full"
                             >
-                              Current selection
+                              {t("companySettings", "currentSelection")}
                             </Button>
                           )
                         }
@@ -1190,20 +1273,21 @@ export default function CompanySettings({
               ) : hasPaidSubscription ? (
                 <Alert>
                   <Check />
-                  <AlertTitle>You are on the highest available plan</AlertTitle>
+                  <AlertTitle>
+                    {t("companySettings", "highestPlanTitle")}
+                  </AlertTitle>
                   <AlertDescription>
-                    Manage billing, seats, and renewal details from the current
-                    plan section above.
+                    {t("companySettings", "highestPlanDescription")}
                   </AlertDescription>
                 </Alert>
               ) : (
                 <Alert>
                   <AlertCircle />
-                  <AlertTitle>Upgrade checkout is not configured</AlertTitle>
+                  <AlertTitle>
+                    {t("companySettings", "checkoutNotConfiguredTitle")}
+                  </AlertTitle>
                   <AlertDescription>
-                    Add `STRIPE_AI_PRICE_ID` (and optionally
-                    `STRIPE_AI_SCALE_PRICE_ID`) to enable subscription upgrades
-                    from this page.
+                    {t("companySettings", "checkoutNotConfiguredDescription")}
                   </AlertDescription>
                 </Alert>
               )}
@@ -1221,13 +1305,15 @@ export default function CompanySettings({
                     <div>
                       <CardTitle className="flex items-center gap-2 text-base font-medium">
                         <Coins className="h-4 w-4" />
-                        Credits Overview
+                        {t("companySettings", "creditsOverview")}
                       </CardTitle>
                     </div>
                     <Badge
                       variant={usagePercent >= 75 ? "secondary" : "outline"}
                     >
-                      {usagePercent}% used
+                      {t("companySettings", "percentUsed", {
+                        percent: usagePercent,
+                      })}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -1235,7 +1321,7 @@ export default function CompanySettings({
                   <div className="flex flex-col gap-5">
                     <div className="flex flex-col gap-1">
                       <p className="text-sm text-muted-foreground">
-                        Available now
+                        {t("companySettings", "availableNow")}
                       </p>
                       <div className="text-4xl font-semibold tracking-tight tabular-nums">
                         {formatTokens(remainingCredits)}
@@ -1245,7 +1331,7 @@ export default function CompanySettings({
                     <div className="grid gap-3 sm:grid-cols-3">
                       <div className="rounded-xl bg-secondary/70 p-4">
                         <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                          Used this period
+                          {t("companySettings", "usedThisPeriod")}
                         </p>
                         <p className="mt-2 text-xl font-semibold tabular-nums">
                           {formatTokens(usedCredits)}
@@ -1253,7 +1339,7 @@ export default function CompanySettings({
                       </div>
                       <div className="rounded-xl bg-secondary/70 p-4">
                         <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                          Monthly credits
+                          {t("companySettings", "monthlyCredits")}
                         </p>
                         <p className="mt-2 text-xl font-semibold tabular-nums">
                           {formatTokens(totalCredits)}
@@ -1261,7 +1347,7 @@ export default function CompanySettings({
                       </div>
                       <div className="rounded-xl bg-secondary/70 p-4">
                         <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                          Estimated per run
+                          {t("companySettings", "estimatedPerRun")}
                         </p>
                         <p className="mt-2 text-xl font-semibold tabular-nums">
                           {formatTokens(GPT_IMAGE_TYPICAL_CREDITS)}
@@ -1272,8 +1358,16 @@ export default function CompanySettings({
 
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{formatTokens(usedCredits)} used</span>
-                      <span>{formatTokens(totalCredits)} total</span>
+                      <span>
+                        {t("companySettings", "creditsUsedShort", {
+                          count: formatTokens(usedCredits),
+                        })}
+                      </span>
+                      <span>
+                        {t("companySettings", "creditsTotalShort", {
+                          count: formatTokens(totalCredits),
+                        })}
+                      </span>
                     </div>
                     <Progress
                       value={usagePercent}
@@ -1287,7 +1381,7 @@ export default function CompanySettings({
                 <CardHeader className="gap-4 border-b border-border/40">
                   <CardTitle className="text-base font-medium flex items-center gap-2">
                     <CreditCard className="h-4 w-4" />
-                    Current Plan
+                    {t("companySettings", "currentPlanTitle")}
                   </CardTitle>
                   <CardAction>
                     <Badge
@@ -1316,7 +1410,7 @@ export default function CompanySettings({
 
                   <div className="rounded-xl border border-border/50 bg-secondary/70 p-4">
                     <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                      Included monthly credits
+                      {t("companySettings", "includedMonthlyCredits")}
                     </p>
                     <p className="mt-2 text-xl font-semibold tabular-nums">
                       {formatTokens(currentPlanCredits)}
@@ -1341,12 +1435,14 @@ export default function CompanySettings({
                               data-icon="inline-start"
                               className="animate-spin"
                             />
-                            Opening checkout...
+                            {t("companySettings", "openingCheckout")}
                           </>
                         ) : (
                           <>
                             <Coins data-icon="inline-start" />
-                            Upgrade to {recommendedPlan.name}
+                            {t("companySettings", "upgradeToPlanName", {
+                              plan: getBillingPlanName(recommendedPlan.key),
+                            })}
                           </>
                         )}
                       </Button>
@@ -1362,12 +1458,12 @@ export default function CompanySettings({
                               data-icon="inline-start"
                               className="animate-spin"
                             />
-                            Opening billing...
+                            {t("companySettings", "openingBilling")}
                           </>
                         ) : (
                           <>
                             <CreditCard data-icon="inline-start" />
-                            Manage Subscription
+                            {t("companySettings", "manageSubscription")}
                           </>
                         )}
                       </Button>
@@ -1388,18 +1484,18 @@ export default function CompanySettings({
                               data-icon="inline-start"
                               className="animate-spin"
                             />
-                            Opening checkout...
+                            {t("companySettings", "openingCheckout")}
                           </>
                         ) : (
                           <>
                             <ArrowRight data-icon="inline-start" />
-                            Renew / Upgrade Plan
+                            {t("companySettings", "renewUpgradePlan")}
                           </>
                         )}
                       </Button>
                     ) : (
                       <Button disabled className="w-full">
-                        Billing unavailable
+                        {t("companySettings", "billingUnavailable")}
                       </Button>
                     )}
                   </div>
@@ -1415,7 +1511,7 @@ export default function CompanySettings({
             >
               <CardHeader>
                 <CardTitle className="text-base font-medium">
-                  Transaction History
+                  {t("companySettings", "transactionHistory")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -1425,13 +1521,13 @@ export default function CompanySettings({
                       const amount =
                         (invoice.amountPaid || invoice.amountDue || 0) / 100;
                       const currency = invoice.currency || "USD";
-                      const formatted = new Intl.NumberFormat("en-US", {
+                      const formatted = new Intl.NumberFormat(locale === "pl" ? "pl-PL" : "en-US", {
                         style: "currency",
                         currency,
                       }).format(amount);
                       const createdAt = new Date(
                         invoice.created * 1000,
-                      ).toLocaleDateString("en-US", {
+                      ).toLocaleDateString(locale, {
                         month: "short",
                         day: "numeric",
                         year: "numeric",
@@ -1465,7 +1561,9 @@ export default function CompanySettings({
                 ) : (
                   <div className="flex flex-col items-center justify-center gap-2 py-8 text-muted-foreground">
                     <Clock3 className="h-6 w-6" />
-                    <p className="text-sm">No transactions yet</p>
+                    <p className="text-sm">
+                      {t("companySettings", "noTransactionsYet")}
+                    </p>
                   </div>
                 )}
               </CardContent>
@@ -1475,10 +1573,11 @@ export default function CompanySettings({
 
             <div className="order-5 flex flex-col gap-6">
               <div className="flex flex-col gap-1">
-                <h2 className="text-lg font-medium">Usage</h2>
+                <h2 className="text-lg font-medium">
+                  {t("companySettings", "usage")}
+                </h2>
                 <p className="text-sm text-muted-foreground">
-                  Monitor your usage, costs, and resource consumption across all
-                  services.
+                  {t("companySettings", "usageDescription")}
                 </p>
               </div>
 
@@ -1487,18 +1586,18 @@ export default function CompanySettings({
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base font-medium">
                       <Coins className="h-4 w-4 text-chart-1" />
-                      AI Credits
+                      {t("companySettings", "aiCredits")}
                     </CardTitle>
                     <CardDescription>
                       {usageBreakdown?.periodStart
                         ? new Date(
                             usageBreakdown.periodStart,
-                          ).toLocaleDateString("en-US", {
+                          ).toLocaleDateString(locale, {
                             month: "short",
                             day: "numeric",
                             year: "numeric",
                           })
-                        : "Current period"}
+                        : t("companySettings", "currentPeriod")}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-4">
@@ -1507,7 +1606,7 @@ export default function CompanySettings({
                         {formatTokens(usedCredits)}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        credits used this billing period
+                        {t("companySettings", "creditsUsedThisBillingPeriod")}
                       </p>
                     </div>
                     <div>
@@ -1515,7 +1614,7 @@ export default function CompanySettings({
                         {formatTokens(remainingCredits)}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        credits remaining
+                        {t("companySettings", "creditsRemaining")}
                       </p>
                     </div>
                     <div className="flex flex-col gap-2 pt-2">
@@ -1531,7 +1630,9 @@ export default function CompanySettings({
                         }
                       />
                       <p className="text-xs text-muted-foreground">
-                        {usagePercent}% used
+                        {t("companySettings", "percentUsed", {
+                          percent: usagePercent,
+                        })}
                       </p>
                     </div>
                   </CardContent>
@@ -1541,9 +1642,11 @@ export default function CompanySettings({
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base font-medium">
                       <HardDrive className="h-4 w-4 text-chart-2" />
-                      Storage
+                      {t("companySettings", "storage")}
                     </CardTitle>
-                    <CardDescription>All projects combined</CardDescription>
+                    <CardDescription>
+                      {t("companySettings", "allProjectsCombined")}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-4">
                     <div>
@@ -1551,15 +1654,24 @@ export default function CompanySettings({
                         {storageUsage?.usedGB.toFixed(2) ?? "0.00"} GB
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        used of {storageUsage?.limitGB ?? 0} GB total
+                        {t("companySettings", "usedOfGbTotal", {
+                          used: storageUsage?.usedGB.toFixed(2) ?? "0.00",
+                          total: storageUsage?.limitGB ?? 0,
+                        })}
                       </p>
                     </div>
                     <div className="flex flex-col gap-2 pt-2">
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>
-                          {storageUsage?.usedGB.toFixed(2) ?? "0.00"} GB used
+                          {t("companySettings", "gbUsed", {
+                            count: storageUsage?.usedGB.toFixed(2) ?? "0.00",
+                          })}
                         </span>
-                        <span>{storageUsage?.limitGB ?? 0} GB total</span>
+                        <span>
+                          {t("companySettings", "gbTotal", {
+                            count: storageUsage?.limitGB ?? 0,
+                          })}
+                        </span>
                       </div>
                       <Progress
                         value={storageUsage?.percentUsed ?? 0}
@@ -1573,7 +1685,9 @@ export default function CompanySettings({
                         }
                       />
                       <p className="text-xs text-muted-foreground">
-                        {storageUsage?.percentUsed.toFixed(1) ?? "0.0"}% used
+                        {t("companySettings", "percentUsed", {
+                          percent: storageUsage?.percentUsed.toFixed(1) ?? "0.0",
+                        })}
                       </p>
                     </div>
                   </CardContent>
@@ -1583,23 +1697,37 @@ export default function CompanySettings({
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base font-medium">
                       <FolderOpen className="h-4 w-4 text-chart-3" />
-                      Projects
+                      {t("companySettings", "projects")}
                     </CardTitle>
-                    <CardDescription>Active projects</CardDescription>
+                    <CardDescription>
+                      {t("companySettings", "activeProjects")}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-4">
                     <div>
                       <div className="text-xl font-semibold tabular-nums">
-                        {resourceUsage?.projectsUsed ?? 0} projects
+                        {t("companySettings", "projectsCount", {
+                          count: resourceUsage?.projectsUsed ?? 0,
+                        })}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        of {resourceUsage?.projectsLimit ?? 0} total
+                        {t("companySettings", "ofTotal", {
+                          count: resourceUsage?.projectsLimit ?? 0,
+                        })}
                       </p>
                     </div>
                     <div className="flex flex-col gap-2 pt-2">
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{resourceUsage?.projectsUsed ?? 0} used</span>
-                        <span>{resourceUsage?.projectsLimit ?? 0} total</span>
+                        <span>
+                          {t("companySettings", "usedCount", {
+                            count: resourceUsage?.projectsUsed ?? 0,
+                          })}
+                        </span>
+                        <span>
+                          {t("companySettings", "totalCount", {
+                            count: resourceUsage?.projectsLimit ?? 0,
+                          })}
+                        </span>
                       </div>
                       <Progress
                         value={resourceUsage?.projectsPercentUsed ?? 0}
@@ -1613,7 +1741,9 @@ export default function CompanySettings({
                         }
                       />
                       <p className="text-xs text-muted-foreground">
-                        {resourceUsage?.projectsPercentUsed ?? 0}% used
+                        {t("companySettings", "percentUsed", {
+                          percent: resourceUsage?.projectsPercentUsed ?? 0,
+                        })}
                       </p>
                     </div>
                   </CardContent>
@@ -1623,23 +1753,37 @@ export default function CompanySettings({
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base font-medium">
                       <Users className="h-4 w-4 text-chart-4" />
-                      Team Members
+                      {t("companySettings", "teamMembers")}
                     </CardTitle>
-                    <CardDescription>Active members</CardDescription>
+                    <CardDescription>
+                      {t("companySettings", "activeMembers")}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-4">
                     <div>
                       <div className="text-xl font-semibold tabular-nums">
-                        {resourceUsage?.membersUsed ?? 0} members
+                        {t("companySettings", "membersCount", {
+                          count: resourceUsage?.membersUsed ?? 0,
+                        })}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        of {resourceUsage?.membersLimit ?? 0} total
+                        {t("companySettings", "ofTotal", {
+                          count: resourceUsage?.membersLimit ?? 0,
+                        })}
                       </p>
                     </div>
                     <div className="flex flex-col gap-2 pt-2">
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{resourceUsage?.membersUsed ?? 0} used</span>
-                        <span>{resourceUsage?.membersLimit ?? 0} total</span>
+                        <span>
+                          {t("companySettings", "usedCount", {
+                            count: resourceUsage?.membersUsed ?? 0,
+                          })}
+                        </span>
+                        <span>
+                          {t("companySettings", "totalCount", {
+                            count: resourceUsage?.membersLimit ?? 0,
+                          })}
+                        </span>
                       </div>
                       <Progress
                         value={resourceUsage?.membersPercentUsed ?? 0}
@@ -1653,7 +1797,9 @@ export default function CompanySettings({
                         }
                       />
                       <p className="text-xs text-muted-foreground">
-                        {resourceUsage?.membersPercentUsed ?? 0}% used
+                        {t("companySettings", "percentUsed", {
+                          percent: resourceUsage?.membersPercentUsed ?? 0,
+                        })}
                       </p>
                     </div>
                   </CardContent>
@@ -1662,33 +1808,42 @@ export default function CompanySettings({
                 <Card className="border-border/40 bg-card shadow-sm md:col-span-2 lg:col-span-1">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base font-medium flex items-center gap-2">
-                      Subscription Plan
+                      {t("companySettings", "subscriptionPlan")}
                       <span
                         className="text-muted-foreground"
-                        title="Limits reset with each billing period."
+                        title={t("companySettings", "limitsResetTitle")}
                       >
                         <AlertCircle className="h-3.5 w-3.5" />
                       </span>
                     </CardTitle>
                     <CardDescription>
                       {usageBreakdown?.periodEnd
-                        ? `Next billing: ${new Date(usageBreakdown.periodEnd).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
-                        : "Billing period"}
+                        ? t("companySettings", "nextBilling", {
+                            date: new Date(usageBreakdown.periodEnd).toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" }),
+                          })
+                        : t("companySettings", "billingPeriod")}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-4">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Plan</span>
+                      <span className="text-muted-foreground">
+                        {t("companySettings", "plan")}
+                      </span>
                       <span className="font-medium">{subscriptionLabel}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">
-                        Monthly Cost
+                        {t("companySettings", "monthlyCost")}
                       </span>
                       <span className="font-medium">
-                        {subscription?.planDetails?.price
-                          ? `$${subscription.planDetails.price}`
-                          : "Free"}
+                        {currentPlanPricePerUser > 0
+                          ? t("companySettings", "monthlySeatTotal", {
+                              amount: formatBillingAmount(
+                                currentPlanPricePerUser * billingSeatQuantity,
+                              ),
+                              seats: billingSeatQuantity,
+                            })
+                          : t("companySettings", "free")}
                       </span>
                     </div>
                     <div className="pt-2">
@@ -1699,8 +1854,8 @@ export default function CompanySettings({
                         className="w-full"
                       >
                         {billingAction === "portal"
-                          ? "Opening..."
-                          : "Manage Subscription"}
+                          ? t("companySettings", "opening")
+                          : t("companySettings", "manageSubscription")}
                       </Button>
                     </div>
                   </CardContent>
@@ -1710,15 +1865,17 @@ export default function CompanySettings({
               <Card className="border-border/70 bg-card shadow-none">
                 <CardHeader className="pb-3 border-b border-border/70">
                   <CardTitle className="text-base font-medium">
-                    Credit Breakdown
+                    {t("companySettings", "creditBreakdown")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>Credits Used</span>
+                    <span>{t("companySettings", "creditsUsed")}</span>
                     <span>
                       {formatTokens(usedCredits)} of{" "}
-                      {formatTokens(totalCredits)} credits
+                      {t("companySettings", "creditsTotalPhrase", {
+                        count: formatTokens(totalCredits),
+                      })}
                     </span>
                   </div>
                   <div className="flex h-2 w-full overflow-hidden rounded-full bg-secondary/70">
@@ -1752,18 +1909,19 @@ export default function CompanySettings({
                             <span>{item.label}</span>
                           </div>
                           <div className="text-muted-foreground">
-                            {formatTokens(tokens)} credits ({percent.toFixed(1)}
-                            %)
+                            {t("companySettings", "creditsWithPercent", {
+                              credits: formatTokens(tokens),
+                              percent: percent.toFixed(1),
+                            })}
                           </div>
                         </div>
                       );
                     })}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Typical visualization runs about{" "}
-                    {formatTokens(GPT_IMAGE_TYPICAL_CREDITS)} credits,
-                    with higher usage for long prompts, edits, and reference
-                    images.
+                    {t("companySettings", "typicalVisualizationUsage", {
+                      credits: formatTokens(GPT_IMAGE_TYPICAL_CREDITS),
+                    })}
                   </p>
                 </CardContent>
               </Card>
@@ -1775,7 +1933,7 @@ export default function CompanySettings({
               <div className="flex flex-col gap-6">
                 <div className="flex flex-col gap-1">
                   <p className="px-4 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                    Workspace
+                    {t("companySettings", "workspace")}
                   </p>
                   <nav className="flex flex-col gap-1">
                     {workspaceSections.map((section) => (
@@ -1790,7 +1948,7 @@ export default function CompanySettings({
                             : "text-foreground/80 hover:bg-secondary/70 hover:text-foreground",
                         )}
                       >
-                        {section.label}
+                        {t("companySettings", section.labelKey)}
                       </button>
                     ))}
                   </nav>
@@ -1799,7 +1957,7 @@ export default function CompanySettings({
                 {personalSections.length > 0 ? (
                   <div className="flex flex-col gap-1">
                     <p className="px-4 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                      Personal
+                      {t("companySettings", "personal")}
                     </p>
                     <nav className="flex flex-col gap-1">
                       {personalSections.map((section) => (
@@ -1816,7 +1974,7 @@ export default function CompanySettings({
                               : "text-foreground/80 hover:bg-secondary/70 hover:text-foreground",
                           )}
                         >
-                          {section.label}
+                          {t("companySettings", section.labelKey)}
                         </button>
                       ))}
                     </nav>
@@ -1834,7 +1992,7 @@ export default function CompanySettings({
               <section className="grid gap-8">
                 <div className="flex flex-col gap-1 border-b border-border/70 pb-5">
                   <h2 className="text-[1.2rem] font-semibold tracking-tight text-foreground md:text-[1.3rem]">
-                    {activeSettingsSectionConfig.label}
+                    {t("companySettings", activeSettingsSectionConfig.labelKey)}
                   </h2>
                 </div>
 
@@ -1860,7 +2018,7 @@ export default function CompanySettings({
                         >
                           <div className="flex flex-col gap-2">
                             <Label htmlFor="organization-name">
-                              Organization name
+                              {t("companySettings", "organizationName")}
                             </Label>
                             <Input
                               id="organization-name"
@@ -1873,7 +2031,7 @@ export default function CompanySettings({
                                 !organization?.id ||
                                 !teamData?.teamId
                               }
-                              placeholder="Organization name"
+                              placeholder={t("companySettings", "organizationName")}
                               className="h-12 bg-card text-base"
                             />
                           </div>
@@ -1885,10 +2043,10 @@ export default function CompanySettings({
                             {savingOrganizationName ? (
                               <>
                                 <Loader2 className="h-4 w-4 animate-spin" />
-                                Saving...
+                                {t("companySettings", "saving")}
                               </>
                             ) : (
-                              "Save"
+                              t("companySettings", "save")
                             )}
                           </Button>
                         </form>
@@ -1900,7 +2058,7 @@ export default function CompanySettings({
                             name={
                               organizationNameDraft ||
                               organization?.name ||
-                              "Organization"
+                              t("companySettings", "organization")
                             }
                             onPick={() =>
                               organizationImageInputRef.current?.click()
@@ -1908,10 +2066,10 @@ export default function CompanySettings({
                             disabled={savingOrganizationProfile}
                             buttonLabel={
                               savingOrganizationProfile
-                                ? "Uploading..."
+                                ? t("companySettings", "uploading")
                                 : organizationImageReady
-                                  ? "Change image"
-                                  : "Upload custom image"
+                                  ? t("companySettings", "changeImage")
+                                  : t("companySettings", "uploadCustomImage")
                             }
                           />
                         </div>
@@ -1925,27 +2083,27 @@ export default function CompanySettings({
                       <CardHeader className="gap-2 border-b border-border/70">
                         <CardTitle className="flex items-center gap-2 text-base font-medium">
                           <Globe className="h-4 w-4 text-primary" />
-                          Regional defaults
+                          {t("companySettings", "regionalDefaults")}
                         </CardTitle>
                         <CardDescription>
-                          Currency, timezone, tax settings, and amount
-                          presentation are saved together.
+                          {t("companySettings", "regionalDefaultsDescription")}
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="grid gap-8 p-6">
                         <div className="grid gap-4">
                           <div className="flex flex-col gap-1">
                             <h3 className="text-sm font-medium text-foreground">
-                              Currency & timezone
+                              {t("companySettings", "currencyTimezone")}
                             </h3>
                             <p className="text-sm text-muted-foreground">
-                              These defaults affect estimates, reports, and AI
-                              date handling across new work.
+                              {t("companySettings", "currencyTimezoneDescription")}
                             </p>
                           </div>
                           <div className="grid gap-4">
                             <div className="grid gap-2">
-                              <Label htmlFor="currency">Currency</Label>
+                              <Label htmlFor="currency">
+                                {t("companySettings", "currency")}
+                              </Label>
                               <Select
                                 value={teamSettings.currency}
                                 onValueChange={(value) =>
@@ -1960,29 +2118,29 @@ export default function CompanySettings({
                                   id="currency"
                                   className="w-full bg-secondary/70"
                                 >
-                                  <SelectValue placeholder="Select currency" />
+                                  <SelectValue placeholder={t("companySettings", "selectCurrency")} />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {[
-                                    { value: "USD", label: "US Dollar ($)" },
-                                    { value: "EUR", label: "Euro (€)" },
+                                    { value: "USD", label: t("companySettings", "usd") },
+                                    { value: "EUR", label: t("companySettings", "eur") },
                                     {
                                       value: "PLN",
-                                      label: "Polish Zloty (zł)",
+                                      label: t("companySettings", "pln"),
                                     },
                                     {
                                       value: "GBP",
-                                      label: "British Pound (£)",
+                                      label: t("companySettings", "gbp"),
                                     },
                                     {
                                       value: "CAD",
-                                      label: "Canadian Dollar (C$)",
+                                      label: t("companySettings", "cad"),
                                     },
                                     {
                                       value: "AUD",
-                                      label: "Australian Dollar (A$)",
+                                      label: t("companySettings", "aud"),
                                     },
-                                    { value: "JPY", label: "Japanese Yen (¥)" },
+                                    { value: "JPY", label: t("companySettings", "jpy") },
                                   ].map((curr) => (
                                     <SelectItem
                                       key={curr.value}
@@ -2000,7 +2158,7 @@ export default function CompanySettings({
                               </Select>
                             </div>
                             <div className="grid gap-2">
-                              <Label>Organization timezone</Label>
+                              <Label>{t("companySettings", "organizationTimezone")}</Label>
                               <TimezonePicker
                                 value={teamSettings.timezone}
                                 onValueChange={(timezone) =>
@@ -2023,7 +2181,7 @@ export default function CompanySettings({
                           ) : (
                             <>
                               <Check data-icon="inline-start" />
-                              Save
+                              {t("companySettings", "save")}
                             </>
                           )}
                         </Button>
@@ -2040,27 +2198,25 @@ export default function CompanySettings({
                     <CardHeader className="gap-2 border-b border-border/70">
                       <CardTitle className="flex items-center gap-2 text-base font-medium">
                         <CreditCard className="h-4 w-4 text-primary" />
-                        Invoicing profile
+                        {t("companySettings", "invoicingProfile")}
                       </CardTitle>
                       <CardDescription>
-                        Seller details shared automatically across project
-                        invoices in this organization.
+                        {t("companySettings", "invoicingProfileDescription")}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="grid gap-8 p-6">
                       <div className="grid gap-4">
                         <div className="flex flex-col gap-1">
                           <h3 className="text-sm font-medium text-foreground">
-                            Seller identity
+                            {t("companySettings", "sellerIdentity")}
                           </h3>
                           <p className="text-sm text-muted-foreground">
-                            Core company information printed at the top of every
-                            invoice.
+                            {t("companySettings", "sellerIdentityDescription")}
                           </p>
                         </div>
                         <div className="grid gap-4 md:grid-cols-2">
                           <div className="flex flex-col gap-2">
-                            <Label>Seller name</Label>
+                            <Label>{t("companySettings", "sellerName")}</Label>
                             <Input
                               value={billingProfile.sellerName}
                               onChange={(e) =>
@@ -2072,7 +2228,7 @@ export default function CompanySettings({
                             />
                           </div>
                           <div className="flex flex-col gap-2">
-                            <Label>Tax ID / VAT ID</Label>
+                            <Label>{t("companySettings", "taxIdVatId")}</Label>
                             <Input
                               value={billingProfile.sellerTaxId}
                               onChange={(e) =>
@@ -2084,7 +2240,7 @@ export default function CompanySettings({
                             />
                           </div>
                           <div className="flex flex-col gap-2">
-                            <Label>Billing email</Label>
+                            <Label>{t("companySettings", "billingEmail")}</Label>
                             <Input
                               type="email"
                               value={billingProfile.sellerEmail}
@@ -2097,7 +2253,7 @@ export default function CompanySettings({
                             />
                           </div>
                           <div className="flex flex-col gap-2">
-                            <Label>Phone</Label>
+                            <Label>{t("companySettings", "phone")}</Label>
                             <Input
                               value={billingProfile.sellerPhone}
                               onChange={(e) =>
@@ -2116,15 +2272,15 @@ export default function CompanySettings({
                       <div className="grid gap-4">
                         <div className="flex flex-col gap-1">
                           <h3 className="text-sm font-medium text-foreground">
-                            Registered address
+                            {t("companySettings", "registeredAddress")}
                           </h3>
                           <p className="text-sm text-muted-foreground">
-                            Postal address shown in the seller block.
+                            {t("companySettings", "registeredAddressDescription")}
                           </p>
                         </div>
                         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                           <div className="flex flex-col gap-2 md:col-span-2 xl:col-span-3">
-                            <Label>Address line 1</Label>
+                            <Label>{t("companySettings", "addressLine1")}</Label>
                             <Input
                               value={billingProfile.sellerAddressLine1}
                               onChange={(e) =>
@@ -2136,7 +2292,7 @@ export default function CompanySettings({
                             />
                           </div>
                           <div className="flex flex-col gap-2 md:col-span-2 xl:col-span-3">
-                            <Label>Address line 2</Label>
+                            <Label>{t("companySettings", "addressLine2")}</Label>
                             <Input
                               value={billingProfile.sellerAddressLine2}
                               onChange={(e) =>
@@ -2148,7 +2304,7 @@ export default function CompanySettings({
                             />
                           </div>
                           <div className="flex flex-col gap-2">
-                            <Label>Postal code</Label>
+                            <Label>{t("companySettings", "postalCode")}</Label>
                             <Input
                               value={billingProfile.sellerPostalCode}
                               onChange={(e) =>
@@ -2160,7 +2316,7 @@ export default function CompanySettings({
                             />
                           </div>
                           <div className="flex flex-col gap-2">
-                            <Label>City</Label>
+                            <Label>{t("companySettings", "city")}</Label>
                             <Input
                               value={billingProfile.sellerCity}
                               onChange={(e) =>
@@ -2172,7 +2328,7 @@ export default function CompanySettings({
                             />
                           </div>
                           <div className="flex flex-col gap-2">
-                            <Label>Country</Label>
+                            <Label>{t("companySettings", "country")}</Label>
                             <Input
                               value={billingProfile.sellerCountry}
                               onChange={(e) =>
@@ -2191,16 +2347,15 @@ export default function CompanySettings({
                       <div className="grid gap-4">
                         <div className="flex flex-col gap-1">
                           <h3 className="text-sm font-medium text-foreground">
-                            Payment details
+                            {t("companySettings", "paymentDetails")}
                           </h3>
                           <p className="text-sm text-muted-foreground">
-                            Bank details and invoice defaults used when a
-                            project invoice is created.
+                            {t("companySettings", "paymentDetailsDescription")}
                           </p>
                         </div>
                         <div className="grid gap-4 md:grid-cols-2">
                           <div className="flex flex-col gap-2">
-                            <Label>Account holder</Label>
+                            <Label>{t("companySettings", "accountHolder")}</Label>
                             <Input
                               value={billingProfile.bankAccountHolder}
                               onChange={(e) =>
@@ -2212,7 +2367,7 @@ export default function CompanySettings({
                             />
                           </div>
                           <div className="flex flex-col gap-2">
-                            <Label>Bank name</Label>
+                            <Label>{t("companySettings", "bankName")}</Label>
                             <Input
                               value={billingProfile.bankName}
                               onChange={(e) =>
@@ -2224,7 +2379,7 @@ export default function CompanySettings({
                             />
                           </div>
                           <div className="flex flex-col gap-2">
-                            <Label>Bank account number / IBAN</Label>
+                            <Label>{t("companySettings", "bankAccountNumberIban")}</Label>
                             <Input
                               value={billingProfile.bankAccountNumber}
                               onChange={(e) =>
@@ -2236,7 +2391,7 @@ export default function CompanySettings({
                             />
                           </div>
                           <div className="flex flex-col gap-2">
-                            <Label>SWIFT</Label>
+                            <Label>{t("companySettings", "swift")}</Label>
                             <Input
                               value={billingProfile.bankSwift}
                               onChange={(e) =>
@@ -2248,7 +2403,7 @@ export default function CompanySettings({
                             />
                           </div>
                           <div className="flex flex-col gap-2 md:max-w-[220px]">
-                            <Label>Default due days</Label>
+                            <Label>{t("companySettings", "defaultDueDays")}</Label>
                             <Input
                               type="number"
                               min="1"
@@ -2262,7 +2417,7 @@ export default function CompanySettings({
                             />
                           </div>
                           <div className="flex flex-col gap-2 md:col-span-2">
-                            <Label>Payment instructions</Label>
+                            <Label>{t("companySettings", "paymentInstructions")}</Label>
                             <Textarea
                               rows={4}
                               value={billingProfile.paymentInstructions}
@@ -2279,8 +2434,7 @@ export default function CompanySettings({
                     </CardContent>
                     <CardFooter className="flex flex-col gap-3 border-t border-border/70 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-xs text-muted-foreground">
-                        Seller name falls back to the organization name until
-                        you override it here.
+                        {t("companySettings", "sellerNameFallback")}
                       </p>
                       <Button
                         onClick={handleSaveBillingProfile}
@@ -2292,7 +2446,7 @@ export default function CompanySettings({
                         ) : (
                           <>
                             <Check data-icon="inline-start" />
-                            Save
+                            {t("companySettings", "save")}
                           </>
                         )}
                       </Button>
@@ -2310,48 +2464,42 @@ export default function CompanySettings({
                     <CardHeader className="gap-2 border-b border-border/70">
                       <CardTitle className="flex items-center gap-2 text-base font-medium">
                         <BellRing className="h-4 w-4 text-primary" />
-                        My Notifications
+                        {t("companySettings", "myNotifications")}
                       </CardTitle>
                       <CardDescription>
-                        Choose which task and comment updates should trigger
-                        alerts for your account.
+                        {t("companySettings", "notificationsDescription")}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="grid gap-8 p-6">
                       <div className="grid gap-3">
                         <div className="flex flex-col gap-1">
                           <h3 className="text-sm font-medium text-foreground">
-                            Tasks
+                            {t("companySettings", "tasks")}
                           </h3>
                           <p className="text-sm text-muted-foreground">
-                            Alerts for assignments, status changes, due dates,
-                            and workflow changes.
+                            {t("companySettings", "tasksNotificationsDescription")}
                           </p>
                         </div>
                         {[
                           {
                             key: "taskAssigned",
-                            title: "Task assigned",
-                            description:
-                              "Get notified when you're assigned a new task.",
+                            title: t("companySettings", "taskAssigned"),
+                            description: t("companySettings", "taskAssignedDescription"),
                           },
                           {
                             key: "taskUnassigned",
-                            title: "Task unassigned",
-                            description:
-                              "Be alerted when you're removed from a task.",
+                            title: t("companySettings", "taskUnassigned"),
+                            description: t("companySettings", "taskUnassignedDescription"),
                           },
                           {
                             key: "taskStatusUpdated",
-                            title: "Task status updated",
-                            description:
-                              "Stay informed when a task you're on changes status.",
+                            title: t("companySettings", "taskStatusUpdated"),
+                            description: t("companySettings", "taskStatusUpdatedDescription"),
                           },
                           {
                             key: "taskDueDateChanged",
-                            title: "Task due date changed",
-                            description:
-                              "Receive updates when the due date of your task is updated.",
+                            title: t("companySettings", "taskDueDateChanged"),
+                            description: t("companySettings", "taskDueDateChangedDescription"),
                           },
                         ].map((item) => (
                           <div
@@ -2388,21 +2536,19 @@ export default function CompanySettings({
                       <div className="grid gap-3">
                         <div className="flex flex-col gap-1">
                           <h3 className="text-sm font-medium text-foreground">
-                            Comments
+                            {t("companySettings", "comments")}
                           </h3>
                           <p className="text-sm text-muted-foreground">
-                            Alerts for discussion activity on tasks you are
-                            involved in.
+                            {t("companySettings", "commentsDescription")}
                           </p>
                         </div>
                         <div className="flex items-start justify-between gap-4 rounded-2xl border border-border/50 bg-secondary/70 px-4 py-4">
                           <div className="flex flex-col gap-1 pr-4">
                             <div className="text-sm font-medium text-foreground">
-                              Task comments
+                              {t("companySettings", "taskComments")}
                             </div>
                             <p className="text-sm text-muted-foreground">
-                              Get alerts when someone comments on a task
-                              you&apos;re involved in.
+                              {t("companySettings", "taskCommentsDescription")}
                             </p>
                           </div>
                           <Switch
@@ -2419,8 +2565,7 @@ export default function CompanySettings({
                     </CardContent>
                     <CardFooter className="flex flex-col gap-3 border-t border-border/70 px-6 py-4">
                       <p className="text-xs text-muted-foreground">
-                        These preferences apply to your membership in the
-                        current workspace.
+                        {t("companySettings", "preferencesApply")}
                       </p>
                       <Button
                         onClick={handleSaveNotificationSettings}
@@ -2432,7 +2577,7 @@ export default function CompanySettings({
                         ) : (
                           <>
                             <Check data-icon="inline-start" />
-                            Save
+                            {t("companySettings", "save")}
                           </>
                         )}
                       </Button>

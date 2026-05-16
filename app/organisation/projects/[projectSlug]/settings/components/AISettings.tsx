@@ -12,12 +12,14 @@ import {
   Loader2,
 } from "lucide-react";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useI18n } from "@/lib/i18n";
 
 interface AISettingsProps {
   projectId: Id<"projects">;
 }
 
 export default function AISettings({ projectId }: AISettingsProps) {
+  const { t } = useI18n();
   const [aiAutoConfirmCrud, setAiAutoConfirmCrud] = useState(false);
   const [isSavingAiConfirmMode, setIsSavingAiConfirmMode] = useState(false);
 
@@ -45,13 +47,13 @@ export default function AISettings({ projectId }: AISettingsProps) {
       });
       toast.success(
         checked
-          ? "Auto-confirm for AI CRUD actions enabled"
-          : "Manual confirmation for AI CRUD actions enabled"
+          ? t("projectSettingsExtra", "autoConfirmEnabled")
+          : t("projectSettingsExtra", "manualConfirmationEnabled")
       );
     } catch (error) {
       setAiAutoConfirmCrud(previousValue);
       console.error("Failed to update AI confirmation mode:", error);
-      toast.error("Failed to save AI confirmation mode", {
+      toast.error(t("projectSettingsExtra", "failedToSaveAiConfirmationMode"), {
         description: toUserFacingErrorMessage(error),
       });
     } finally {
@@ -65,21 +67,25 @@ export default function AISettings({ projectId }: AISettingsProps) {
         <CardHeader className="pb-4">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg lg:text-xl">AI Actions</CardTitle>
+            <CardTitle className="text-lg lg:text-xl">{t("projectSettingsExtra", "aiActions")}</CardTitle>
           </div>
           <CardDescription className="text-sm">
-            Manage AI execution settings for this project.
+            {t("projectSettingsExtra", "aiSettingsDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent className="px-4 lg:px-6">
           <div className="flex items-start justify-between gap-4 rounded-lg border border-border/70 bg-secondary/70 p-4">
             <div className="flex flex-col gap-1">
-              <p className="font-medium">AI CRUD Action Confirmation</p>
+              <p className="font-medium">{t("projectSettingsExtra", "aiCrudActionConfirmation")}</p>
               <p className="text-sm text-muted-foreground">
-                When enabled, the assistant will automatically run create/edit/delete without manual approval.
+                {t("projectSettingsExtra", "whenEnabledAssistantRunsCrud")}
               </p>
               <p className="text-xs text-muted-foreground">
-                Current mode: {aiAutoConfirmCrud ? "Auto-confirm CRUD" : "Manual confirmation"}
+                {t("projectSettingsExtra", "currentMode", {
+                  mode: aiAutoConfirmCrud
+                    ? t("projectSettingsExtra", "autoConfirmCrud")
+                    : t("projectSettingsExtra", "manualConfirmation"),
+                })}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -88,7 +94,7 @@ export default function AISettings({ projectId }: AISettingsProps) {
                 checked={aiAutoConfirmCrud}
                 onCheckedChange={handleToggleAutoConfirmCrud}
                 disabled={isSavingAiConfirmMode}
-                aria-label="Toggle CRUD auto-confirm"
+                aria-label={t("projectSettingsExtra", "toggleCrudAutoConfirm")}
               />
             </div>
           </div>

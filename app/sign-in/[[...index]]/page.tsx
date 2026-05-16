@@ -14,8 +14,10 @@ import {
   signUpUrl,
 } from "@/lib/authRedirects";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useI18n } from "@/lib/i18n";
 
 export default function SignInPage() {
+  const { t } = useI18n();
   const { signIn, setActive, isLoaded: isSignInLoaded } = useSignIn();
   const { isLoaded, isSignedIn } = useUser();
   const router = useRouter();
@@ -63,7 +65,7 @@ export default function SignInPage() {
         });
       } catch (error) {
         console.error("Error signing in with ticket:", error);
-        toast.error("Could not sign you in from this link.", {
+        toast.error(t("auth", "couldNotSignInFromLink"), {
           description: toUserFacingErrorMessage(error),
         });
       }
@@ -72,7 +74,7 @@ export default function SignInPage() {
     return () => {
       cancelled = true;
     };
-  }, [isSignInLoaded, redirectUrl, searchParams, setActive, signIn]);
+  }, [isSignInLoaded, redirectUrl, searchParams, setActive, signIn, t]);
 
   return (
     <AuthShell termsVerb="in">
