@@ -478,6 +478,9 @@ const buildClientPanelPublishedSnapshot = async (
       unit: item.unit,
       unitPrice: item.unitPrice,
       totalPrice: item.totalPrice,
+      priceTaxMode: item.priceTaxMode ?? "unspecified",
+      taxRateId: item.taxRateId ?? null,
+      taxRateSnapshot: item.taxRateSnapshot ?? null,
       assignedTo: item.assignedTo,
       referenceLink: item.referenceLink,
       attachmentFileId: item.attachmentFileId,
@@ -1794,6 +1797,164 @@ export const getClientPanelConfiguration = query({
   },
 });
 
+export const getClientPanelPublishStatus = query({
+  args: {
+    projectId: v.id("projects"),
+  },
+  async handler(ctx, args) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+
+    const { project } = await getProjectManagerMembership(
+      ctx,
+      args.projectId,
+      identity.subject,
+    );
+    const version = project.clientPanelDataVersion || 0;
+    if (version === 0) {
+      return {
+        hasPublishedPortal: false,
+        pendingCount: 0,
+      };
+    }
+
+    const settings = getResolvedClientPanelDisplaySettings(
+      project.clientPanelPublishedSettings as Partial<ClientPanelDisplaySettings> | null,
+    );
+    const publishedSnapshot = project.clientPanelPublishedSnapshot;
+    let pendingCount = 0;
+
+    if (settings.showShoppingList) {
+      const [items, snapshotItems] = await Promise.all([
+        ctx.db
+          .query("shoppingListItems")
+          .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+          .collect(),
+        ctx.db
+          .query("clientPanelItems")
+          .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+          .collect(),
+      ]);
+      const publishedItemIds = new Set(
+        snapshotItems.map((item) => String(item.sourceItemId)),
+      );
+      pendingCount += items.filter(
+        (item) => !publishedItemIds.has(String(item._id)),
+      ).length;
+    }
+
+    if (settings.showFiles || settings.showMoodboard) {
+      const [files, snapshotFiles] = await Promise.all([
+        ctx.db
+          .query("files")
+          .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+          .collect(),
+        ctx.db
+          .query("clientPanelFiles")
+          .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+          .collect(),
+      ]);
+      const publishedFileIds = new Set(
+        snapshotFiles.map((file) => String(file.sourceFileId)),
+      );
+      const currentVisibleFiles = files.filter((file) => {
+        if (settings.showFiles && file.showInClientPortal === true) {
+          return true;
+        }
+        return settings.showMoodboard && !!file.moodboardSection;
+      });
+      pendingCount += currentVisibleFiles.filter(
+        (file) => !publishedFileIds.has(String(file._id)),
+      ).length;
+    }
+
+    if (settings.showTasks) {
+      const tasks = await ctx.db
+        .query("tasks")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect();
+      const publishedTaskIds = new Set(
+        (publishedSnapshot?.tasks ?? []).map(
+          (task: ClientPanelPublishedSnapshot["tasks"][number]) =>
+            String(task._id),
+        ),
+      );
+      pendingCount += tasks.filter(
+        (task) => !publishedTaskIds.has(String(task._id)),
+      ).length;
+    }
+
+    if (settings.showLabor) {
+      const laborItems = await ctx.db
+        .query("laborItems")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect();
+      const publishedLaborIds = new Set(
+        (publishedSnapshot?.labor ?? []).map(
+          (item: ClientPanelPublishedSnapshot["labor"][number]) =>
+            String(item._id),
+        ),
+      );
+      pendingCount += laborItems.filter(
+        (item) => !publishedLaborIds.has(String(item._id)),
+      ).length;
+    }
+
+    if (settings.showContacts) {
+      const projectContactLinks = await ctx.db
+        .query("projectContacts")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .collect();
+      const contacts = await Promise.all(
+        projectContactLinks.map(async (link) => {
+          const contact = await ctx.db.get(link.contactId);
+          return contact && contact.isActive ? contact : null;
+        }),
+      );
+      const publishedContactIds = new Set(
+        (publishedSnapshot?.contacts ?? []).map(
+          (contact: ClientPanelPublishedSnapshot["contacts"][number]) =>
+            String(contact._id),
+        ),
+      );
+      pendingCount += contacts.filter(
+        (contact) =>
+          contact !== null && !publishedContactIds.has(String(contact._id)),
+      ).length;
+    }
+
+    if (settings.showPayments) {
+      const payments = await ctx.db
+        .query("projectPayments")
+        .withIndex("by_project_and_order", (q) =>
+          q.eq("projectId", args.projectId),
+        )
+        .order("asc")
+        .collect();
+      const publishedPaymentIds = new Set(
+        (publishedSnapshot?.payments ?? []).map(
+          (payment: ClientPanelPublishedSnapshot["payments"][number]) =>
+            String(payment._id),
+        ),
+      );
+      pendingCount += payments
+        .filter(
+          (payment) => payment.status !== "void" && payment.status !== "draft",
+        )
+        .filter((payment) => !publishedPaymentIds.has(String(payment._id)))
+        .length;
+    }
+
+    return {
+      hasPublishedPortal: true,
+      pendingCount,
+    };
+  },
+});
+
 export const publishClientPanelData = mutation({
   args: {
     projectId: v.id("projects"),
@@ -1898,6 +2059,9 @@ export const publishClientPanelData = mutation({
         unit: item.unit,
         unitPrice: item.unitPrice,
         totalPrice: item.totalPrice,
+        priceTaxMode: item.priceTaxMode ?? "unspecified",
+        taxRateId: item.taxRateId ?? null,
+        taxRateSnapshot: item.taxRateSnapshot ?? null,
         sectionName: sectionMeta?.name,
         sectionOrder: sectionMeta?.order ?? Number.MAX_SAFE_INTEGER,
         setId: item.setId || null,

@@ -1,6 +1,13 @@
 "use client";
 
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useParams } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
@@ -59,13 +66,7 @@ import {
   getShoppingExportHeaders,
   type ShoppingExportRow,
 } from "@/lib/shoppingListExport";
-import {
-  calculateTaxBreakdown,
-  getPrimaryAmountKindForDisplay,
-  getTaxAmountKindLabel,
-  getTaxAmountKindsForDisplay,
-  resolveOrganizationTaxSettings,
-} from "@/lib/organizationTax";
+import { calculatePriceTaxBreakdown, type PriceTaxMetadata } from "@/lib/priceTax";
 import { cn, getCurrencySymbol } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 
@@ -101,6 +102,9 @@ type PublicLaborItem = {
   unit: string;
   unitPrice?: number;
   totalPrice?: number;
+  priceTaxMode?: PriceTaxMetadata["priceTaxMode"];
+  taxRateId?: string | null;
+  taxRateSnapshot?: PriceTaxMetadata["taxRateSnapshot"];
   assignedTo?: string;
   referenceLink?: string | null;
   attachmentFileId?: Id<"files"> | null;
@@ -777,53 +781,71 @@ export default function PublicClientPanelPage() {
     | null
     | undefined;
   const settings = panelData?.settings ?? DEFAULT_CLIENT_PANEL_SETTINGS;
-  const organizationTaxSettings = resolveOrganizationTaxSettings(
-    panelData?.organizationTaxSettings,
-  );
   const currencySymbol = getCurrencySymbol(project?.currency);
-  const primaryAmountKind = getPrimaryAmountKindForDisplay(
-    organizationTaxSettings,
-  );
-  const formatPrimaryDisplayAmount = (netAmount?: number) => {
-    if (netAmount === undefined) {
-      return "-";
-    }
-
-    const breakdown = calculateTaxBreakdown(netAmount, organizationTaxSettings);
-    return formatAmount(breakdown[primaryAmountKind], currencySymbol);
-  };
-  const formatTaxBreakdownSummary = (netAmount: number) => {
-    const breakdown = calculateTaxBreakdown(netAmount, organizationTaxSettings);
-    return getTaxAmountKindsForDisplay(organizationTaxSettings)
-      .map(
-        (kind) =>
-          `${getTaxAmountKindLabel(kind, organizationTaxSettings)}: ${formatAmount(
-            breakdown[kind],
-            currencySymbol,
-          )}`,
-      )
-      .join(" | ");
-  };
-  const getPriceMetadataLabels = (
-    netAmount: number | undefined,
+  const getItemPriceTaxMetadata = useCallback((
+    item: Pick<
+      PriceTaxMetadata,
+      "priceTaxMode" | "taxRateId" | "taxRateSnapshot"
+    >,
+  ): PriceTaxMetadata => ({
+    priceTaxMode: item.priceTaxMode ?? "unspecified",
+    taxRateId: item.taxRateId ?? null,
+    taxRateSnapshot: item.taxRateSnapshot ?? null,
+  }), []);
+  const getItemPriceMetadataLabels = useCallback((
+    amount: number | undefined,
+    item: Pick<
+      PriceTaxMetadata,
+      "priceTaxMode" | "taxRateId" | "taxRateSnapshot"
+    >,
     scope: "unit" | "total",
   ) => {
-    if (netAmount === undefined) {
+    if (amount === undefined) {
       return [];
     }
 
-    const breakdown = calculateTaxBreakdown(netAmount, organizationTaxSettings);
-    return getTaxAmountKindsForDisplay(organizationTaxSettings).map(
-      (kind) =>
-        `${getTaxAmountKindLabel(kind, organizationTaxSettings)}${
-          scope === "unit" ? "/unit" : ""
-        }: ${formatAmount(breakdown[kind], currencySymbol)}`,
+    const scopeSuffix = scope === "unit" ? "/unit" : "";
+    const breakdown = calculatePriceTaxBreakdown(
+      amount,
+      getItemPriceTaxMetadata(item),
     );
-  };
-  const shoppingPdfPriceColumns = [{ key: "totalNet", label: t("clientPanel", "net") }];
+
+    if (!breakdown.hasBreakdown) {
+      return [`Price${scopeSuffix}: ${formatAmount(breakdown.amount, currencySymbol)}`];
+    }
+
+    if (breakdown.mode === "exempt") {
+      return [
+        `Tax exempt${scopeSuffix}: ${formatAmount(
+          breakdown.gross,
+          currencySymbol,
+        )}`,
+      ];
+    }
+
+    const primaryLabel = breakdown.mode === "gross" ? "Gross" : "Net";
+    const primaryAmount =
+      breakdown.mode === "gross" ? breakdown.gross : breakdown.net;
+    const secondaryLabel = breakdown.mode === "gross" ? "Net" : "Gross";
+    const secondaryAmount =
+      breakdown.mode === "gross" ? breakdown.net : breakdown.gross;
+
+    return [
+      `${primaryLabel}${scopeSuffix}: ${formatAmount(primaryAmount, currencySymbol)}`,
+      `${breakdown.taxLabel} ${breakdown.taxRate}%${scopeSuffix}: ${formatAmount(
+        breakdown.tax,
+        currencySymbol,
+      )}`,
+      `${secondaryLabel}${scopeSuffix}: ${formatAmount(
+        secondaryAmount,
+        currencySymbol,
+      )}`,
+    ];
+  }, [currencySymbol, getItemPriceTaxMetadata]);
+  const shoppingPdfPriceColumns = [{ key: "totalNet", label: t("clientPanel", "total") }];
   const laborPdfPriceColumns = [
-    { key: "unitNet", label: t("clientPanel", "unitNet") },
-    { key: "totalNet", label: t("clientPanel", "net") },
+    { key: "unitNet", label: t("clientPanel", "unitPrice") },
+    { key: "totalNet", label: t("clientPanel", "total") },
   ];
   const moodboardSections = useMemo(() => {
     const grouped = new Map<
@@ -1047,13 +1069,13 @@ export default function PublicClientPanelPage() {
               countedItems.length > 0 ? countedItems : group.items;
 
             return printableItems.map((item): ShoppingExportRow => {
-              const unitBreakdown = calculateTaxBreakdown(
+              const unitBreakdown = calculatePriceTaxBreakdown(
                 item.unitPrice,
-                organizationTaxSettings,
+                getItemPriceTaxMetadata(item),
               );
-              const totalBreakdown = calculateTaxBreakdown(
+              const totalBreakdown = calculatePriceTaxBreakdown(
                 item.totalPrice,
-                organizationTaxSettings,
+                getItemPriceTaxMetadata(item),
               );
 
               return {
@@ -1063,12 +1085,20 @@ export default function PublicClientPanelPage() {
                   item.setTitle || group.leadItem.setTitle || group.title,
                 ),
                 qty: String(item.quantity),
-                unitNet: formatMoney(unitBreakdown.net, currencySymbol),
-                unitTax: formatMoney(unitBreakdown.tax, currencySymbol),
-                unitGross: formatMoney(unitBreakdown.gross, currencySymbol),
-                totalNet: formatMoney(totalBreakdown.net, currencySymbol),
-                totalTax: formatMoney(totalBreakdown.tax, currencySymbol),
-                totalGross: formatMoney(totalBreakdown.gross, currencySymbol),
+                unitNet: formatMoney(unitBreakdown.amount, currencySymbol),
+                unitTax: unitBreakdown.hasBreakdown
+                  ? formatMoney(unitBreakdown.tax, currencySymbol)
+                  : "-",
+                unitGross: unitBreakdown.hasBreakdown
+                  ? formatMoney(unitBreakdown.gross, currencySymbol)
+                  : "-",
+                totalNet: formatMoney(totalBreakdown.amount, currencySymbol),
+                totalTax: totalBreakdown.hasBreakdown
+                  ? formatMoney(totalBreakdown.tax, currencySymbol)
+                  : "-",
+                totalGross: totalBreakdown.hasBreakdown
+                  ? formatMoney(totalBreakdown.gross, currencySymbol)
+                  : "-",
                 status: getStatusLabel(item.realizationStatus) || "-",
                 supplier: item.supplier || "-",
                 notes: item.notes || "-",
@@ -1079,8 +1109,8 @@ export default function PublicClientPanelPage() {
       ),
     [
       currencySymbol,
+      getItemPriceTaxMetadata,
       localSelection,
-      organizationTaxSettings,
       shoppingGroupsBySection,
     ],
   );
@@ -1142,13 +1172,13 @@ export default function PublicClientPanelPage() {
       laborSectionEntries.map((section) => ({
         sectionName: section.name,
         rows: section.items.map((item): LaborExportRow => {
-          const unitBreakdown = calculateTaxBreakdown(
+          const unitBreakdown = calculatePriceTaxBreakdown(
             item.unitPrice,
-            organizationTaxSettings,
+            getItemPriceTaxMetadata(item),
           );
-          const totalBreakdown = calculateTaxBreakdown(
+          const totalBreakdown = calculatePriceTaxBreakdown(
             item.totalPrice,
-            organizationTaxSettings,
+            getItemPriceTaxMetadata(item),
           );
 
           return {
@@ -1156,18 +1186,26 @@ export default function PublicClientPanelPage() {
             work: item.name,
             qty: String(item.quantity),
             unit: item.unit || "-",
-            unitNet: formatMoney(unitBreakdown.net, currencySymbol),
-            unitTax: formatMoney(unitBreakdown.tax, currencySymbol),
-            unitGross: formatMoney(unitBreakdown.gross, currencySymbol),
-            totalNet: formatMoney(totalBreakdown.net, currencySymbol),
-            totalTax: formatMoney(totalBreakdown.tax, currencySymbol),
-            totalGross: formatMoney(totalBreakdown.gross, currencySymbol),
+            unitNet: formatMoney(unitBreakdown.amount, currencySymbol),
+            unitTax: unitBreakdown.hasBreakdown
+              ? formatMoney(unitBreakdown.tax, currencySymbol)
+              : "-",
+            unitGross: unitBreakdown.hasBreakdown
+              ? formatMoney(unitBreakdown.gross, currencySymbol)
+              : "-",
+            totalNet: formatMoney(totalBreakdown.amount, currencySymbol),
+            totalTax: totalBreakdown.hasBreakdown
+              ? formatMoney(totalBreakdown.tax, currencySymbol)
+              : "-",
+            totalGross: totalBreakdown.hasBreakdown
+              ? formatMoney(totalBreakdown.gross, currencySymbol)
+              : "-",
             notes: item.notes || "-",
             referenceLink: item.referenceLink || "-",
           };
         }),
       })),
-    [currencySymbol, laborSectionEntries, organizationTaxSettings],
+    [currencySymbol, getItemPriceTaxMetadata, laborSectionEntries],
   );
   const laborExportRows = laborExportSections.flatMap(
     (section) => section.rows,
@@ -1938,14 +1976,9 @@ export default function PublicClientPanelPage() {
             ...(settings.showNotes ? { notes: row.notes } : {}),
           })),
         })),
-        subtitle: settings.showPrice
-          ? t("clientPanel", "generatedItemsTaxSubtitle", {
-              count: shoppingExportRows.length,
-              tax: formatTaxBreakdownSummary(grandTotal),
-            })
-          : t("clientPanel", "generatedItemsSubtitle", {
-              count: shoppingExportRows.length,
-            }),
+        subtitle: t("clientPanel", "generatedItemsSubtitle", {
+          count: shoppingExportRows.length,
+        }),
         title: t("clientPanel", "shoppingListTitle", { project: project.name }),
       });
       toast.success(t("clientPanel", "shoppingPdfExported"));
@@ -1975,7 +2008,6 @@ export default function PublicClientPanelPage() {
           includeStatus: true,
           includeSupplier: settings.showSupplier,
         },
-        organizationTaxSettings,
       ),
       rows: shoppingExportRows.map((row) =>
         getShoppingExportCsvRow(
@@ -1986,7 +2018,6 @@ export default function PublicClientPanelPage() {
             includeStatus: true,
             includeSupplier: settings.showSupplier,
           },
-          organizationTaxSettings,
         ),
       ),
     });
@@ -2028,11 +2059,8 @@ export default function PublicClientPanelPage() {
             notes: row.notes,
           })),
         })),
-        subtitle: t("clientPanel", "generatedItemsTaxSubtitle", {
+        subtitle: t("clientPanel", "generatedItemsSubtitle", {
           count: laborExportRows.length,
-          tax: formatTaxBreakdownSummary(
-            laborItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0),
-          ),
         }),
         title: t("clientPanel", "laborTitle", { project: project.name }),
       });
@@ -2062,7 +2090,6 @@ export default function PublicClientPanelPage() {
           includeReferenceLink: true,
           includeSection: true,
         },
-        organizationTaxSettings,
       ),
       rows: laborExportRows.map((row) =>
         getLaborExportCsvRow(
@@ -2072,7 +2099,6 @@ export default function PublicClientPanelPage() {
             includeReferenceLink: true,
             includeSection: true,
           },
-          organizationTaxSettings,
         ),
       ),
     });
@@ -2381,11 +2407,7 @@ export default function PublicClientPanelPage() {
             settings.showPrice &&
             activeSectionId === "portal-materials" ? (
               <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground">
-                {getTaxAmountKindLabel(
-                  primaryAmountKind,
-                  organizationTaxSettings,
-                )}{" "}
-                {t("clientPanel", "total")} {formatPrimaryDisplayAmount(grandTotal)}
+                {t("clientPanel", "total")} {formatAmount(grandTotal, currencySymbol)}
               </span>
             ) : null}
           </div>
@@ -3331,7 +3353,7 @@ export default function PublicClientPanelPage() {
                         variant="secondary"
                         className="rounded-full px-3 py-1 text-xs font-medium"
                       >
-                        {formatPrimaryDisplayAmount(sectionTotal)}
+                        {formatAmount(sectionTotal, currencySymbol)}
                       </Badge>
                     ) : null}
                   </div>
@@ -3376,16 +3398,18 @@ export default function PublicClientPanelPage() {
                               <span>
                                 {t("clientPanel", "unit", { unit: item.unit })}
                               </span>
-                              {getPriceMetadataLabels(
+                              {getItemPriceMetadataLabels(
                                 item.unitPrice,
+                                item,
                                 "unit",
                               ).map((label) => (
                                 <span key={`${item._id}-unit-${label}`}>
                                   {label}
                                 </span>
                               ))}
-                              {getPriceMetadataLabels(
+                              {getItemPriceMetadataLabels(
                                 item.totalPrice,
+                                item,
                                 "total",
                               ).map((label) => (
                                 <span
@@ -3428,7 +3452,7 @@ export default function PublicClientPanelPage() {
                             {t("clientPanel", "sectionTotal")}
                           </span>
                           <span className="text-sm font-semibold text-foreground">
-                            {formatTaxBreakdownSummary(sectionTotal)}
+                            {formatAmount(sectionTotal, currencySymbol)}
                           </span>
                         </div>
                       ) : null}
@@ -3988,7 +4012,7 @@ export default function PublicClientPanelPage() {
                         </span>
                         {settings.showPrice ? (
                           <span className="inline-flex items-center justify-center rounded-full border border-black/7 bg-white/72 px-3 py-1 text-xs font-medium text-foreground/76">
-                            {formatPrimaryDisplayAmount(total)}
+                            {formatAmount(total, currencySymbol)}
                           </span>
                         ) : null}
                       </div>
@@ -4037,8 +4061,9 @@ export default function PublicClientPanelPage() {
                               <>
                                 <span>{getQtyLabel(option, t)}</span>
                                 {settings.showPrice
-                                  ? getPriceMetadataLabels(
+                                  ? getItemPriceMetadataLabels(
                                       option.unitPrice,
+                                      option,
                                       "unit",
                                     ).map((label) => (
                                       <span key={`${option._id}-unit-${label}`}>
@@ -4047,8 +4072,9 @@ export default function PublicClientPanelPage() {
                                     ))
                                   : null}
                                 {settings.showPrice
-                                  ? getPriceMetadataLabels(
+                                  ? getItemPriceMetadataLabels(
                                       option.totalPrice,
+                                      option,
                                       "total",
                                     ).map((label) => (
                                       <span
@@ -4231,8 +4257,9 @@ export default function PublicClientPanelPage() {
                                       <>
                                         <span>{getQtyLabel(option, t)}</span>
                                         {settings.showPrice
-                                          ? getPriceMetadataLabels(
+                                          ? getItemPriceMetadataLabels(
                                               option.unitPrice,
+                                              option,
                                               "unit",
                                             ).map((label) => (
                                               <span
@@ -4243,8 +4270,9 @@ export default function PublicClientPanelPage() {
                                             ))
                                           : null}
                                         {settings.showPrice
-                                          ? getPriceMetadataLabels(
+                                          ? getItemPriceMetadataLabels(
                                               option.totalPrice,
+                                              option,
                                               "total",
                                             ).map((label) => (
                                               <span
@@ -4337,7 +4365,7 @@ export default function PublicClientPanelPage() {
                 className="flex items-center justify-between text-base text-foreground"
               >
                 <span className="font-medium">{sectionName}</span>
-                <span>{formatTaxBreakdownSummary(total)}</span>
+                <span>{formatAmount(total, currencySymbol)}</span>
               </div>
             ))}
             <div className="flex items-center justify-between border-t border-border pt-4">
@@ -4345,7 +4373,7 @@ export default function PublicClientPanelPage() {
                 {t("clientPanel", "grandTotal")}
               </span>
               <span className="text-2xl font-medium text-foreground">
-                {formatTaxBreakdownSummary(grandTotal)}
+                {formatAmount(grandTotal, currencySymbol)}
               </span>
             </div>
           </div>

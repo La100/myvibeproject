@@ -71,8 +71,13 @@ function ProjectSidebarContent() {
   const { user } = useUser();
   const markClientNotificationsRead = useMutation(apiAny.projects.markClientNotificationsRead);
   const activities = useQuery(apiAny.activityLog.getForProject, { projectId: project._id });
+  const clientPanelPublishStatus = useQuery(apiAny.projects.getClientPanelPublishStatus, {
+    projectId: project._id,
+  });
   const notificationsHref = `/organisation/projects/${params.projectSlug}/changelog`;
   const isNotificationsRouteActive = pathname.startsWith(notificationsHref);
+  const clientPortalHref = `/organisation/projects/${params.projectSlug}/customer-panel`;
+  const isClientPortalRouteActive = pathname.startsWith(clientPortalHref);
   const lastMarkedNotificationAtRef = useRef(0);
 
   const clientNotifications = useMemo(
@@ -86,6 +91,9 @@ function ProjectSidebarContent() {
     (activity) => activity._creationTime > lastReadAt,
   ).length;
   const visibleNotificationCount = isNotificationsRouteActive ? 0 : unreadClientNotifications;
+  const visibleClientPortalPendingCount = isClientPortalRouteActive
+    ? 0
+    : (clientPanelPublishStatus?.pendingCount ?? 0);
 
   useEffect(() => {
     if (!isNotificationsRouteActive || latestNotificationAt === 0) {
@@ -116,7 +124,14 @@ function ProjectSidebarContent() {
 
   const allNavItems = [
     { href: `/organisation/projects/${params.projectSlug}`, label: t("projectWorkspace", "overview"), icon: LayoutDashboard, key: "overview", group: "project" },
-    { href: `/organisation/projects/${params.projectSlug}/customer-panel`, label: t("projectSidebar", "clientPortal"), icon: Eye, key: "customer_panel", group: "project" },
+    {
+      href: clientPortalHref,
+      label: t("projectSidebar", "clientPortal"),
+      icon: Eye,
+      key: "customer_panel",
+      group: "project",
+      notificationCount: visibleClientPortalPendingCount,
+    },
     {
       href: notificationsHref,
       label: t("navigation", "notifications"),

@@ -10,6 +10,19 @@ import {
   paymentCustomerDetailsValidator,
 } from "./projectPaymentHelpers";
 
+const priceTaxModeValidator = v.union(
+  v.literal("unspecified"),
+  v.literal("net"),
+  v.literal("gross"),
+  v.literal("exempt"),
+);
+
+const priceTaxRateSnapshotValidator = v.object({
+  id: v.optional(v.string()),
+  name: v.string(),
+  rate: v.number(),
+});
+
 const clientPanelPublishedTaskValidator = v.object({
   _id: v.id("tasks"),
   title: v.string(),
@@ -42,6 +55,9 @@ const clientPanelPublishedLaborItemValidator = v.object({
   unit: v.string(),
   unitPrice: v.optional(v.number()),
   totalPrice: v.optional(v.number()),
+  priceTaxMode: v.optional(priceTaxModeValidator),
+  taxRateId: v.optional(v.union(v.string(), v.null())),
+  taxRateSnapshot: v.optional(v.union(priceTaxRateSnapshotValidator, v.null())),
   assignedTo: v.optional(v.string()),
   referenceLink: v.optional(v.union(v.string(), v.null())),
   attachmentFileId: v.optional(v.union(v.id("files"), v.null())),
@@ -166,19 +182,6 @@ const teamTaxRateValidator = v.object({
   isArchived: v.boolean(),
   createdAt: v.number(),
   updatedAt: v.number(),
-});
-
-const priceTaxModeValidator = v.union(
-  v.literal("unspecified"),
-  v.literal("net"),
-  v.literal("gross"),
-  v.literal("exempt"),
-);
-
-const priceTaxRateSnapshotValidator = v.object({
-  id: v.optional(v.string()),
-  name: v.string(),
-  rate: v.number(),
 });
 
 const costEstimationTaxSnapshotValidator = v.object({
@@ -846,6 +849,9 @@ export default defineSchema({
     unit: v.optional(v.string()),
     unitPrice: v.optional(v.number()),
     totalPrice: v.optional(v.number()),
+    priceTaxMode: v.optional(priceTaxModeValidator),
+    taxRateId: v.optional(v.union(v.string(), v.null())),
+    taxRateSnapshot: v.optional(v.union(priceTaxRateSnapshotValidator, v.null())),
     sectionName: v.optional(v.string()),
     sectionOrder: v.number(),
     setId: v.optional(v.union(v.id("shoppingSets"), v.null())),
