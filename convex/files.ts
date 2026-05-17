@@ -9,7 +9,6 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { v } from "convex/values";
-import { makeFunctionReference } from "convex/server";
 import { getEffectiveLimits } from "./stripe";
 import { Doc, Id } from "./_generated/dataModel";
 import { aiDebugLog } from "./ai/helpers/debugLog";
@@ -17,9 +16,6 @@ import { canAccessProjectWithMembership } from "./authz";
 import { resolveActorFromExtensionSessionToken } from "./extensionSessions";
 
 export const r2 = new R2(components.r2);
-const checkStorageLimitQueryRef = makeFunctionReference<"query">(
-  "files:checkStorageLimit",
-);
 const FILE_KNOWLEDGE_INDEX_ACTION =
   "fileKnowledgeActions:indexProjectFileKnowledge";
 const FILE_KNOWLEDGE_REMOVE_ACTION =
@@ -38,6 +34,52 @@ const resolveStoredFileUrl = async (
   }
 
   return await r2.getUrl(storageId, options);
+};
+
+const checkStorageLimitForTeam = async (
+  ctx: QueryCtx | MutationCtx,
+  teamId: Id<"teams">,
+  additionalBytes = 0,
+) => {
+  const team = await ctx.db.get(teamId);
+  if (!team) {
+    return { allowed: false, message: "Team not found" };
+  }
+
+  const projects = await ctx.db
+    .query("projects")
+    .withIndex("by_team", (q) => q.eq("teamId", teamId))
+    .collect();
+
+  let totalBytes = 0;
+  for (const project of projects) {
+    const files = await ctx.db
+      .query("files")
+      .withIndex("by_project", (q) => q.eq("projectId", project._id))
+      .filter((q) => q.eq(q.field("isLatest"), true))
+      .collect();
+    totalBytes += files.reduce((sum, file) => sum + (file.size || 0), 0);
+  }
+
+  const limits = getEffectiveLimits(team);
+  const limitBytes = limits.maxStorageGB * 1024 * 1024 * 1024;
+  const newTotal = totalBytes + additionalBytes;
+
+  if (newTotal >= limitBytes) {
+    return {
+      allowed: false,
+      message: `Storage limit reached (${limits.maxStorageGB} GB). Please upgrade your plan.`,
+      usedBytes: totalBytes,
+      limitBytes,
+    };
+  }
+
+  return {
+    allowed: true,
+    message: "OK",
+    usedBytes: totalBytes,
+    limitBytes,
+  };
 };
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -451,49 +493,7 @@ export const checkStorageLimit = internalQuery({
     additionalBytes: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const team = await ctx.db.get(args.teamId);
-    if (!team) {
-      return { allowed: false, message: "Team not found" };
-    }
-
-    // Get all projects for this team
-    const projects = await ctx.db
-      .query("projects")
-      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
-      .collect();
-
-    // Sum up all file sizes
-    let totalBytes = 0;
-    for (const project of projects) {
-      const files = await ctx.db
-        .query("files")
-        .withIndex("by_project", (q) => q.eq("projectId", project._id))
-        .filter((q) => q.eq(q.field("isLatest"), true))
-        .collect();
-
-      totalBytes += files.reduce((sum, file) => sum + (file.size || 0), 0);
-    }
-
-    const limits = getEffectiveLimits(team);
-    const limitBytes = limits.maxStorageGB * 1024 * 1024 * 1024;
-
-    const newTotal = totalBytes + (args.additionalBytes || 0);
-
-    if (newTotal >= limitBytes) {
-      return {
-        allowed: false,
-        message: `Storage limit reached (${limits.maxStorageGB} GB). Please upgrade your plan.`,
-        usedBytes: totalBytes,
-        limitBytes,
-      };
-    }
-
-    return {
-      allowed: true,
-      message: "OK",
-      usedBytes: totalBytes,
-      limitBytes,
-    };
+    return await checkStorageLimitForTeam(ctx, args.teamId, args.additionalBytes || 0);
   },
 });
 
@@ -698,10 +698,11 @@ export const generatePublicSurveyUploadUrl = mutation({
     }
 
     const { project, team } = await getPortalSurveyContext(ctx, args);
-    const storageCheck = (await ctx.runQuery(checkStorageLimitQueryRef, {
-      teamId: project.teamId,
-      additionalBytes: args.fileSize,
-    })) as { allowed: boolean; message: string };
+    const storageCheck = await checkStorageLimitForTeam(
+      ctx,
+      project.teamId,
+      args.fileSize,
+    );
     if (!storageCheck.allowed) {
       throw new Error(storageCheck.message);
     }
@@ -878,10 +879,11 @@ export const generateUploadUrlWithCustomKeyInternal = internalMutation({
     const team = (await ctx.db.get(project.teamId)) as Doc<"teams"> | null;
     if (!team) throw new Error("Team not found");
 
-    const storageCheck = (await ctx.runQuery(checkStorageLimitQueryRef, {
-      teamId: project.teamId,
-      additionalBytes: args.fileSize,
-    })) as { allowed: boolean; message: string };
+    const storageCheck = await checkStorageLimitForTeam(
+      ctx,
+      project.teamId,
+      args.fileSize || 0,
+    );
     if (!storageCheck.allowed) {
       throw new Error(storageCheck.message);
     }

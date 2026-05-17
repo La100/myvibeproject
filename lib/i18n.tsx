@@ -1521,6 +1521,7 @@ const enMessages = {
       amount: "Amount",
       budget: "Budget",
       budgetUse: "Budget use",
+      budgetUsedSummary: "{amount} used{percent}",
       bookedCostNotYetRealized: "Booked cost not yet fully realized",
       cancelled: "Cancelled",
       clientNotifications: "Client Notifications",
@@ -6156,6 +6157,7 @@ Object.assign((messages.pl as Record<string, unknown>), {
     bookedCostNotYetRealized: "Koszt zarezerwowany, jeszcze nie w pełni zrealizowany",
     budget: "Budżet",
     budgetUse: "Wykorzystanie budżetu",
+    budgetUsedSummary: "Wykorzystano {amount}{percent}",
     cancelled: "Anulowany",
     clientNotifications: "Powiadomienia klienta",
     clientNotificationsDescription:

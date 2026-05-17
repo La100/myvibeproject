@@ -753,9 +753,10 @@ function ProjectOverviewContent() {
         : t("projectWorkspace", "notSet"),
       label: t("projectWorkspace", "budget"),
       meta: hasProjectBudget
-        ? `${formatCurrency(totalCost, budgetSummary.currency)} used${
-            budgetUsedPercent !== null ? ` (${budgetUsedPercent}%)` : ""
-          }`
+        ? t("projectWorkspace", "budgetUsedSummary", {
+            amount: formatCurrency(totalCost, budgetSummary.currency),
+            percent: budgetUsedPercent !== null ? ` (${budgetUsedPercent}%)` : "",
+          })
         : t("projectWorkspace", "addProjectBudgetInSettings"),
       budgetUsageChart,
       spanClass: "xl:col-span-2",
@@ -769,10 +770,10 @@ function ProjectOverviewContent() {
       meta: `${formatCurrency(
         paidAmount,
         paymentsData?.currency || project.currency,
-      )} paid, ${formatCurrency(
+      )} ${t("projectWorkspace", "paid")}, ${formatCurrency(
         outstandingAmount,
         paymentsData?.currency || project.currency,
-      )} unpaid`,
+      )} ${t("projectWorkspace", "unpaid")}`,
       spanClass: "xl:col-span-2",
     },
   ];
