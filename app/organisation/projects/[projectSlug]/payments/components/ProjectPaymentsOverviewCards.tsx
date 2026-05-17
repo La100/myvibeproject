@@ -1,51 +1,86 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useI18n } from "@/lib/i18n";
 import { formatCurrency } from "@/lib/utils";
 
 type ProjectPaymentsOverviewCardsProps = {
   currency: string;
-  scheduledTotal: number;
-  collectedTotal: number;
+  draftTotal: number;
+  draftCount: number;
   outstandingTotal: number;
+  openCount: number;
+  collectedTotal: number;
+  paidCount: number;
+  overdueTotal: number;
   overdueCount: number;
 };
 
-function OverviewCard({
+function OverviewMetric({
   title,
   value,
+  count,
+  className = "",
 }: {
   title: string;
   value: string;
+  count: number;
+  className?: string;
 }) {
   return (
-    <Card className="gap-3 rounded-2xl border-border/70 bg-card py-4 shadow-sm">
-      <CardHeader className="px-4 pb-0">
-        <CardTitle className="text-[13px] font-medium text-muted-foreground">{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="px-4 pt-0 text-[1.35rem] font-semibold leading-none tracking-tight sm:text-[1.45rem]">
+    <div className={`min-w-0 px-4 py-4 sm:px-5 ${className}`}>
+      <div className="flex items-center justify-between gap-3">
+        <p className="truncate text-[12px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+          {title}
+        </p>
+        <span className="shrink-0 text-xs font-semibold text-muted-foreground">
+          {count}
+        </span>
+      </div>
+      <p className="mt-2 truncate text-xl font-semibold leading-none tracking-tight text-foreground">
         {value}
-      </CardContent>
-    </Card>
+      </p>
+    </div>
   );
 }
 
 export function ProjectPaymentsOverviewCards({
   currency,
-  scheduledTotal,
-  collectedTotal,
+  draftTotal,
+  draftCount,
   outstandingTotal,
+  openCount,
+  collectedTotal,
+  paidCount,
+  overdueTotal,
   overdueCount,
 }: ProjectPaymentsOverviewCardsProps) {
   const { t } = useI18n();
 
   return (
-    <div className="grid gap-2.5 md:grid-cols-4">
-      <OverviewCard title={t("projectPayments", "scheduled")} value={formatCurrency(scheduledTotal || 0, currency)} />
-      <OverviewCard title={t("projectPayments", "collected")} value={formatCurrency(collectedTotal || 0, currency)} />
-      <OverviewCard title={t("projectPayments", "outstanding")} value={formatCurrency(outstandingTotal || 0, currency)} />
-      <OverviewCard title={t("projectPayments", "overdue")} value={String(overdueCount || 0)} />
-    </div>
+    <section className="grid overflow-hidden rounded-xl border border-border/70 bg-card sm:grid-cols-2 xl:grid-cols-4">
+      <OverviewMetric
+        title={t("projectPayments", "draftsMetric")}
+        value={formatCurrency(draftTotal || 0, currency)}
+        count={draftCount || 0}
+        className="border-b border-border/60 sm:border-r xl:border-b-0"
+      />
+      <OverviewMetric
+        title={t("projectPayments", "outstanding")}
+        value={formatCurrency(outstandingTotal || 0, currency)}
+        count={openCount || 0}
+        className="border-b border-border/60 xl:border-r xl:border-b-0"
+      />
+      <OverviewMetric
+        title={t("projectPayments", "collected")}
+        value={formatCurrency(collectedTotal || 0, currency)}
+        count={paidCount || 0}
+        className="border-b border-border/60 sm:border-r sm:border-b-0 xl:border-r"
+      />
+      <OverviewMetric
+        title={t("projectPayments", "overdue")}
+        value={formatCurrency(overdueTotal || 0, currency)}
+        count={overdueCount || 0}
+      />
+    </section>
   );
 }

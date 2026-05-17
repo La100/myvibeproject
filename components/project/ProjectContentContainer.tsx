@@ -13,7 +13,7 @@ export function ProjectContentContainer({
     /^\/organisation\/projects\/[^/]+(?:\/)?$/.test(pathname);
   const isWideProjectRoute =
     isProjectOverviewRoute ||
-    /^\/organisation\/projects\/[^/]+\/(?:tasks|shopping-list|labor|calendar|moodboard|contacts)(?:\/|$)/.test(
+    /^\/organisation\/projects\/[^/]+\/(?:tasks|shopping-list|labor|calendar|moodboard|contacts|payments)(?:\/|$)/.test(
       pathname,
     );
 

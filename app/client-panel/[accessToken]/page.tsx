@@ -670,9 +670,6 @@ export default function PublicClientPanelPage() {
     apiAny.projectPaymentActions
       .getProjectPaymentInvoiceDownloadUrlByAccessToken,
   );
-  const getStripePaymentLinkUrl = useAction(
-    apiAny.projectPaymentActions.getProjectPaymentStripeLinkByAccessToken,
-  );
   const publicBudgetSummaryData = useQuery(
     apiAny.projectBudget.getPublicProjectBudgetSummaryByAccessToken,
     panelData?.settings?.showBudget ? { accessToken } : "skip",
@@ -709,7 +706,6 @@ export default function PublicClientPanelPage() {
   const [downloadingPaymentId, setDownloadingPaymentId] = useState<
     string | null
   >(null);
-  const [openingPaymentId, setOpeningPaymentId] = useState<string | null>(null);
   const [shoppingItemComments, setShoppingItemComments] = useState<
     Record<string, string>
   >({});
@@ -1325,23 +1321,6 @@ export default function PublicClientPanelPage() {
       });
     } finally {
       setDownloadingPaymentId(null);
-    }
-  };
-
-  const handleOpenPaymentLink = async (paymentId: string) => {
-    setOpeningPaymentId(paymentId);
-    try {
-      const result = await getStripePaymentLinkUrl({
-        accessToken,
-        installmentId: paymentId as Id<"projectPayments">,
-      });
-      window.open(result.url, "_blank", "noopener,noreferrer");
-    } catch (error) {
-      toast.error(t("clientPanel", "paymentLinkOpenFailed"), {
-        description: toUserFacingErrorMessage(error),
-      });
-    } finally {
-      setOpeningPaymentId(null);
     }
   };
 
@@ -3934,22 +3913,6 @@ export default function PublicClientPanelPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                      {payment.canPayOnline ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="default"
-                          onClick={() =>
-                            void handleOpenPaymentLink(payment._id)
-                          }
-                          disabled={openingPaymentId === payment._id}
-                        >
-                          <ExternalLink data-icon="inline-start" />
-                          {openingPaymentId === payment._id
-                            ? t("clientPanel", "opening")
-                            : t("clientPanel", "payOnline")}
-                        </Button>
-                      ) : null}
                       {payment.hasInvoicePdf ? (
                         <Button
                           type="button"

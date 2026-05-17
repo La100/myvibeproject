@@ -45,6 +45,38 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const roundCurrency = (value: number) =>
   Math.round((value + Number.EPSILON) * 100) / 100;
 
+const isIssuedInvoice = (installment: any) =>
+  Boolean(installment.invoiceNumber || installment.stripeInvoiceId);
+
+const isOverdueInvoice = (installment: any, now = Date.now()) =>
+  installment.status === "open" &&
+  typeof installment.dueDate === "number" &&
+  installment.dueDate < now;
+
+const getInvoiceCapabilities = (installment: any) => {
+  const issued = isIssuedInvoice(installment);
+  const stripeLinked = Boolean(installment.stripeInvoiceId);
+  const hasPaymentReference = Boolean(normalizeOptionalString(installment.paymentReference));
+  const hasInvoicePdf = Boolean(installment.invoicePdfStorageKey);
+
+  return {
+    canDelete: installment.status === "draft" && !issued,
+    canEdit: installment.status === "draft" || (issued && !stripeLinked && installment.status === "open"),
+    canPreview: true,
+    canIssue: installment.status === "draft" && !issued,
+    canSendEmail: issued && installment.status === "open",
+    canDownloadPdf: issued && hasInvoicePdf,
+    canCopyReference: issued && hasPaymentReference,
+    canMarkPaid: issued && installment.status === "open",
+    canReopen:
+      issued &&
+      !stripeLinked &&
+      (installment.status === "paid" || installment.status === "uncollectible"),
+    canVoid: issued && !stripeLinked && installment.status === "open",
+    canMarkUncollectible: issued && !stripeLinked && installment.status === "open",
+  };
+};
+
 const getProjectPaymentManager = async (
   ctx: any,
   projectId: Id<"projects">,
@@ -113,13 +145,11 @@ const buildBillingSetup = ({
   customerName,
   customerCompanyName,
   bankAccountNumber,
-  stripeConnectOnboardingComplete,
 }: {
   sellerName?: string;
   customerName?: string;
   customerCompanyName?: string;
   bankAccountNumber?: string;
-  stripeConnectOnboardingComplete: boolean;
 }) => {
   const missingSellerFields: string[] = [];
   const missingCustomerFields: string[] = [];
@@ -135,8 +165,8 @@ const buildBillingSetup = ({
   }
 
   const hasBankAccountNumber = !!normalizeOptionalString(bankAccountNumber);
-  if (!stripeConnectOnboardingComplete && !hasBankAccountNumber) {
-    missingSellerFields.push("bank account number or Stripe payments");
+  if (!hasBankAccountNumber) {
+    missingSellerFields.push("bank account number");
   }
 
   return {
@@ -151,16 +181,14 @@ const toPublicInstallment = (installment: any) => ({
   ...installment,
   invoiceNumber: installment.invoiceNumber || installment.stripeInvoiceNumber,
   hasInvoicePdf: Boolean(installment.invoicePdfStorageKey),
+  capabilities: getInvoiceCapabilities(installment),
   invoiceSellerSnapshot: normalizeBillingProfile(installment.invoiceSellerSnapshot),
   invoiceCustomerSnapshot: normalizePaymentCustomerDetails(installment.invoiceCustomerSnapshot),
   invoiceLineItems: resolveInvoiceLineItems(installment) || [],
   invoiceTaxSettingsSnapshot: normalizeInvoiceTaxSettingsSnapshot(
     installment.invoiceTaxSettingsSnapshot,
   ),
-  isOverdue:
-    installment.status === "open" &&
-    typeof installment.dueDate === "number" &&
-    installment.dueDate < Date.now(),
+  isOverdue: isOverdueInvoice(installment),
 });
 
 const buildInvoiceNumber = (prefix: string | undefined, sequence: number, issuedAt: number) => {
@@ -332,9 +360,6 @@ export const getProjectPaymentsOverview = query({
     const organizationTaxSettings = resolveOrganizationTaxSettings(team?.organizationTaxSettings);
     const invoiceFieldRequirements = resolveInvoiceFieldRequirements(team?.invoiceFieldRequirements);
     const customer = resolveProjectCustomerDetails(project);
-    const stripeConnectOnboardingComplete =
-      team?.stripeConnectOnboardingComplete === true ||
-      (team?.stripeConnectChargesEnabled === true && team?.stripeConnectPayoutsEnabled === true);
     const visibleBillingProfile = applyInvoiceFieldVisibilityToBillingProfile(
       billingProfile as ReturnType<typeof normalizeBillingProfile>,
       invoiceFieldRequirements,
@@ -350,26 +375,27 @@ export const getProjectPaymentsOverview = query({
         customerName,
         customerCompanyName,
         bankAccountNumber,
-        stripeConnectOnboardingComplete,
       }),
       canEmailInvoices:
         !!normalizeOptionalEmail(visibleCustomer?.email) &&
         emailPattern.test(normalizeOptionalEmail(visibleCustomer?.email) || ""),
     };
 
-    const visibleInstallments = installments.filter((installment: any) => installment.status !== "void");
-    const paidTotal = visibleInstallments
-      .filter((installment: any) => installment.status === "paid")
+    const activeInstallments = installments.filter(
+      (installment: any) => installment.status !== "void" && installment.status !== "uncollectible",
+    );
+    const draftInstallments = installments.filter((installment: any) => installment.status === "draft");
+    const openInstallments = installments.filter((installment: any) => installment.status === "open");
+    const paidInstallments = installments.filter((installment: any) => installment.status === "paid");
+    const archivedInstallments = installments.filter(
+      (installment: any) => installment.status === "void" || installment.status === "uncollectible",
+    );
+    const overdueInstallments = openInstallments.filter((installment: any) => isOverdueInvoice(installment));
+    const draftTotal = draftInstallments
       .reduce((sum: number, installment: any) => sum + installment.amount, 0);
-    const outstandingTotal = visibleInstallments
-      .filter((installment: any) => installment.status === "open" || installment.status === "draft")
-      .reduce((sum: number, installment: any) => sum + installment.amount, 0);
-    const overdueCount = visibleInstallments.filter(
-      (installment: any) =>
-        installment.status === "open" &&
-        typeof installment.dueDate === "number" &&
-        installment.dueDate < Date.now(),
-    ).length;
+    const openTotal = openInstallments.reduce((sum: number, installment: any) => sum + installment.amount, 0);
+    const paidTotal = paidInstallments.reduce((sum: number, installment: any) => sum + installment.amount, 0);
+    const overdueTotal = overdueInstallments.reduce((sum: number, installment: any) => sum + installment.amount, 0);
 
     return {
       customer,
@@ -377,22 +403,21 @@ export const getProjectPaymentsOverview = query({
       organizationTaxSettings,
       invoiceFieldRequirements,
       billingSetup,
-      stripeConnect: {
-        accountId: team?.stripeConnectAccountId ?? null,
-        accountType: team?.stripeConnectAccountType ?? null,
-        chargesEnabled: team?.stripeConnectChargesEnabled === true,
-        payoutsEnabled: team?.stripeConnectPayoutsEnabled === true,
-        detailsSubmitted: team?.stripeConnectDetailsSubmitted === true,
-        onboardingComplete: stripeConnectOnboardingComplete,
-      },
       currentUserRole: membership.role,
       currency: project.currency || "PLN",
       totals: {
-        scheduled: visibleInstallments.reduce((sum: number, installment: any) => sum + installment.amount, 0),
+        scheduled: draftTotal + openTotal,
+        draft: draftTotal,
+        draftCount: draftInstallments.length,
         paid: paidTotal,
-        outstanding: outstandingTotal,
-        overdueCount,
-        installmentCount: visibleInstallments.length,
+        paidCount: paidInstallments.length,
+        outstanding: openTotal,
+        open: openTotal,
+        openCount: openInstallments.length,
+        overdue: overdueTotal,
+        overdueCount: overdueInstallments.length,
+        archivedCount: archivedInstallments.length,
+        installmentCount: activeInstallments.length,
       },
       installments: installments.map(toPublicInstallment),
     };
@@ -789,6 +814,20 @@ export const setProjectPaymentManualStatus = mutation({
 
     if (!installment.invoiceNumber && !installment.stripeInvoiceId) {
       throw new Error("Issue the invoice before changing the payment status");
+    }
+
+    const capabilities = getInvoiceCapabilities(installment);
+    if (args.status === "paid" && !capabilities.canMarkPaid) {
+      throw new Error("This invoice cannot be marked as paid from its current status");
+    }
+    if (args.status === "open" && !capabilities.canReopen) {
+      throw new Error("This invoice cannot be reopened from its current status");
+    }
+    if (args.status === "void" && !capabilities.canVoid) {
+      throw new Error("This invoice cannot be voided from its current status");
+    }
+    if (args.status === "uncollectible" && !capabilities.canMarkUncollectible) {
+      throw new Error("This invoice cannot be marked as uncollectible from its current status");
     }
 
     await ctx.db.patch(args.installmentId, {

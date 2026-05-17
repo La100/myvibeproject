@@ -3,23 +3,44 @@
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { TabsContent } from "@/components/ui/tabs";
 import { Id } from "@/convex/_generated/dataModel";
 import { useI18n } from "@/lib/i18n";
 import { cn, formatCurrency } from "@/lib/utils";
 import {
+  Banknote,
   CheckCircle2,
   Copy,
   Download,
-  ExternalLink,
   FileText,
   Mail,
-  Plus,
+  MoreHorizontal,
+  RotateCcw,
   Trash2,
   Wallet,
-  Banknote,
+  XCircle,
 } from "lucide-react";
+
+type InvoiceCapabilities = {
+  canDelete: boolean;
+  canEdit: boolean;
+  canPreview: boolean;
+  canIssue: boolean;
+  canSendEmail: boolean;
+  canDownloadPdf: boolean;
+  canCopyReference: boolean;
+  canMarkPaid: boolean;
+  canReopen: boolean;
+  canVoid: boolean;
+  canMarkUncollectible: boolean;
+};
 
 type Installment = {
   _id: Id<"projectPayments">;
@@ -36,23 +57,24 @@ type Installment = {
   paymentReference?: string;
   hasInvoicePdf?: boolean;
   stripeInvoiceId?: string;
-  stripeHostedInvoiceUrl?: string;
+  capabilities?: Partial<InvoiceCapabilities>;
 };
 
 type ActionName =
   | "issue"
   | "send"
   | "download"
-  | "link"
   | "paid"
   | "open"
-  | "void";
+  | "void"
+  | "uncollectible";
 
 type ProjectPaymentsInvoiceListSectionsProps = {
   draftInstallments: Installment[];
-  issuedInstallments: Installment[];
+  openInstallments: Installment[];
+  paidInstallments: Installment[];
+  archivedInstallments: Installment[];
   busyInstallmentId: Id<"projectPayments"> | null;
-  onNewInvoice: () => void;
   onOpenEditDialog: (installment: Installment) => void;
   onOpenPreview: (installment: Installment) => void;
   onRunAction: (
@@ -60,9 +82,35 @@ type ProjectPaymentsInvoiceListSectionsProps = {
     actionName: ActionName,
   ) => void;
   onRemoveDraft: (installmentId: Id<"projectPayments">) => void;
-  onCopyPaymentLink: (value?: string) => void;
   onCopyReference: (value?: string) => void;
 };
+
+const fallbackCapabilities = (installment: Installment): InvoiceCapabilities => {
+  const issued = Boolean(installment.invoiceNumber || installment.stripeInvoiceId);
+  const stripeLinked = Boolean(installment.stripeInvoiceId);
+
+  return {
+    canDelete: installment.status === "draft" && !issued,
+    canEdit: installment.status === "draft" || (issued && !stripeLinked && installment.status === "open"),
+    canPreview: true,
+    canIssue: installment.status === "draft" && !issued,
+    canSendEmail: issued && installment.status === "open",
+    canDownloadPdf: issued && Boolean(installment.hasInvoicePdf),
+    canCopyReference: issued && Boolean(installment.paymentReference),
+    canMarkPaid: issued && installment.status === "open",
+    canReopen:
+      issued &&
+      !stripeLinked &&
+      (installment.status === "paid" || installment.status === "uncollectible"),
+    canVoid: issued && !stripeLinked && installment.status === "open",
+    canMarkUncollectible: issued && !stripeLinked && installment.status === "open",
+  };
+};
+
+const getCapabilities = (installment: Installment): InvoiceCapabilities => ({
+  ...fallbackCapabilities(installment),
+  ...(installment.capabilities || {}),
+});
 
 const getStatusBadgeVariant = (
   installment: Installment,
@@ -95,14 +143,36 @@ const getStatusLabelKey = (installment: Installment) => {
     | "statusUncollectible";
 };
 
-const actionButtonClassName =
-  "h-8 shrink-0 rounded-full border-border/60 bg-card px-3 text-[12px] font-medium shadow-none transition-colors hover:bg-card hover:text-foreground";
-
-const actionTrayClassName =
-  "flex min-w-0 max-w-full flex-wrap items-center gap-1 rounded-2xl border border-border/60 bg-secondary/35 p-1 xl:justify-end";
-
-const metaPillClassName =
-  "inline-flex max-w-full items-center rounded-full border border-border/60 bg-secondary/70 px-2.5 py-1 text-[11px] font-medium leading-none text-muted-foreground";
+function InvoiceMenuItem({
+  icon,
+  children,
+  disabled,
+  destructive,
+  onSelect,
+}: {
+  icon: ReactNode;
+  children: ReactNode;
+  disabled?: boolean;
+  destructive?: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <DropdownMenuItem
+      disabled={disabled}
+      onSelect={(event) => {
+        event.preventDefault();
+        onSelect();
+      }}
+      className={cn(
+        "gap-2",
+        destructive && "text-destructive focus:text-destructive",
+      )}
+    >
+      {icon}
+      {children}
+    </DropdownMenuItem>
+  );
+}
 
 function InvoiceListItem({
   installment,
@@ -111,7 +181,6 @@ function InvoiceListItem({
   onOpenPreview,
   onRunAction,
   onRemoveDraft,
-  onCopyPaymentLink,
   onCopyReference,
 }: {
   installment: Installment;
@@ -123,280 +192,193 @@ function InvoiceListItem({
     actionName: ActionName,
   ) => void;
   onRemoveDraft: (installmentId: Id<"projectPayments">) => void;
-  onCopyPaymentLink: (value?: string) => void;
   onCopyReference: (value?: string) => void;
 }) {
   const { t } = useI18n();
-  const isDraft = installment.status === "draft";
-  const canVoid =
-    installment.status !== "paid" && installment.status !== "void";
+  const capabilities = getCapabilities(installment);
+  const primaryAction =
+    capabilities.canIssue
+      ? {
+          label: t("projectPayments", "issue"),
+          icon: <FileText data-icon="inline-start" />,
+          onClick: () => onRunAction(installment._id, "issue"),
+        }
+      : capabilities.canMarkPaid
+        ? {
+            label: t("projectPayments", "markPaid"),
+            icon: <CheckCircle2 data-icon="inline-start" />,
+            onClick: () => onRunAction(installment._id, "paid"),
+          }
+        : null;
+  const dueDateLabel = installment.dueDate
+    ? new Date(installment.dueDate).toLocaleDateString()
+    : t("projectPayments", "noDueDate");
 
   return (
-    <div className="rounded-2xl border border-border/80 bg-card px-4 py-4 transition-[border-color,box-shadow] hover:border-border hover:shadow-sm sm:px-5">
-      <div className="grid gap-3 xl:grid-cols-[minmax(18rem,1fr)_minmax(0,42rem)] xl:items-start">
-        <div className="min-w-0">
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <h3 className="min-w-0 max-w-full text-[15px] font-semibold leading-tight text-foreground">
-              {installment.title}
-            </h3>
-            <Badge
-              variant={getStatusBadgeVariant(installment)}
-              className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.08em]"
-            >
-              {t("projectPayments", getStatusLabelKey(installment))}
-            </Badge>
-            {installment.invoiceNumber ? (
-              <Badge
-                variant="outline"
-                className="rounded-full border-border/70 bg-card px-2.5 py-0.5 text-[10px] font-semibold"
-              >
-                #{installment.invoiceNumber}
-              </Badge>
-            ) : null}
-          </div>
-
-          {installment.description ? (
-            <p className="max-w-3xl truncate text-[13px] leading-5 text-muted-foreground">
-              {installment.description}
-            </p>
+    <div className="grid gap-3 border-b border-border/60 px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,1.45fr)_minmax(9rem,0.5fr)_minmax(8rem,0.45fr)_minmax(8rem,0.45fr)_auto] md:items-center md:gap-x-5 md:px-5">
+      <div className="min-w-0">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <h3 className="min-w-0 truncate text-sm font-semibold leading-tight text-foreground">
+            {installment.title}
+          </h3>
+          {installment.invoiceNumber ? (
+            <span className="shrink-0 text-xs font-medium text-muted-foreground">
+              #{installment.invoiceNumber}
+            </span>
           ) : null}
-
-          <div className="mt-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
-            <span className="inline-flex shrink-0 items-baseline gap-1.5 whitespace-nowrap rounded-full bg-secondary/55 px-2.5 py-1">
-              <span className="text-xs font-medium text-muted-foreground">
-                {t("projectPayments", "total")}
-              </span>
-              <span className="font-semibold text-foreground">
-                {formatCurrency(installment.amount, installment.currency)}
-              </span>
-            </span>
-            <span className={metaPillClassName}>
-              {installment.dueDate
-                ? t("projectPayments", "dueDate", { date: new Date(installment.dueDate).toLocaleDateString() })
-                : t("projectPayments", "noDueDate")}
-            </span>
-            {installment.paymentReference ? (
-              <span className={cn(metaPillClassName, "max-w-[360px] truncate")}>
-                {t("projectPayments", "reference", { reference: installment.paymentReference })}
-              </span>
-            ) : null}
-            {installment.paidAt ? (
-              <span className={metaPillClassName}>
-                {t("projectPayments", "paidDate", { date: new Date(installment.paidAt).toLocaleDateString() })}
-              </span>
-            ) : null}
-            {installment.sentAt ? (
-              <span className={metaPillClassName}>
-                {t("projectPayments", "emailedDate", { date: new Date(installment.sentAt).toLocaleDateString() })}
-              </span>
-            ) : null}
-            {installment.stripeHostedInvoiceUrl ? (
-              <span className={metaPillClassName}>{t("projectPayments", "paymentLinkReady")}</span>
-            ) : null}
-          </div>
         </div>
-
-        <div className="flex min-w-0 xl:justify-end">
-          <div className={actionTrayClassName}>
-            {isDraft ? (
-              <>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-8 shrink-0 rounded-full px-3 text-[12px] font-medium"
-                  onClick={() => onOpenEditDialog(installment)}
-                >
-                  {t("projectPayments", "edit")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className={actionButtonClassName}
-                  onClick={() => onOpenPreview(installment)}
-                  disabled={busy}
-                >
-                  {t("projectPayments", "view")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className={actionButtonClassName}
-                  onClick={() => onRunAction(installment._id, "issue")}
-                  disabled={busy}
-                >
-                  <FileText data-icon="inline-start" />
-                  {t("projectPayments", "issue")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className={actionButtonClassName}
-                  onClick={() => onRunAction(installment._id, "link")}
-                  disabled={busy}
-                >
-                  <ExternalLink data-icon="inline-start" />
-                  {t("projectPayments", "createPaymentLink")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className={actionButtonClassName}
-                  onClick={() => onRunAction(installment._id, "send")}
-                  disabled={busy}
-                >
-                  <Mail data-icon="inline-start" />
-                  {t("projectPayments", "sendViaEmail")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 shrink-0 rounded-full px-3 text-[12px] font-medium text-muted-foreground hover:text-destructive"
-                  onClick={() => onRemoveDraft(installment._id)}
-                  disabled={busy}
-                >
-                  <Trash2 data-icon="inline-start" />
-                  {t("projectPayments", "delete")}
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className={actionButtonClassName}
-                  onClick={() => onOpenEditDialog(installment)}
-                  disabled={
-                    busy ||
-                    (!installment.invoiceNumber &&
-                      !installment.stripeInvoiceId) ||
-                    Boolean(installment.stripeInvoiceId)
-                  }
-                >
-                  {t("projectPayments", "editInvoice")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className={actionButtonClassName}
-                  onClick={() => onOpenPreview(installment)}
-                  disabled={busy}
-                >
-                  {t("projectPayments", "viewPdf")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className={actionButtonClassName}
-                  onClick={() => onRunAction(installment._id, "download")}
-                  disabled={busy || !installment.hasInvoicePdf}
-                >
-                  <Download data-icon="inline-start" />
-                  {t("projectPayments", "downloadPdf")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className={actionButtonClassName}
-                  onClick={() => onRunAction(installment._id, "link")}
-                  disabled={
-                    busy ||
-                    installment.status === "paid" ||
-                    installment.status === "void" ||
-                    installment.status === "uncollectible"
-                  }
-                >
-                  <ExternalLink data-icon="inline-start" />
-                  {installment.stripeHostedInvoiceUrl
-                    ? t("projectPayments", "openPaymentLink")
-                    : t("projectPayments", "createPaymentLink")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className={actionButtonClassName}
-                  onClick={() =>
-                    onCopyPaymentLink(installment.stripeHostedInvoiceUrl)
-                  }
-                  disabled={!installment.stripeHostedInvoiceUrl}
-                >
-                  <Copy data-icon="inline-start" />
-                  {t("projectPayments", "copyPaymentLink")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className={actionButtonClassName}
-                  onClick={() => onRunAction(installment._id, "send")}
-                  disabled={busy}
-                >
-                  <Mail data-icon="inline-start" />
-                  {t("projectPayments", "sendEmail")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className={actionButtonClassName}
-                  onClick={() => onCopyReference(installment.paymentReference)}
-                  disabled={!installment.paymentReference}
-                >
-                  <Copy data-icon="inline-start" />
-                  {t("projectPayments", "copyReference")}
-                </Button>
-                {installment.status !== "paid" ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className={cn(
-                      actionButtonClassName,
-                      "border-primary/35 bg-primary/10 text-primary hover:border-primary/45 hover:bg-primary/15 hover:text-primary",
-                    )}
-                    onClick={() => onRunAction(installment._id, "paid")}
-                    disabled={busy}
-                  >
-                    <CheckCircle2 data-icon="inline-start" />
-                    {t("projectPayments", "markPaid")}
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className={actionButtonClassName}
-                    onClick={() => onRunAction(installment._id, "open")}
-                    disabled={busy}
-                  >
-                    {t("projectPayments", "reopen")}
-                  </Button>
-                )}
-                {canVoid ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    className="h-8 shrink-0 rounded-full px-3 text-[12px] font-medium shadow-none"
-                    onClick={() => onRunAction(installment._id, "void")}
-                    disabled={busy}
-                  >
-                    {t("projectPayments", "void")}
-                  </Button>
-                ) : null}
-              </>
-            )}
-          </div>
+        <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <span className="md:hidden">{dueDateLabel}</span>
+          {installment.paymentReference ? (
+            <span className="max-w-full truncate">
+              {t("projectPayments", "reference", { reference: installment.paymentReference })}
+            </span>
+          ) : null}
+          {installment.sentAt ? (
+            <span>
+              {t("projectPayments", "emailedDate", { date: new Date(installment.sentAt).toLocaleDateString() })}
+            </span>
+          ) : null}
+          {installment.paidAt ? (
+            <span>
+              {t("projectPayments", "paidDate", { date: new Date(installment.paidAt).toLocaleDateString() })}
+            </span>
+          ) : null}
         </div>
+        {installment.description ? (
+          <p className="mt-1 truncate text-xs text-muted-foreground">
+            {installment.description}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="hidden text-sm text-muted-foreground md:block">
+        {dueDateLabel}
+      </div>
+
+      <div className="text-sm font-semibold text-foreground md:text-right">
+        {formatCurrency(installment.amount, installment.currency)}
+      </div>
+
+      <div className="flex md:justify-start">
+        <Badge
+          variant={getStatusBadgeVariant(installment)}
+          className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-[0.06em]"
+        >
+          {t("projectPayments", getStatusLabelKey(installment))}
+        </Badge>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 md:justify-end">
+        {primaryAction ? (
+          <Button
+            type="button"
+            size="sm"
+            onClick={primaryAction.onClick}
+            disabled={busy}
+          >
+            {primaryAction.icon}
+            {primaryAction.label}
+          </Button>
+        ) : null}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              disabled={busy}
+              aria-label={t("projectPayments", "invoiceActions")}
+            >
+              <MoreHorizontal />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <InvoiceMenuItem
+              icon={<FileText className="size-4" />}
+              disabled={!capabilities.canPreview}
+              onSelect={() => onOpenPreview(installment)}
+            >
+              {installment.status === "draft"
+                ? t("projectPayments", "view")
+                : t("projectPayments", "viewPdf")}
+            </InvoiceMenuItem>
+            {capabilities.canEdit ? (
+              <InvoiceMenuItem
+                icon={<FileText className="size-4" />}
+                onSelect={() => onOpenEditDialog(installment)}
+              >
+                {installment.status === "draft"
+                  ? t("projectPayments", "edit")
+                  : t("projectPayments", "editInvoice")}
+              </InvoiceMenuItem>
+            ) : null}
+            {capabilities.canDownloadPdf ? (
+              <InvoiceMenuItem
+                icon={<Download className="size-4" />}
+                onSelect={() => onRunAction(installment._id, "download")}
+              >
+                {t("projectPayments", "downloadPdf")}
+              </InvoiceMenuItem>
+            ) : null}
+            {capabilities.canSendEmail ? (
+              <InvoiceMenuItem
+                icon={<Mail className="size-4" />}
+                onSelect={() => onRunAction(installment._id, "send")}
+              >
+                {t("projectPayments", "sendEmail")}
+              </InvoiceMenuItem>
+            ) : null}
+            {capabilities.canCopyReference ? (
+              <InvoiceMenuItem
+                icon={<Copy className="size-4" />}
+                onSelect={() => onCopyReference(installment.paymentReference)}
+              >
+                {t("projectPayments", "copyReference")}
+              </InvoiceMenuItem>
+            ) : null}
+            {(capabilities.canReopen ||
+              capabilities.canMarkUncollectible ||
+              capabilities.canVoid ||
+              capabilities.canDelete) ? (
+              <DropdownMenuSeparator />
+            ) : null}
+            {capabilities.canReopen ? (
+              <InvoiceMenuItem
+                icon={<RotateCcw className="size-4" />}
+                onSelect={() => onRunAction(installment._id, "open")}
+              >
+                {t("projectPayments", "reopen")}
+              </InvoiceMenuItem>
+            ) : null}
+            {capabilities.canMarkUncollectible ? (
+              <InvoiceMenuItem
+                icon={<XCircle className="size-4" />}
+                onSelect={() => onRunAction(installment._id, "uncollectible")}
+              >
+                {t("projectPayments", "markUncollectible")}
+              </InvoiceMenuItem>
+            ) : null}
+            {capabilities.canVoid ? (
+              <InvoiceMenuItem
+                icon={<XCircle className="size-4" />}
+                destructive
+                onSelect={() => onRunAction(installment._id, "void")}
+              >
+                {t("projectPayments", "void")}
+              </InvoiceMenuItem>
+            ) : null}
+            {capabilities.canDelete ? (
+              <InvoiceMenuItem
+                icon={<Trash2 className="size-4" />}
+                destructive
+                onSelect={() => onRemoveDraft(installment._id)}
+              >
+                {t("projectPayments", "delete")}
+              </InvoiceMenuItem>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
@@ -405,7 +387,6 @@ function InvoiceListItem({
 function InvoiceListSection({
   title,
   icon,
-  action,
   items,
   emptyMessage,
   busyInstallmentId,
@@ -413,12 +394,10 @@ function InvoiceListSection({
   onOpenPreview,
   onRunAction,
   onRemoveDraft,
-  onCopyPaymentLink,
   onCopyReference,
 }: {
   title: string;
   icon: ReactNode;
-  action?: ReactNode;
   items: Installment[];
   emptyMessage: string;
   busyInstallmentId: Id<"projectPayments"> | null;
@@ -429,27 +408,34 @@ function InvoiceListSection({
     actionName: ActionName,
   ) => void;
   onRemoveDraft: (installmentId: Id<"projectPayments">) => void;
-  onCopyPaymentLink: (value?: string) => void;
   onCopyReference: (value?: string) => void;
 }) {
+  const { t } = useI18n();
+
   return (
-    <Card className="overflow-hidden rounded-2xl border-border/70 bg-card py-0 shadow-sm">
-      <CardHeader className="flex flex-col gap-3 border-b border-border/60 bg-card px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <CardTitle className="flex items-center gap-2 text-base font-semibold tracking-tight [&>svg]:h-5 [&>svg]:w-5">
+    <section>
+      <div className="flex flex-col gap-3 border-b border-border/60 px-4 py-4 sm:flex-row sm:items-center sm:justify-between md:px-5">
+        <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight [&>svg]:h-4 [&>svg]:w-4">
           {icon}
           {title}
-        </CardTitle>
-        {action}
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2 px-5 py-5">
-        {items.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border/70 bg-secondary/70 px-5 py-7 text-center">
-            <p className="mx-auto max-w-xl text-sm leading-[1.6] text-muted-foreground">
-              {emptyMessage}
-            </p>
+        </h2>
+      </div>
+      {items.length === 0 ? (
+        <div className="px-4 py-10 md:px-5">
+          <p className="max-w-xl text-sm leading-[1.6] text-muted-foreground">
+            {emptyMessage}
+          </p>
+        </div>
+      ) : (
+        <div>
+          <div className="hidden border-b border-border/60 bg-secondary/35 px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground md:grid md:grid-cols-[minmax(0,1.45fr)_minmax(9rem,0.5fr)_minmax(8rem,0.45fr)_minmax(8rem,0.45fr)_auto] md:gap-x-5">
+            <span>{t("projectPayments", "invoiceColumn")}</span>
+            <span>{t("projectPayments", "dueColumn")}</span>
+            <span className="text-right">{t("projectPayments", "amountColumn")}</span>
+            <span>{t("projectPayments", "statusColumn")}</span>
+            <span className="text-right">{t("projectPayments", "actionsColumn")}</span>
           </div>
-        ) : (
-          items.map((installment) => (
+          {items.map((installment) => (
             <InvoiceListItem
               key={installment._id}
               installment={installment}
@@ -458,67 +444,76 @@ function InvoiceListSection({
               onOpenPreview={onOpenPreview}
               onRunAction={onRunAction}
               onRemoveDraft={onRemoveDraft}
-              onCopyPaymentLink={onCopyPaymentLink}
               onCopyReference={onCopyReference}
             />
-          ))
-        )}
-      </CardContent>
-    </Card>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
 export function ProjectPaymentsInvoiceListSections({
   draftInstallments,
-  issuedInstallments,
+  openInstallments,
+  paidInstallments,
+  archivedInstallments,
   busyInstallmentId,
-  onNewInvoice,
   onOpenEditDialog,
   onOpenPreview,
   onRunAction,
   onRemoveDraft,
-  onCopyPaymentLink,
   onCopyReference,
 }: ProjectPaymentsInvoiceListSectionsProps) {
   const { t } = useI18n();
+  const sharedProps = {
+    busyInstallmentId,
+    onOpenEditDialog,
+    onOpenPreview,
+    onRunAction,
+    onRemoveDraft,
+    onCopyReference,
+  };
 
   return (
     <>
-      <TabsContent value="schedule" className="flex flex-col gap-4">
+      <TabsContent value="drafts" className="flex flex-col gap-4">
         <InvoiceListSection
           title={t("projectPayments", "draftInvoices")}
           icon={<Wallet />}
-          action={
-            <Button type="button" onClick={onNewInvoice}>
-              <Plus data-icon="inline-start" />
-              {t("projectPayments", "newInvoice")}
-            </Button>
-          }
           items={draftInstallments}
           emptyMessage={t("projectPayments", "noDraftInvoices")}
-          busyInstallmentId={busyInstallmentId}
-          onOpenEditDialog={onOpenEditDialog}
-          onOpenPreview={onOpenPreview}
-          onRunAction={onRunAction}
-          onRemoveDraft={onRemoveDraft}
-          onCopyPaymentLink={onCopyPaymentLink}
-          onCopyReference={onCopyReference}
+          {...sharedProps}
         />
       </TabsContent>
 
-      <TabsContent value="invoices" className="flex flex-col gap-4">
+      <TabsContent value="open" className="flex flex-col gap-4">
         <InvoiceListSection
-          title={t("projectPayments", "issuedInvoices")}
+          title={t("projectPayments", "openInvoices")}
           icon={<Banknote />}
-          items={issuedInstallments}
-          emptyMessage={t("projectPayments", "noIssuedInvoices")}
-          busyInstallmentId={busyInstallmentId}
-          onOpenEditDialog={onOpenEditDialog}
-          onOpenPreview={onOpenPreview}
-          onRunAction={onRunAction}
-          onRemoveDraft={onRemoveDraft}
-          onCopyPaymentLink={onCopyPaymentLink}
-          onCopyReference={onCopyReference}
+          items={openInstallments}
+          emptyMessage={t("projectPayments", "noOpenInvoices")}
+          {...sharedProps}
+        />
+      </TabsContent>
+
+      <TabsContent value="paid" className="flex flex-col gap-4">
+        <InvoiceListSection
+          title={t("projectPayments", "paidInvoices")}
+          icon={<CheckCircle2 />}
+          items={paidInstallments}
+          emptyMessage={t("projectPayments", "noPaidInvoices")}
+          {...sharedProps}
+        />
+      </TabsContent>
+
+      <TabsContent value="archive" className="flex flex-col gap-4">
+        <InvoiceListSection
+          title={t("projectPayments", "invoiceArchive")}
+          icon={<XCircle />}
+          items={archivedInstallments}
+          emptyMessage={t("projectPayments", "noArchivedInvoices")}
+          {...sharedProps}
         />
       </TabsContent>
     </>

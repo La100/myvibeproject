@@ -226,9 +226,6 @@ const getBillingProfile = (team: any, installment: any): BillingProfile => {
 const validateInvoiceReadiness = (
   billingProfile: BillingProfile,
   customer: CustomerDetails,
-  options?: {
-    stripeConnectReady?: boolean;
-  },
 ) => {
   const missing: string[] = [];
 
@@ -238,8 +235,8 @@ const validateInvoiceReadiness = (
   if (!(normalizeOptionalString(customer.companyName) || normalizeOptionalString(customer.name))) {
     missing.push("customer name or company");
   }
-  if (!options?.stripeConnectReady && !normalizeOptionalString(billingProfile.bankAccountNumber)) {
-    missing.push("bank account number or Stripe payments");
+  if (!normalizeOptionalString(billingProfile.bankAccountNumber)) {
+    missing.push("bank account number");
   }
 
   if (missing.length > 0) {
@@ -440,9 +437,7 @@ const ensureInvoiceDocument = async (
     getInvoiceCustomerDetails(payload.project, payload.installment),
     invoiceFieldRequirements,
   ) as CustomerDetails;
-  validateInvoiceReadiness(billingProfile, customer, {
-    stripeConnectReady: isStripeConnectOnboardingComplete(payload.team),
-  });
+  validateInvoiceReadiness(billingProfile, customer);
 
   if (!payload.installment.invoiceNumber) {
     const invoiceIssuedAt = Date.now();
@@ -488,9 +483,7 @@ const buildInvoicePreviewPayload = (payload: InvoicePayload) => {
     invoiceFieldRequirements,
   ) as CustomerDetails;
 
-  validateInvoiceReadiness(billingProfile, customer, {
-    stripeConnectReady: isStripeConnectOnboardingComplete(payload.team),
-  });
+  validateInvoiceReadiness(billingProfile, customer);
 
   return {
     ...payload,
@@ -691,9 +684,7 @@ const createStripePaymentLinkForInstallment = async (
     getInvoiceCustomerDetails(payload.project, payload.installment),
     invoiceFieldRequirements,
   ) as CustomerDetails;
-  validateInvoiceReadiness(billingProfile, customer, {
-    stripeConnectReady: isStripeConnectOnboardingComplete(payload.team),
-  });
+  validateInvoiceReadiness(billingProfile, customer);
 
   const stripeConnectAccountId = assertStripeConnectReady(payload.team);
   const requestOptions: Stripe.RequestOptions = {
@@ -927,23 +918,8 @@ export const createProjectPaymentStripeLink = action({
     stripeInvoiceId: v.string(),
     status: v.string(),
   }),
-  async handler(ctx, args): Promise<StripePaymentLinkResult> {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const payload = await loadInvoicePayload(ctx, args.installmentId);
-    await ensureProjectPaymentAccess(ctx, payload.project, identity.subject);
-
-    const readyPayload = await ensureInvoiceDocument(ctx, args.installmentId, identity.subject);
-    const result = await createStripePaymentLinkForInstallment(ctx, readyPayload);
-
-    if (!result.url) {
-      throw new Error("Stripe payment link is not available yet");
-    }
-
-    return result;
+  async handler(): Promise<StripePaymentLinkResult> {
+    throw new Error("Online card payments are disabled for project invoices. Use bank transfer details from the invoice.");
   },
 });
 
@@ -1058,56 +1034,8 @@ export const getProjectPaymentStripeLinkByAccessToken = action({
   returns: v.object({
     url: v.string(),
   }),
-  async handler(ctx, args) {
-    const project = await ctx.runQuery(internalAny.projectPayments.getProjectForPortalAccess, {
-      accessToken: args.accessToken,
-    });
-    if (!project) {
-      throw new Error("Invalid client portal link");
-    }
-    if (project.clientPanelPublishedSettings?.showPayments !== true) {
-      throw new Error("Payments are hidden in this client portal");
-    }
-    const publishedPaymentIds = new Set(
-      (project.clientPanelPublishedSnapshot?.payments ?? []).map((payment: { _id: unknown }) =>
-        String(payment._id),
-      ),
-    );
-    if (!publishedPaymentIds.has(String(args.installmentId))) {
-      throw new Error("This payment is not available in the published client portal");
-    }
-
-    let payload = await loadInvoicePayload(ctx, args.installmentId);
-    if (String(payload.project._id) !== String(project._id)) {
-      throw new Error("This payment does not belong to the shared project");
-    }
-
-    const existingUrl = normalizeOptionalString(payload.installment.stripeHostedInvoiceUrl);
-    if (existingUrl) {
-      return { url: existingUrl };
-    }
-
-    const stripeInvoiceId = normalizeOptionalString(payload.installment.stripeInvoiceId);
-    if (!stripeInvoiceId) {
-      throw new Error("Online payment is not available for this installment yet");
-    }
-
-    const stripeConnectAccountId = assertStripeConnectReady(payload.team);
-    const refreshedInvoice = await getStripe().invoices.retrieve(
-      stripeInvoiceId,
-      { expand: ["payment_intent"] },
-      { stripeAccount: stripeConnectAccountId },
-    );
-
-    await syncInstallmentFromStripeInvoice(ctx, payload.installment._id, refreshedInvoice);
-    payload = await loadInvoicePayload(ctx, args.installmentId);
-
-    const refreshedUrl = normalizeOptionalString(payload.installment.stripeHostedInvoiceUrl);
-    if (!refreshedUrl) {
-      throw new Error("Stripe payment link is not available yet");
-    }
-
-    return { url: refreshedUrl };
+  async handler() {
+    throw new Error("Online card payments are disabled for project invoices. Use bank transfer details from the invoice.");
   },
 });
 

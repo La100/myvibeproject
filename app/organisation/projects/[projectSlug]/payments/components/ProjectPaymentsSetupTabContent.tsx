@@ -90,7 +90,7 @@ type ProjectPaymentsSetupTabContentProps = {
   hiddenSellerFieldOptions: VisibilityOption<keyof InvoiceFieldRequirements["seller"]>[];
   hiddenCustomerFieldOptions: VisibilityOption<keyof InvoiceFieldRequirements["customer"]>[];
   projectClientDefaults: Pick<CustomerDetails, "name" | "addressLine1"> & CustomerDetails;
-  paymentRouteStatus: "stripe" | "bank" | "missing";
+  paymentRouteStatus: "bank" | "missing";
   isSavingBillingProfile: boolean;
   isSavingCustomer: boolean;
   isSavingVisibility: boolean;
@@ -210,9 +210,7 @@ export function ProjectPaymentsSetupTabContent({
   const paymentRouteBadgeClassName =
     paymentRouteStatus === "missing"
       ? "border-destructive/35 bg-destructive/12 text-destructive"
-      : paymentRouteStatus === "stripe"
-        ? "border-primary/35 bg-primary/10 text-primary dark:text-primary"
-        : "border-border bg-secondary/70 text-foreground";
+      : "border-border bg-secondary/70 text-foreground";
 
   return (
     <TabsContent value="invoice-setup" className="flex flex-col gap-6">
@@ -235,11 +233,9 @@ export function ProjectPaymentsSetupTabContent({
             <div className="flex shrink-0 items-center gap-2">
               <span className="text-xs text-muted-foreground">{t("projectPayments", "paymentRoute")}</span>
               <Badge variant="outline" className={paymentRouteBadgeClassName}>
-                {paymentRouteStatus === "stripe"
-                  ? "Stripe"
-                  : paymentRouteStatus === "bank"
-                    ? t("projectPayments", "bankTransfer")
-                    : t("projectPayments", "missing")}
+                {paymentRouteStatus === "bank"
+                  ? t("projectPayments", "bankTransfer")
+                  : t("projectPayments", "missing")}
               </Badge>
             </div>
           </CardHeader>

@@ -549,12 +549,8 @@ const buildClientPanelPublishedSnapshot = async (
       bankAccountNumber: payment.invoiceSellerSnapshot?.bankAccountNumber,
       bankSwift: payment.invoiceSellerSnapshot?.bankSwift,
       paymentInstructions: payment.invoiceSellerSnapshot?.paymentInstructions,
-      hasOnlinePaymentLink: Boolean(
-        payment.stripeHostedInvoiceUrl || payment.stripeInvoiceId,
-      ),
-      canPayOnline:
-        payment.status === "open" &&
-        Boolean(payment.stripeHostedInvoiceUrl || payment.stripeInvoiceId),
+      hasOnlinePaymentLink: false,
+      canPayOnline: false,
       paidAt: payment.paidAt,
       isOverdue:
         payment.status === "open" &&

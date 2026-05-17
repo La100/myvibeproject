@@ -2,15 +2,24 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { ArrowLeft, Building2, CheckCircle2, ExternalLink, Plus, RefreshCw, Wallet } from "lucide-react";
+import { ArrowLeft, Building2, FileText, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import PDFViewer from "@/components/ui/PDFViewer";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -51,6 +60,19 @@ type Installment = {
   hasInvoicePdf?: boolean;
   stripeInvoiceId?: string;
   stripeHostedInvoiceUrl?: string;
+  capabilities?: {
+    canDelete?: boolean;
+    canEdit?: boolean;
+    canPreview?: boolean;
+    canIssue?: boolean;
+    canSendEmail?: boolean;
+    canDownloadPdf?: boolean;
+    canCopyReference?: boolean;
+    canMarkPaid?: boolean;
+    canReopen?: boolean;
+    canVoid?: boolean;
+    canMarkUncollectible?: boolean;
+  };
   invoiceSellerSnapshot?: Partial<BillingProfile>;
   invoiceCustomerSnapshot?: Partial<CustomerDetails>;
 };
@@ -510,14 +532,9 @@ export default function ProjectPaymentsView() {
   const setPaymentStatus = useMutation(apiAny.projectPayments.setProjectPaymentManualStatus);
 
   const createInvoice = useAction(apiAny.projectPaymentActions.createProjectPaymentInvoice);
-  const createStripePaymentLink = useAction(apiAny.projectPaymentActions.createProjectPaymentStripeLink);
   const sendInvoiceEmail = useAction(apiAny.projectPaymentActions.sendProjectPaymentInvoiceEmail);
   const downloadInvoiceUrl = useAction(apiAny.projectPaymentActions.getProjectPaymentInvoiceDownloadUrl);
   const previewInvoice = useAction(apiAny.projectPaymentActions.previewProjectPaymentInvoice);
-  const createOrResumeStripeConnectOnboarding = useAction(
-    apiAny.stripeConnectActions.createOrResumeStripeConnectOnboarding,
-  );
-  const refreshStripeConnectAccount = useAction(apiAny.stripeConnectActions.refreshStripeConnectAccount);
 
   const [billingProfile, setBillingProfile] = useState<BillingProfile>(EMPTY_BILLING_PROFILE);
   const [customer, setCustomer] = useState<CustomerDetails>(EMPTY_CUSTOMER);
@@ -539,16 +556,18 @@ export default function ProjectPaymentsView() {
   const [invoicePreviewUrl, setInvoicePreviewUrl] = useState<string | null>(null);
   const [invoicePreviewName, setInvoicePreviewName] = useState("invoice.pdf");
   const [invoicePreviewTitle, setInvoicePreviewTitle] = useState("");
-  const [activeTab, setActiveTab] = useState<"schedule" | "invoices" | "invoice-setup">("schedule");
+  const [activeTab, setActiveTab] = useState<"drafts" | "open" | "paid" | "archive" | "invoice-setup">("drafts");
   const [invoiceGuardDialogOpen, setInvoiceGuardDialogOpen] = useState(false);
-  const [invoiceGuardAction, setInvoiceGuardAction] = useState<"issue" | "send" | "link">("issue");
+  const [invoiceGuardAction, setInvoiceGuardAction] = useState<"issue" | "send">("issue");
   const [invoiceGuardReason, setInvoiceGuardReason] = useState<"setup" | "email">("setup");
+  const [confirmAction, setConfirmAction] = useState<{
+    installmentId: Id<"projectPayments">;
+    action: "delete" | "void";
+  } | null>(null);
   const [editingInstallment, setEditingInstallment] = useState<Installment | null>(null);
   const [form, setForm] = useState<InstallmentFormState>(EMPTY_FORM);
   const [submittingInstallment, setSubmittingInstallment] = useState(false);
   const [busyInstallmentId, setBusyInstallmentId] = useState<Id<"projectPayments"> | null>(null);
-  const [isStripeConnectBusy, setIsStripeConnectBusy] = useState(false);
-  const [isStripeConnectRefreshBusy, setIsStripeConnectRefreshBusy] = useState(false);
 
   useEffect(() => {
     if (!paymentsData) return;
@@ -607,8 +626,16 @@ export default function ProjectPaymentsView() {
     () => installments.filter((installment) => installment.status === "draft"),
     [installments],
   );
-  const issuedInstallments = useMemo(
-    () => installments.filter((installment) => installment.status !== "draft"),
+  const openInstallments = useMemo(
+    () => installments.filter((installment) => installment.status === "open"),
+    [installments],
+  );
+  const paidInstallments = useMemo(
+    () => installments.filter((installment) => installment.status === "paid"),
+    [installments],
+  );
+  const archivedInstallments = useMemo(
+    () => installments.filter((installment) => installment.status === "void" || installment.status === "uncollectible"),
     [installments],
   );
   const invoiceSetupReady = Boolean(
@@ -620,17 +647,9 @@ export default function ProjectPaymentsView() {
   const missingSellerFields = paymentsData?.billingSetup?.missingSellerFields ?? [];
   const missingCustomerFields = paymentsData?.billingSetup?.missingCustomerFields ?? [];
   const canEmailInvoices = Boolean(paymentsData?.billingSetup?.canEmailInvoices);
-  const stripeConnect = paymentsData?.stripeConnect;
-  const stripeConnectOnboardingComplete = Boolean(stripeConnect?.onboardingComplete);
-  const stripeConnectNeedsSetup = !stripeConnectOnboardingComplete;
-  const canManageStripeConnect = paymentsData?.currentUserRole === "admin";
-  const paymentRouteMissingLabel = "bank account number or Stripe payments";
+  const paymentRouteMissingLabel = "bank account number";
   const paymentRouteReady = !missingSellerFields.includes(paymentRouteMissingLabel);
-  const paymentRouteStatus: "stripe" | "bank" | "missing" = stripeConnectOnboardingComplete
-    ? "stripe"
-    : paymentRouteReady
-      ? "bank"
-      : "missing";
+  const paymentRouteStatus: "bank" | "missing" = paymentRouteReady ? "bank" : "missing";
   const hiddenSellerFieldOptions = SELLER_REQUIRED_FIELD_OPTIONS.filter(
     (option) => !invoiceFieldRequirements.seller[option.key],
   ).map((option) => ({
@@ -647,7 +666,10 @@ export default function ProjectPaymentsView() {
   const translateMissingField = (field: string) => {
     const normalized = field.toLowerCase();
     if (normalized === paymentRouteMissingLabel) {
-      return t("projectPayments", "bankAccountOrStripePayments");
+      return t("projectPayments", "bankAccountNumberIban");
+    }
+    if (normalized === "customer name or company") {
+      return t("projectPayments", "nameOrCompany");
     }
     const sellerOption = SELLER_REQUIRED_FIELD_OPTIONS.find((option) => option.label.toLowerCase() === normalized);
     if (sellerOption) {
@@ -682,11 +704,9 @@ export default function ProjectPaymentsView() {
   }, [billingProfile.defaultPaymentTermDays, paymentsData?.billingProfile?.defaultPaymentTermDays]);
   const isIssuedInvoiceEdit = Boolean(editingInstallment && editingInstallment.status !== "draft");
   const paymentRouteLabel =
-    paymentRouteStatus === "stripe"
-      ? t("projectPayments", "stripePayments")
-      : paymentRouteStatus === "bank"
-        ? t("projectPayments", "bankTransfer")
-        : t("projectPayments", "missingPaymentRoute");
+    paymentRouteStatus === "bank"
+      ? t("projectPayments", "bankTransfer")
+      : t("projectPayments", "missingPaymentRoute");
   const normalizedEditorLineItems = useMemo(
     () =>
       editorLineItems
@@ -803,59 +823,6 @@ export default function ProjectPaymentsView() {
       });
     } finally {
       setBusyInstallmentId(null);
-    }
-  };
-
-  const openStripeConnectOnboarding = async () => {
-    if (!canManageStripeConnect) {
-      toast.error(t("projectPayments", "toastStripeAdminConnectOnly"), {
-        description: t("projectPayments", "toastStripeAdminConnectOnlyDescription"),
-      });
-      return;
-    }
-
-    setIsStripeConnectBusy(true);
-    try {
-      const returnPath = project?.slug
-        ? `/organisation/projects/${project.slug}/payments`
-        : "/organisation/settings";
-      const result = await createOrResumeStripeConnectOnboarding({
-        teamId: project.teamId,
-        returnPath,
-        baseUrl: window.location.origin,
-      });
-      window.location.assign(result.url);
-    } catch (error) {
-      toast.error(t("projectPayments", "toastStripeOnboardingFailed"), {
-        description: toUserFacingErrorMessage(error),
-      });
-    } finally {
-      setIsStripeConnectBusy(false);
-    }
-  };
-
-  const syncStripeConnectStatus = async () => {
-    if (!canManageStripeConnect) {
-      toast.error(t("projectPayments", "toastStripeAdminRefreshOnly"), {
-        description: t("projectPayments", "toastStripeAdminRefreshOnlyDescription"),
-      });
-      return;
-    }
-
-    setIsStripeConnectRefreshBusy(true);
-    try {
-      const result = await refreshStripeConnectAccount({ teamId: project.teamId });
-      if (result.onboardingComplete) {
-        toast.success(t("projectPayments", "toastStripeConnectReady"));
-      } else {
-        toast.message(t("projectPayments", "toastStripeConnectIncomplete"));
-      }
-    } catch (error) {
-      toast.error(t("projectPayments", "toastStripeRefreshFailed"), {
-        description: toUserFacingErrorMessage(error),
-      });
-    } finally {
-      setIsStripeConnectRefreshBusy(false);
     }
   };
 
@@ -1084,9 +1051,9 @@ export default function ProjectPaymentsView() {
 
   const runInstallmentAction = async (
     installmentId: Id<"projectPayments">,
-    actionName: "issue" | "send" | "download" | "link" | "paid" | "open" | "void",
+    actionName: "issue" | "send" | "download" | "paid" | "open" | "void" | "uncollectible",
   ) => {
-    if ((actionName === "issue" || actionName === "send" || actionName === "link") && !invoiceSetupReady) {
+    if ((actionName === "issue" || actionName === "send") && !invoiceSetupReady) {
       setInvoiceGuardAction(actionName);
       setInvoiceGuardReason("setup");
       setInvoiceGuardDialogOpen(true);
@@ -1104,6 +1071,7 @@ export default function ProjectPaymentsView() {
     try {
       if (actionName === "issue") {
         await createInvoice({ installmentId });
+        setActiveTab("open");
         toast.success(t("projectPayments", "toastInvoiceIssued"));
         return;
       }
@@ -1120,16 +1088,6 @@ export default function ProjectPaymentsView() {
         return;
       }
 
-      if (actionName === "link") {
-        const result = await createStripePaymentLink({ installmentId });
-        if (!result.url) {
-          throw new Error(t("projectPayments", "stripePaymentLinkUnavailable"));
-        }
-        window.open(result.url, "_blank", "noopener,noreferrer");
-        toast.success(t("projectPayments", "toastStripePaymentLinkReady"));
-        return;
-      }
-
       await setPaymentStatus({
         installmentId,
         status: actionName,
@@ -1140,8 +1098,17 @@ export default function ProjectPaymentsView() {
           ? t("projectPayments", "toastInvoiceMarkedPaid")
           : actionName === "open"
             ? t("projectPayments", "toastInvoiceReopened")
-            : t("projectPayments", "toastInvoiceVoided"),
+            : actionName === "uncollectible"
+              ? t("projectPayments", "toastInvoiceMarkedUncollectible")
+              : t("projectPayments", "toastInvoiceVoided"),
       );
+      if (actionName === "paid") {
+        setActiveTab("paid");
+      } else if (actionName === "void" || actionName === "uncollectible") {
+        setActiveTab("archive");
+      } else if (actionName === "open") {
+        setActiveTab("open");
+      }
     } catch (error) {
       toast.error(t("projectPayments", "toastPaymentActionFailed"), {
         description: toUserFacingErrorMessage(error),
@@ -1149,6 +1116,18 @@ export default function ProjectPaymentsView() {
     } finally {
       setBusyInstallmentId(null);
     }
+  };
+
+  const requestInstallmentAction = (
+    installmentId: Id<"projectPayments">,
+    actionName: "issue" | "send" | "download" | "paid" | "open" | "void" | "uncollectible",
+  ) => {
+    if (actionName === "void") {
+      setConfirmAction({ installmentId, action: "void" });
+      return;
+    }
+
+    void runInstallmentAction(installmentId, actionName);
   };
 
   const removeDraftInstallment = async (installmentId: Id<"projectPayments">) => {
@@ -1165,6 +1144,24 @@ export default function ProjectPaymentsView() {
     }
   };
 
+  const requestRemoveDraftInstallment = (installmentId: Id<"projectPayments">) => {
+    setConfirmAction({ installmentId, action: "delete" });
+  };
+
+  const runConfirmedAction = () => {
+    if (!confirmAction) return;
+
+    const { installmentId, action } = confirmAction;
+    setConfirmAction(null);
+
+    if (action === "delete") {
+      void removeDraftInstallment(installmentId);
+      return;
+    }
+
+    void runInstallmentAction(installmentId, "void");
+  };
+
   const copyReference = async (value?: string) => {
     if (!value) {
       toast.error(t("projectPayments", "toastNoPaymentReference"));
@@ -1175,19 +1172,6 @@ export default function ProjectPaymentsView() {
       toast.success(t("projectPayments", "toastPaymentReferenceCopied"));
     } catch {
       toast.error(t("projectPayments", "toastPaymentReferenceCopyFailed"));
-    }
-  };
-
-  const copyPaymentLink = async (value?: string) => {
-    if (!value) {
-      toast.error(t("projectPayments", "toastNoPaymentLink"));
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(value);
-      toast.success(t("projectPayments", "toastPaymentLinkCopied"));
-    } catch {
-      toast.error(t("projectPayments", "toastPaymentLinkCopyFailed"));
     }
   };
 
@@ -1205,7 +1189,7 @@ export default function ProjectPaymentsView() {
         <div className="flex flex-col gap-8">
           <ProjectPageHeader
             title={dialogMode === "edit" ? t("projectPayments", "editInvoice") : t("projectPayments", "newInvoice")}
-            icon={<Wallet />}
+            icon={<FileText />}
             subtitle={t("projectPayments", "invoiceEditorPageSubtitle")}
             actions={
               <div className="flex flex-wrap gap-2">
@@ -1254,27 +1238,18 @@ export default function ProjectPaymentsView() {
   }
 
   const invoiceSetupIncomplete = !paymentsData.billingSetup?.sellerReady || !paymentsData.billingSetup?.customerReady;
-  const sellerMissingText = paymentsData.billingSetup?.missingSellerFields?.length
-    ? t("projectPayments", "sellerProfileMissing", {
-        fields: paymentsData.billingSetup.missingSellerFields.map(translateMissingField).join(", "),
-      })
-    : "";
-  const customerMissingText = paymentsData.billingSetup?.missingCustomerFields?.length
-    ? t("projectPayments", "customerDetailsMissing", {
-        fields: paymentsData.billingSetup.missingCustomerFields.map(translateMissingField).join(", "),
-      })
-    : "";
-  const showPaymentSetupPanel = invoiceSetupIncomplete || stripeConnectNeedsSetup;
-  const stripeSetupActionLabel = stripeConnect?.accountId
-    ? t("projectPayments", "resumeStripeSetup")
-    : t("projectPayments", "connectStripe");
+  const missingSetupFields = [
+    ...(paymentsData.billingSetup?.missingSellerFields ?? []),
+    ...(paymentsData.billingSetup?.missingCustomerFields ?? []),
+  ].map(translateMissingField);
+  const showPaymentSetupPanel = invoiceSetupIncomplete;
 
   return (
     <ProjectPageLayout>
       <div className="flex flex-col gap-6">
         <ProjectPageHeader
-          title={t("projectPayments", "payments")}
-          icon={<Wallet />}
+          title={t("projectPayments", "invoices")}
+          icon={<FileText />}
           actions={
             <Button type="button" onClick={openCreateDialog}>
               <Plus data-icon="inline-start" />
@@ -1283,148 +1258,88 @@ export default function ProjectPaymentsView() {
           }
         />
 
-        <ProjectPaymentsOverviewCards
-          currency={activeCurrency}
-          scheduledTotal={paymentsData.totals.scheduled || 0}
-          collectedTotal={paymentsData.totals.paid || 0}
-          outstandingTotal={paymentsData.totals.outstanding || 0}
-          overdueCount={paymentsData.totals.overdueCount || 0}
-        />
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as "drafts" | "open" | "paid" | "archive" | "invoice-setup")}
+          className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm"
+        >
+          <div className="border-b border-border/70 p-4 sm:p-5">
+            <ProjectPaymentsOverviewCards
+              currency={activeCurrency}
+              draftTotal={paymentsData.totals.draft || 0}
+              draftCount={paymentsData.totals.draftCount || 0}
+              collectedTotal={paymentsData.totals.paid || 0}
+              paidCount={paymentsData.totals.paidCount || 0}
+              outstandingTotal={paymentsData.totals.outstanding || 0}
+              openCount={paymentsData.totals.openCount || 0}
+              overdueTotal={paymentsData.totals.overdue || 0}
+              overdueCount={paymentsData.totals.overdueCount || 0}
+            />
 
-        {showPaymentSetupPanel ? (
-          <section className="vibe-panel grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-center">
-            <div className="flex min-w-0 gap-3">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-secondary/70 text-foreground">
-                <Building2 className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{t("projectPayments", "paymentSetup")}</p>
-                <h2 className="mt-1 text-base font-semibold tracking-tight">
-                  {invoiceSetupIncomplete ? t("projectPayments", "invoiceSetupIncomplete") : t("projectPayments", "stripePaymentsNeedSetup")}
-                </h2>
-                {invoiceSetupIncomplete ? (
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                    {[sellerMissingText, customerMissingText].filter(Boolean).join(" ")}
-                  </p>
-                ) : (
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                    {t("projectPayments", "stripeSetupDescription")}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {stripeConnectNeedsSetup ? (
-              <div className="rounded-2xl border border-border/70 bg-secondary/70 p-3.5">
-                <div className="mb-3 flex items-start gap-3">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-card text-foreground shadow-sm">
-                    <Wallet className="h-4 w-4" />
+            {showPaymentSetupPanel ? (
+              <section className="mt-4 flex flex-col gap-3 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 gap-3">
+                  <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border border-destructive/20 bg-card text-muted-foreground">
+                    <Building2 className="h-4 w-4" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-medium leading-tight">{t("projectPayments", "stripeSetup")}</p>
-                    <p className="mt-1 text-sm leading-5 text-muted-foreground">
-                      {canManageStripeConnect
-                        ? t("projectPayments", "finishOrganizationPaymentRoute")
-                        : t("projectPayments", "onlyAdminsCanConnectStripe")}
+                    <h2 className="text-sm font-semibold tracking-tight">
+                      {t("projectPayments", "invoiceSetupIncomplete")}
+                    </h2>
+                    <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+                      {t("projectPayments", "invoiceSetupMissingSummary", {
+                        fields: missingSetupFields.join(", "),
+                      })}
                     </p>
                   </div>
                 </div>
-                <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
-                  <Button
-                    type="button"
-                    className="h-10 w-full px-4 text-sm"
-                    onClick={() => void openStripeConnectOnboarding()}
-                    disabled={isStripeConnectBusy || !canManageStripeConnect}
-                  >
-                    <ExternalLink data-icon="inline-start" />
-                    {stripeSetupActionLabel}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="w-full text-muted-foreground"
-                    onClick={() => void syncStripeConnectStatus()}
-                    disabled={isStripeConnectRefreshBusy || !canManageStripeConnect}
-                  >
-                    <RefreshCw data-icon="inline-start" />
-                    {t("projectPayments", "refreshStatus")}
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-          </section>
-        ) : null}
-
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => setActiveTab(value as "schedule" | "invoices" | "invoice-setup")}
-          className="w-full gap-4"
-        >
-          <TabsList className="grid h-auto w-full grid-cols-1 gap-1 rounded-2xl border border-border/70 bg-secondary/70 p-1 shadow-sm md:grid-cols-3">
-            <TabsTrigger
-              value="schedule"
-              className="h-auto min-h-11 w-full flex-none justify-start rounded-xl border-0 px-3 py-2 text-left text-muted-foreground shadow-none data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-            >
-              <span className="flex w-full items-center gap-3">
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold leading-tight">{t("projectPayments", "draftInvoices")}</span>
-                </span>
-                <Badge variant="outline" className="shrink-0 border-border/70 bg-secondary/70 px-3 py-1 text-xs font-semibold">
-                  {draftInstallments.length}
-                </Badge>
-              </span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="invoices"
-              className="h-auto min-h-11 w-full flex-none justify-start rounded-xl border-0 px-3 py-2 text-left text-muted-foreground shadow-none data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-            >
-              <span className="flex w-full items-center gap-3">
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold leading-tight">{t("projectPayments", "issuedInvoices")}</span>
-                </span>
-                <Badge variant="outline" className="shrink-0 border-border/70 bg-secondary/70 px-3 py-1 text-xs font-semibold">
-                  {issuedInstallments.length}
-                </Badge>
-              </span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="invoice-setup"
-              className="h-auto min-h-11 w-full flex-none justify-start rounded-xl border-0 px-3 py-2 text-left text-muted-foreground shadow-none data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-            >
-              <span className="flex w-full items-center gap-3">
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold leading-tight">{t("projectPayments", "invoiceSetup")}</span>
-                </span>
-                <Badge
-                  variant={invoiceSetupReady ? "default" : "outline"}
-                  className={
-                    invoiceSetupReady
-                      ? undefined
-                      : "border-destructive/30 bg-destructive/10 text-destructive"
-                  }
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 bg-card"
+                  onClick={() => setActiveTab("invoice-setup")}
                 >
-                  {invoiceSetupReady ? (
-                    <>
-                      <CheckCircle2 />
-                      {t("projectPayments", "ready")}
-                    </>
-                  ) : (
-                    t("projectPayments", "missingCount", { count: invoiceSetupIssues })
-                  )}
-                </Badge>
-              </span>
-            </TabsTrigger>
+                  {t("projectPayments", "completeInvoiceSetup")}
+                </Button>
+              </section>
+            ) : null}
+          </div>
+
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 border-b border-border/70 bg-secondary/35 p-2 sm:grid-cols-3 xl:grid-cols-5">
+            {[
+              ["drafts", t("projectPayments", "draftsTab"), draftInstallments.length],
+              ["open", t("projectPayments", "openTab"), openInstallments.length],
+              ["paid", t("projectPayments", "paidTab"), paidInstallments.length],
+              ["archive", t("projectPayments", "archiveTab"), archivedInstallments.length],
+              [
+                "invoice-setup",
+                t("projectPayments", "configurationTab"),
+                invoiceSetupReady ? t("projectPayments", "ready") : String(invoiceSetupIssues),
+              ],
+            ].map(([value, label, count]) => (
+              <TabsTrigger
+                key={value}
+                value={value as "drafts" | "open" | "paid" | "archive" | "invoice-setup"}
+                className="h-10 justify-between rounded-lg border border-transparent px-3 text-sm font-semibold text-muted-foreground shadow-none data-[state=active]:border-border/70 data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+              >
+                <span className="truncate">{label}</span>
+                <span className="ml-2 shrink-0 text-xs text-muted-foreground">
+                  {count}
+                </span>
+              </TabsTrigger>
+            ))}
           </TabsList>
           <ProjectPaymentsInvoiceListSections
             draftInstallments={draftInstallments}
-            issuedInstallments={issuedInstallments}
+            openInstallments={openInstallments}
+            paidInstallments={paidInstallments}
+            archivedInstallments={archivedInstallments}
             busyInstallmentId={busyInstallmentId}
-            onNewInvoice={openCreateDialog}
             onOpenEditDialog={openEditDialog}
             onOpenPreview={openInvoicePdfPreview}
-            onRunAction={runInstallmentAction}
-            onRemoveDraft={removeDraftInstallment}
-            onCopyPaymentLink={copyPaymentLink}
+            onRunAction={requestInstallmentAction}
+            onRemoveDraft={requestRemoveDraftInstallment}
             onCopyReference={copyReference}
           />
 
@@ -1491,9 +1406,7 @@ export default function ProjectPaymentsView() {
             <DialogTitle>
               {invoiceGuardAction === "send"
                 ? t("projectPayments", "cannotSendInvoiceYet")
-                : invoiceGuardAction === "link"
-                  ? t("projectPayments", "cannotCreatePaymentLinkYet")
-                  : t("projectPayments", "cannotIssueInvoiceYet")}
+                : t("projectPayments", "cannotIssueInvoiceYet")}
             </DialogTitle>
             <DialogDescription>
               {invoiceGuardReason === "setup"
@@ -1548,6 +1461,39 @@ export default function ProjectPaymentsView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={Boolean(confirmAction)}
+        onOpenChange={(open) => {
+          if (!open) setConfirmAction(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction?.action === "delete"
+                ? t("projectPayments", "confirmDeleteDraftTitle")
+                : t("projectPayments", "confirmVoidInvoiceTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction?.action === "delete"
+                ? t("projectPayments", "confirmDeleteDraftDescription")
+                : t("projectPayments", "confirmVoidInvoiceDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("projectPayments", "close")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive/10 text-destructive hover:bg-destructive/20"
+              onClick={runConfirmedAction}
+            >
+              {confirmAction?.action === "delete"
+                ? t("projectPayments", "delete")
+                : t("projectPayments", "void")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ProjectPageLayout>
   );
 }
