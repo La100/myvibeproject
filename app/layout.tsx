@@ -81,6 +81,29 @@ const clerkAppearance: ComponentProps<typeof ClerkProvider>["appearance"] = {
   },
 };
 
+const clerkLocalizations = {
+  en: {
+    signUp: {
+      start: {
+        title: "Create your account",
+        titleCombined: "Create your account",
+        subtitle: "Welcome! Please fill in the details to get started.",
+        subtitleCombined: "Welcome! Please fill in the details to get started.",
+      },
+    },
+  },
+  pl: {
+    signUp: {
+      start: {
+        title: "Utwórz konto",
+        titleCombined: "Utwórz konto",
+        subtitle: "Witaj! Uzupełnij dane, aby rozpocząć.",
+        subtitleCombined: "Witaj! Uzupełnij dane, aby rozpocząć.",
+      },
+    },
+  },
+} satisfies Record<Locale, ComponentProps<typeof ClerkProvider>["localization"]>;
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -103,6 +126,7 @@ export default async function RootLayout({
       <body className="antialiased">
         <ClerkProvider
           appearance={clerkAppearance}
+          localization={clerkLocalizations[initialLocale]}
           signInUrl={signInUrl}
           signUpUrl={signUpUrl}
           signInFallbackRedirectUrl={signInFallbackRedirectUrl}

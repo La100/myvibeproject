@@ -722,7 +722,7 @@ export function ShoppingListSection({
   };
 
   const renderEditForm = (item: ShoppingListItem) => (
-    <div className="vibe-surface flex flex-col gap-5 p-5 shadow-none">
+    <div className="flex flex-col gap-5 rounded-[22px] border border-border/70 bg-card p-5 shadow-none">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Field>
           <FieldLabel>{t("shoppingList", "productName")}</FieldLabel>
