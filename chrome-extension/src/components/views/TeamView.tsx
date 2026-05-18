@@ -1,6 +1,7 @@
 import type { Team } from "../../types"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { useI18n } from "../../lib/i18n"
 import { Building2, ChevronRight, LogOut, Users2 } from "lucide-react"
 
 interface TeamViewProps {
@@ -10,24 +11,26 @@ interface TeamViewProps {
 }
 
 const TeamView = ({ teams, onTeamSelect, onLogout }: TeamViewProps) => {
+  const { t } = useI18n()
+
   return (
     <div className="flex h-full flex-col px-4 pb-4 pt-5">
       <div className="mb-4 flex items-start justify-between">
         <div>
-          <p className="vp-title">Your teams</p>
-          <h2 className="mt-1 text-xl font-semibold">Choose a team</h2>
+          <p className="vp-title">{t("yourTeams")}</p>
+          <h2 className="mt-1 text-xl font-semibold">{t("chooseTeam")}</h2>
         </div>
 
         <Button variant="ghost" size="sm" onClick={onLogout} className="text-foreground/70">
           <LogOut className="mr-1 h-4 w-4" />
-          Sign out
+          {t("signOut")}
         </Button>
       </div>
 
       <div className="clean-panel mb-3 flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2 text-sm">
           <Users2 className="h-4 w-4 text-primary" />
-          <span className="font-semibold">{teams.length} teams</span>
+          <span className="font-semibold">{t("teamsCount", { count: teams.length })}</span>
         </div>
         <span className="vp-chip">MyVibeProject</span>
       </div>
@@ -35,9 +38,9 @@ const TeamView = ({ teams, onTeamSelect, onLogout }: TeamViewProps) => {
       {teams.length === 0 ? (
         <div className="clean-panel flex flex-1 flex-col items-center justify-center px-6 text-center">
           <Building2 className="mb-3 h-12 w-12 text-muted-foreground" />
-          <h3 className="mb-1 text-base font-semibold">No teams found</h3>
+          <h3 className="mb-1 text-base font-semibold">{t("noTeamsFound")}</h3>
           <p className="text-sm text-muted-foreground">
-            You must belong to at least one team to use this extension.
+            {t("noTeamsFoundDescription")}
           </p>
         </div>
       ) : (
@@ -58,7 +61,7 @@ const TeamView = ({ teams, onTeamSelect, onLogout }: TeamViewProps) => {
                     <div>
                       <p className="text-sm font-semibold">{team.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {team.projects.length} projects
+                        {t("projectsCount", { count: team.projects.length })}
                       </p>
                     </div>
                   </div>

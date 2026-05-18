@@ -4,6 +4,7 @@ import { CONFIG } from "../../config";
 import { ACTIONS, isObjectMessage } from "../../lib/messages";
 import { authenticatedFetch } from "../../lib/auth";
 import { STORAGE_KEYS } from "../../lib/storageKeys";
+import { useI18n } from "../../lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -106,6 +107,7 @@ const ClipperView = ({
   onBack,
   showToast,
 }: ClipperViewProps) => {
+  const { t } = useI18n();
   const [sections, setSections] = useState(project.sections ?? []);
   const [shoppingSets, setShoppingSets] = useState<ShoppingSet[]>([]);
   const [selectedSection, setSelectedSection] = useState(NO_SECTION_VALUE);
@@ -144,7 +146,7 @@ const ClipperView = ({
     async <T,>(payload: unknown, timeoutMs = 10000): Promise<T> => {
       const tab = await getActiveTab();
       if (!tab?.id) {
-        throw new Error("Active tab unavailable");
+        throw new Error(t("couldNotStartImagePicker"));
       }
 
       return new Promise<T>((resolve, reject) => {
@@ -165,7 +167,7 @@ const ClipperView = ({
         });
       });
     },
-    [getActiveTab],
+    [getActiveTab, t],
   );
 
   const applyPendingImageSelection = useCallback(
@@ -191,10 +193,10 @@ const ClipperView = ({
       lastAppliedPendingImageAt.current = selection.updatedAt ?? Date.now();
       setIsImagePickerActive(false);
       setIsScreenshotPickerActive(false);
-      showToast("Image updated.", "success");
+      showToast(t("imageUpdated"), "success");
       return true;
     },
-    [showToast],
+    [showToast, t],
   );
 
   const hydratePendingImageSelection = useCallback(async () => {
@@ -247,7 +249,7 @@ const ClipperView = ({
     try {
       const tab = await getActiveTab();
       if (!tab?.id || !isSupportedUrl(tab.url)) {
-        showToast("Product detection works only on http/https pages.", "info");
+        showToast(t("productDetectionHttpOnly"), "info");
         return;
       }
 
@@ -314,7 +316,7 @@ const ClipperView = ({
     } finally {
       setIsDetecting(false);
     }
-  }, [getActiveTab, sendMessageToActiveTab, showToast]);
+  }, [getActiveTab, sendMessageToActiveTab, showToast, t]);
 
   useEffect(() => {
     void refreshSections();
@@ -363,9 +365,9 @@ const ClipperView = ({
           setIsScreenshotPickerActive(false);
 
           if (incoming.reason === "cancelled") {
-            showToast("Area capture cancelled.", "info");
+            showToast(t("areaCaptureCancelled"), "info");
           } else if (incoming.reason === "error") {
-            showToast("Area capture failed. Try again.", "error");
+            showToast(t("areaCaptureFailed"), "error");
           }
         }
       }
@@ -397,7 +399,7 @@ const ClipperView = ({
       chrome.runtime.onMessage.removeListener(runtimeMessageListener);
       chrome.storage.onChanged.removeListener(storageListener);
     };
-  }, [applyPendingImageSelection, hydratePendingImageSelection, showToast]);
+  }, [applyPendingImageSelection, hydratePendingImageSelection, showToast, t]);
 
   const handleOpenProductLink = () => {
     if (!product.productLink) {
@@ -419,17 +421,17 @@ const ClipperView = ({
       if (!response?.success) {
         setIsImagePickerActive(false);
         setIsScreenshotPickerActive(false);
-        showToast("No selectable images found on this page.", "info");
+        showToast(t("noSelectableImages"), "info");
         return;
       }
 
       setIsImagePickerActive(true);
       setIsScreenshotPickerActive(false);
-      showToast("Click an image on the page to select it.", "info");
+      showToast(t("clickImageSelect"), "info");
     } catch {
       setIsImagePickerActive(false);
       setIsScreenshotPickerActive(false);
-      showToast("Could not start image picker on this page.", "error");
+      showToast(t("couldNotStartImagePicker"), "error");
     }
   };
 
@@ -445,17 +447,17 @@ const ClipperView = ({
       if (!response?.success) {
         setIsScreenshotPickerActive(false);
         setIsImagePickerActive(false);
-        showToast(response?.error ?? "Could not start area capture.", "error");
+        showToast(response?.error ?? t("couldNotStartAreaCapture"), "error");
         return;
       }
 
       setIsScreenshotPickerActive(true);
       setIsImagePickerActive(false);
-      showToast("Drag on the page to capture an area.", "info");
+      showToast(t("dragCaptureArea"), "info");
     } catch {
       setIsScreenshotPickerActive(false);
       setIsImagePickerActive(false);
-      showToast("Could not start area capture on this page.", "error");
+      showToast(t("couldNotStartAreaCapturePage"), "error");
     }
   };
 
@@ -472,7 +474,7 @@ const ClipperView = ({
 
   const handleSave = async () => {
     if (!product.name?.trim()) {
-      showToast("Product name is required.", "error");
+      showToast(t("productNameRequired"), "error");
       return;
     }
 
@@ -520,7 +522,7 @@ const ClipperView = ({
 
       if (!response.ok) {
         if (response.status === 401) {
-          throw new Error("Session expired. Please sign in again.");
+          throw new Error(t("sessionExpired"));
         }
 
         const errorPayload = (await response.json().catch(() => null)) as {
@@ -530,7 +532,7 @@ const ClipperView = ({
         throw new Error(errorPayload?.message ?? "Failed to save product");
       }
 
-      showToast("Product added to shopping list.", "success");
+      showToast(t("productSaved"), "success");
       await clearPendingClipperImage();
 
       if (isIframeMode) {
@@ -542,9 +544,9 @@ const ClipperView = ({
       const message =
         error instanceof Error
           ? error.message === "AUTH_REQUIRED"
-            ? "Session expired. Please sign in again."
+            ? t("sessionExpired")
             : error.message
-          : "Unknown error";
+          : t("unknownError");
       showToast(message, "error");
     } finally {
       setIsLoading(false);
@@ -556,7 +558,7 @@ const ClipperView = ({
       <div className="clean-panel mb-3 px-4 py-3.5">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="vp-title">Active project</p>
+            <p className="vp-title">{t("activeProject")}</p>
             <h1 className="mt-1 flex items-center gap-2 text-base font-semibold">
               <Package className="h-4 w-4 shrink-0 text-primary" />
               <span className="truncate">{project.name}</span>
@@ -570,7 +572,7 @@ const ClipperView = ({
               size="sm"
               className="h-9 w-9 rounded-full border border-border/80 bg-background/80 p-0 text-foreground shadow-sm hover:bg-accent/60"
               onClick={onBack}
-              title="Back"
+              title={t("back")}
             >
               <ArrowLeft className="h-5 w-5 stroke-[2.4]" />
             </Button>
@@ -581,7 +583,7 @@ const ClipperView = ({
               className="h-8 w-8 p-0"
               onClick={() => void detectProductFromPage({ replaceAll: true })}
               disabled={isDetecting}
-              title="Refresh data"
+              title={t("refreshData")}
             >
               {isDetecting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -596,7 +598,7 @@ const ClipperView = ({
                 size="sm"
                 className="h-8 w-8 p-0"
                 onClick={handleCloseIframe}
-                title="Close"
+                title={t("close")}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -609,20 +611,20 @@ const ClipperView = ({
         <div className="space-y-3 pb-1">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Product image</CardTitle>
+              <CardTitle className="text-sm">{t("productImage")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {previewImageUrl ? (
                 <div className="h-40 overflow-hidden rounded-xl border border-border/85 bg-background/80">
                   <img
                     src={previewImageUrl}
-                    alt={product.name ?? "Product"}
+                    alt={product.name ?? t("product")}
                     className="h-full w-full object-cover"
                   />
                 </div>
               ) : (
                 <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-input/90 bg-background/65 text-xs text-muted-foreground">
-                  No image selected
+                  {t("noImageSelected")}
                 </div>
               )}
 
@@ -636,8 +638,8 @@ const ClipperView = ({
                 >
                   <ImagePlus className="mr-2 h-4 w-4" />
                   {isImagePickerActive
-                    ? "Image picker active"
-                    : "Pick existing"}
+                    ? t("imagePickerActive")
+                    : t("pickExisting")}
                 </Button>
 
                 <Button
@@ -649,8 +651,8 @@ const ClipperView = ({
                 >
                   <Camera className="mr-2 h-4 w-4" />
                   {isScreenshotPickerActive
-                    ? "Area picker active"
-                    : "Capture area"}
+                    ? t("areaPickerActive")
+                    : t("captureArea")}
                 </Button>
               </div>
             </CardContent>
@@ -658,24 +660,24 @@ const ClipperView = ({
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Product details</CardTitle>
+              <CardTitle className="text-sm">{t("productDetails")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-1.5">
-                <Label htmlFor="product-name">Product name *</Label>
+                <Label htmlFor="product-name">{t("productName")}</Label>
                 <Input
                   id="product-name"
                   value={product.name ?? ""}
                   onChange={(event) =>
                     handleProductChange("name", event.target.value)
                   }
-                  placeholder="e.g. Ceramic tiles"
+                  placeholder={t("productNamePlaceholder")}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="product-price">Price</Label>
+                  <Label htmlFor="product-price">{t("price")}</Label>
                   <Input
                     id="product-price"
                     value={product.price ?? ""}
@@ -687,7 +689,7 @@ const ClipperView = ({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="product-quantity">Quantity</Label>
+                  <Label htmlFor="product-quantity">{t("quantity")}</Label>
                   <Input
                     id="product-quantity"
                     type="number"
@@ -705,17 +707,17 @@ const ClipperView = ({
               </div>
 
               <div className="space-y-1.5">
-                <Label>Shopping list section</Label>
+                <Label>{t("shoppingListSection")}</Label>
                 <Select
                   value={selectedSection}
                   onValueChange={setSelectedSection}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Uncategorized (default)" />
+                    <SelectValue placeholder={t("uncategorizedDefault")} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NO_SECTION_VALUE}>
-                      Uncategorized (default)
+                      {t("uncategorizedDefault")}
                     </SelectItem>
                     {sections.map((section) => (
                       <SelectItem key={section._id} value={section._id}>
@@ -727,14 +729,14 @@ const ClipperView = ({
               </div>
 
               <div className="space-y-1.5">
-                <Label>Alternative for</Label>
+                <Label>{t("alternativeFor")}</Label>
                 <Select value={selectedSetId} onValueChange={setSelectedSetId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="No alternatives (default)" />
+                    <SelectValue placeholder={t("noAlternativesDefault")} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NO_SET_VALUE}>
-                      No alternatives (default)
+                      {t("noAlternativesDefault")}
                     </SelectItem>
                     {shoppingSets.map((set) => (
                       <SelectItem key={set._id} value={set._id}>
@@ -749,11 +751,11 @@ const ClipperView = ({
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Additional information</CardTitle>
+              <CardTitle className="text-sm">{t("additionalInformation")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-1.5">
-                <Label htmlFor="product-link">Product link</Label>
+                <Label htmlFor="product-link">{t("productLink")}</Label>
                 <div className="flex">
                   <Input
                     id="product-link"
@@ -777,7 +779,7 @@ const ClipperView = ({
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="product-supplier">Supplier</Label>
+                <Label htmlFor="product-supplier">{t("supplier")}</Label>
                 <div className="flex items-center gap-2">
                   <Store className="h-4 w-4 text-muted-foreground" />
                   <Input
@@ -786,25 +788,25 @@ const ClipperView = ({
                     onChange={(event) =>
                       handleProductChange("supplier", event.target.value)
                     }
-                    placeholder="Supplier name"
+                    placeholder={t("supplierName")}
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="product-catalog-number">Catalog number</Label>
+                <Label htmlFor="product-catalog-number">{t("catalogNumber")}</Label>
                 <Input
                   id="product-catalog-number"
                   value={product.catalogNumber ?? ""}
                   onChange={(event) =>
                     handleProductChange("catalogNumber", event.target.value)
                   }
-                  placeholder="e.g. BU1K367PH-3BC1"
+                  placeholder={t("catalogNumberPlaceholder")}
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="product-notes">Notes</Label>
+                <Label htmlFor="product-notes">{t("notes")}</Label>
                 <Textarea
                   id="product-notes"
                   rows={3}
@@ -812,7 +814,7 @@ const ClipperView = ({
                   onChange={(event) =>
                     handleProductChange("notes", event.target.value)
                   }
-                  placeholder="Additional details"
+                  placeholder={t("notesPlaceholder")}
                   className="resize-none"
                 />
               </div>
@@ -831,12 +833,12 @@ const ClipperView = ({
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Saving...
+              {t("saving")}
             </>
           ) : (
             <>
               <ShoppingCart className="mr-2 h-4 w-4" />
-              Add to shopping list
+              {t("addToShoppingList")}
             </>
           )}
         </Button>

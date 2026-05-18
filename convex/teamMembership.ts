@@ -38,6 +38,7 @@ export const ensureCurrentUserTeamMembership = mutation({
   args: {
     clerkOrgId: v.string(),
     orgName: v.optional(v.string()),
+    locale: v.optional(v.union(v.literal("en"), v.literal("pl"))),
   },
   async handler(ctx, args) {
     const identity = await ctx.auth.getUserIdentity();
@@ -198,6 +199,7 @@ export const ensureCurrentUserTeamMembership = mutation({
           teamId: team._id,
           clerkOrgId: args.clerkOrgId,
           createdByClerkUserId: identity.subject,
+          locale: args.locale,
         });
       } catch (error) {
         console.error("Failed to seed demo project for new workspace", error);

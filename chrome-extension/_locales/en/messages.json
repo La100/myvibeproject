@@ -1,0 +1,23 @@
+{
+  "extensionName": {
+    "message": "MyVibeProject Web Clipper"
+  },
+  "extensionDescription": {
+    "message": "Web clipper for MyVibeProject shopping lists"
+  },
+  "openClipperCommand": {
+    "message": "Open web clipper"
+  },
+  "screenshotPickerHint": {
+    "message": "Drag to select area. Press Esc to cancel."
+  },
+  "clipperFrameTitle": {
+    "message": "MyVibeProject Clipper"
+  },
+  "couldNotStartScreenshotPicker": {
+    "message": "Could not start screenshot picker on this page."
+  },
+  "noProductDetected": {
+    "message": "No product detected"
+  }
+}

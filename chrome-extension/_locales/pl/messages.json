@@ -1,0 +1,23 @@
+{
+  "extensionName": {
+    "message": "MyVibeProject Web Clipper"
+  },
+  "extensionDescription": {
+    "message": "Wtyczka do zapisywania produktów na listach zakupów MyVibeProject"
+  },
+  "openClipperCommand": {
+    "message": "Otwórz web clipper"
+  },
+  "screenshotPickerHint": {
+    "message": "Przeciągnij, aby zaznaczyć obszar. Naciśnij Esc, aby anulować."
+  },
+  "clipperFrameTitle": {
+    "message": "MyVibeProject Clipper"
+  },
+  "couldNotStartScreenshotPicker": {
+    "message": "Nie udało się uruchomić wyboru obszaru na tej stronie."
+  },
+  "noProductDetected": {
+    "message": "Nie wykryto produktu"
+  }
+}

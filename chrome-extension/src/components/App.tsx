@@ -8,6 +8,7 @@ import ClipperView from "./views/ClipperView";
 import Toast from "./ui/Toast";
 import { STORAGE_KEYS } from "../lib/storageKeys";
 import { authenticatedFetch } from "../lib/auth";
+import { useI18n } from "../lib/i18n";
 
 interface ToastState {
   message: string;
@@ -57,6 +58,7 @@ function pickDefaultSelection(teams: Team[]): {
 }
 
 const App = () => {
+  const { t } = useI18n();
   const [state, setState] = useState<AppState>(initialState);
   const [toast, setToast] = useState<ToastState | null>(null);
 
@@ -245,7 +247,7 @@ const App = () => {
       isLoading: false,
     });
 
-    showToast("Signed out.", "info");
+    showToast(t("signedOut"), "info");
   };
 
   const handleTeamSelect = async (team: Team) => {
@@ -274,7 +276,7 @@ const App = () => {
       currentView: "clipper",
     }));
 
-    showToast(`Selected project: ${project.name}`, "success");
+    showToast(t("selectedProject", { name: project.name }), "success");
   };
 
   const handleBackToTeams = async () => {
@@ -309,13 +311,13 @@ const App = () => {
           <div className="clean-panel flex items-center gap-3 px-5 py-3">
             <div className="h-3 w-3 animate-pulse rounded-full bg-primary" />
             <span className="text-sm font-semibold text-foreground/80">
-              Loading data...
+              {t("loadingData")}
             </span>
           </div>
         </div>
       </div>
     ),
-    [],
+    [t],
   );
 
   if (state.isLoading) {

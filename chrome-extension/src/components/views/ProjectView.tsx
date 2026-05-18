@@ -1,6 +1,7 @@
 import type { Project, Team } from "../../types"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { useI18n } from "../../lib/i18n"
 import { ArrowLeft, ChevronRight, FolderOpen } from "lucide-react"
 
 interface ProjectViewProps {
@@ -10,6 +11,7 @@ interface ProjectViewProps {
 }
 
 const ProjectView = ({ team, onProjectSelect, onBack }: ProjectViewProps) => {
+  const { t } = useI18n()
   const projects = team.projects || []
 
   return (
@@ -25,11 +27,11 @@ const ProjectView = ({ team, onProjectSelect, onBack }: ProjectViewProps) => {
             <ArrowLeft className="h-5 w-5 stroke-[2.4]" />
           </Button>
           <div>
-            <p className="vp-title">Team projects</p>
+            <p className="vp-title">{t("teamProjects")}</p>
             <h2 className="mt-1 text-xl font-semibold">{team.name}</h2>
           </div>
         </div>
-        <span className="vp-chip">{projects.length} active</span>
+        <span className="vp-chip">{projects.length} {t("active")}</span>
       </div>
 
       {projects.length > 0 ? (
@@ -50,7 +52,7 @@ const ProjectView = ({ team, onProjectSelect, onBack }: ProjectViewProps) => {
                     <div>
                       <p className="text-sm font-semibold">{project.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {project.sections.length} shopping list sections
+                        {t("sectionCount", { count: project.sections.length })}
                       </p>
                     </div>
                   </div>
@@ -63,9 +65,9 @@ const ProjectView = ({ team, onProjectSelect, onBack }: ProjectViewProps) => {
       ) : (
           <div className="clean-panel flex flex-1 flex-col items-center justify-center px-6 text-center">
             <FolderOpen className="mb-3 h-12 w-12 text-muted-foreground" />
-          <h3 className="mb-1 text-base font-semibold">No projects found</h3>
+          <h3 className="mb-1 text-base font-semibold">{t("noProjectsFound")}</h3>
           <p className="text-sm text-muted-foreground">
-            This team does not have any active projects yet.
+            {t("noProjectsFoundDescription")}
           </p>
         </div>
       )}

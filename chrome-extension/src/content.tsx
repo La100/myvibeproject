@@ -26,6 +26,10 @@ type PendingClipperImage = {
 
 const CLIPPER_PENDING_IMAGE_STORAGE_KEY = "clipper_pending_image"
 
+function getLocalizedMessage(name: string, fallback: string): string {
+  return chrome.i18n?.getMessage(name) || fallback
+}
+
 function isObjectMessage(value: unknown): value is RuntimeMessage {
   return typeof value === "object" && value !== null && "action" in value
 }
@@ -677,7 +681,10 @@ function enableScreenshotPicker(): boolean {
     font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif !important;
     pointer-events: none !important;
   `
-  hint.textContent = "Drag to select area. Press Esc to cancel."
+  hint.textContent = getLocalizedMessage(
+    "screenshotPickerHint",
+    "Drag to select area. Press Esc to cancel.",
+  )
   pickerOverlay.appendChild(hint)
 
   const selection = document.createElement("div")
@@ -820,7 +827,10 @@ function createIframePopup(): void {
   const iframe = document.createElement("iframe")
   iframe.id = IFRAME_ID
   iframe.src = popupUrl
-  iframe.title = "MyVibeProject Clipper"
+  iframe.title = getLocalizedMessage(
+    "clipperFrameTitle",
+    "MyVibeProject Clipper",
+  )
   iframe.style.cssText = `
     position: fixed !important;
     top: ${POPUP_TOP_GAP_PX}px !important;
@@ -886,7 +896,12 @@ if (isRuntimeContextAvailable()) {
       const success = enableScreenshotPicker()
       sendResponse({
         success,
-        error: success ? undefined : "Could not start screenshot picker on this page.",
+        error: success
+          ? undefined
+          : getLocalizedMessage(
+              "couldNotStartScreenshotPicker",
+              "Could not start screenshot picker on this page.",
+            ),
       })
       return false
     }
@@ -900,7 +915,10 @@ if (isRuntimeContextAvailable()) {
           if (product) {
             sendResponse({ success: true, product })
           } else {
-            sendResponse({ success: false, error: "No product detected" })
+            sendResponse({
+              success: false,
+              error: getLocalizedMessage("noProductDetected", "No product detected"),
+            })
           }
         })
         .catch((error: unknown) => {

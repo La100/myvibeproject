@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execSync } from 'child_process'
-import { copyFileSync, mkdirSync, existsSync } from 'fs'
+import { copyFileSync, cpSync, mkdirSync, existsSync } from 'fs'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -36,6 +36,13 @@ for (const iconName of ['icon16.png', 'icon32.png', 'icon48.png', 'icon128.png']
         join(iconsDir, iconName)
     )
 }
+
+console.log('🌐 Copying locale files...')
+cpSync(
+    join(rootDir, '_locales'),
+    join(distDir, '_locales'),
+    { recursive: true }
+)
 
 console.log('✅ Build completed successfully!')
 console.log('📁 Extension files are in:', distDir)

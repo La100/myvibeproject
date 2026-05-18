@@ -77,7 +77,7 @@ function WorkspaceSetupProgress({
 }
 
 export function PostAuthRouter() {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const router = useRouter();
   const {
     isLoaded: isAuthLoaded,
@@ -156,6 +156,7 @@ export function PostAuthRouter() {
     void ensureCurrentUserTeamMembership({
       clerkOrgId: activeWorkspaceOrgId,
       orgName: organization?.name,
+      locale,
     })
       .then((result) => {
         if (cancelled) {
@@ -185,6 +186,7 @@ export function PostAuthRouter() {
     ensureCurrentUserTeamMembership,
     isConvexAuthenticated,
     isConvexAuthLoading,
+    locale,
     organization?.name,
     teamSettings,
     t,

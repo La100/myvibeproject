@@ -340,6 +340,7 @@ export default function CompanySettings({
       await ensureCurrentUserTeamMembership({
         clerkOrgId: organization.id,
         orgName: organization.name,
+        locale,
       });
     } catch (error) {
       console.error("Failed to repair team membership", error);
@@ -347,7 +348,7 @@ export default function CompanySettings({
     } finally {
       setRepairingTeamState(false);
     }
-  }, [organization?.id, organization?.name, ensureCurrentUserTeamMembership]);
+  }, [locale, organization?.id, organization?.name, ensureCurrentUserTeamMembership]);
 
   const syncSubscriptionFromStripe = useCallback(
     async ({
@@ -844,6 +845,7 @@ export default function CompanySettings({
       await ensureCurrentUserTeamMembership({
         clerkOrgId: organization.id,
         orgName: trimmedName,
+        locale,
       });
       setOrganizationNameDraft(trimmedName);
       toast.success(t("companySettings", "organizationNameUpdated"));

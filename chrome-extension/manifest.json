@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "MyVibeProject Web Clipper",
-  "version": "3.0.2",
-  "description": "Web clipper for MyVibeProject shopping lists",
+  "name": "__MSG_extensionName__",
+  "version": "3.0.3",
+  "default_locale": "en",
+  "description": "__MSG_extensionDescription__",
   "permissions": [
     "activeTab",
     "storage",
@@ -23,7 +24,7 @@
         "default": "Ctrl+Shift+X",
         "mac": "Command+Shift+X"
       },
-      "description": "Open web clipper"
+      "description": "__MSG_openClipperCommand__"
     }
   },
   "icons": {
@@ -37,7 +38,7 @@
       "16": "icons/icon16.png",
       "32": "icons/icon32.png"
     },
-    "default_title": "MyVibeProject Web Clipper"
+    "default_title": "__MSG_extensionName__"
   },
   "web_accessible_resources": [
     {

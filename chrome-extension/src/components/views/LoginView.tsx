@@ -3,6 +3,7 @@ import type { Team, User } from "../../types";
 import { CONFIG } from "../../config";
 import { ACTIONS } from "../../lib/messages";
 import { STORAGE_KEYS } from "../../lib/storageKeys";
+import { useI18n } from "../../lib/i18n";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -24,6 +25,7 @@ type InitiateAuthResponse = {
 };
 
 const LoginView = ({ onLogin, showToast }: LoginViewProps) => {
+  const { t } = useI18n();
   const [isLoading, setIsLoading] = useState(false);
 
   const verifyTokenAndLogin = useCallback(
@@ -38,7 +40,7 @@ const LoginView = ({ onLogin, showToast }: LoginViewProps) => {
         });
 
         if (!response.ok) {
-          let errorMessage = "Sign-in failed. Please sync your session again.";
+          let errorMessage = t("signInFailed");
           const payload = (await response.json().catch(() => null)) as {
             message?: string;
           } | null;
@@ -56,20 +58,20 @@ const LoginView = ({ onLogin, showToast }: LoginViewProps) => {
         const data = (await response.json()) as { user?: User; teams?: Team[] };
         if (data.user && Array.isArray(data.teams)) {
           onLogin(data.user, data.teams);
-          showToast("Signed in successfully.", "success");
+          showToast(t("signedIn"), "success");
           return true;
         }
 
-        showToast("Invalid server response.", "error");
+        showToast(t("invalidServerResponse"), "error");
         return false;
       } catch {
-        showToast("Could not connect to the server.", "error");
+        showToast(t("couldNotConnectServer"), "error");
         return false;
       } finally {
         setIsLoading(false);
       }
     },
-    [onLogin, showToast],
+    [onLogin, showToast, t],
   );
 
   const pollForSyncedToken = useCallback(
@@ -106,9 +108,9 @@ const LoginView = ({ onLogin, showToast }: LoginViewProps) => {
       }
 
       setIsLoading(false);
-      showToast("Sign-in timed out. Please click Sync session again.", "error");
+      showToast(t("signInTimedOut"), "error");
     },
-    [showToast, verifyTokenAndLogin],
+    [showToast, t, verifyTokenAndLogin],
   );
 
   useEffect(() => {
@@ -152,7 +154,7 @@ const LoginView = ({ onLogin, showToast }: LoginViewProps) => {
 
   const handleSyncFromApp = async () => {
     setIsLoading(true);
-    showToast("Finish sign-in in the newly opened tab.", "info");
+    showToast(t("finishSignIn"), "info");
 
     const baseline = await chrome.storage.local.get([
       STORAGE_KEYS.TOKEN,
@@ -172,13 +174,13 @@ const LoginView = ({ onLogin, showToast }: LoginViewProps) => {
       (response?: InitiateAuthResponse) => {
         const runtimeError = chrome.runtime.lastError;
         if (runtimeError) {
-          showToast("Could not start sign-in.", "error");
+          showToast(t("couldNotStartSignIn"), "error");
           setIsLoading(false);
           return;
         }
 
         if (!response?.success) {
-          showToast(response?.error ?? "Could not start sign-in.", "error");
+          showToast(response?.error ?? t("couldNotStartSignIn"), "error");
           setIsLoading(false);
           return;
         }
@@ -197,24 +199,26 @@ const LoginView = ({ onLogin, showToast }: LoginViewProps) => {
       <div className="mb-4 space-y-2">
         <span className="vp-chip">MyVibeProject Clipper</span>
         <h1 className="clean-title text-2xl font-medium leading-tight text-foreground">
-          Add products
-          <br />
-          without leaving the page.
+          {t("addProductsHeadline").split("\n").map((line, index) => (
+            <span key={line}>
+              {index > 0 && <br />}
+              {line}
+            </span>
+          ))}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Connect the extension to MyVibeProject and start clipping
-          automatically.
+          {t("addProductsIntro")}
         </p>
       </div>
 
       <Card className="clean-panel flex-1">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle>Sign In</CardTitle>
+            <CardTitle>{t("signIn")}</CardTitle>
             <ShieldCheck className="h-5 w-5 text-primary" />
           </div>
           <CardDescription>
-            Authentication is handled by the main app.
+            {t("signInDescription")}
           </CardDescription>
         </CardHeader>
 
@@ -229,7 +233,7 @@ const LoginView = ({ onLogin, showToast }: LoginViewProps) => {
             ) : (
               <Sparkles className="mr-2 h-4 w-4" />
             )}
-            Sync session
+            {t("syncSession")}
           </Button>
 
           <Button
@@ -237,7 +241,7 @@ const LoginView = ({ onLogin, showToast }: LoginViewProps) => {
             className="w-full"
             onClick={handleOpenMainApp}
           >
-            Open MyVibeProject
+            {t("openMainApp")}
           </Button>
 
           <div className="mt-2 rounded-xl border border-white/80 bg-white/75 px-3 py-2 text-[11px] text-muted-foreground">

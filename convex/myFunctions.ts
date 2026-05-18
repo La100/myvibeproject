@@ -426,6 +426,7 @@ export const createOrUpdateMembership = internalMutation({
                     teamId: team._id,
                     clerkOrgId: args.clerkOrgId,
                     createdByClerkUserId: args.clerkUserId,
+                    locale: "pl",
                 });
             } catch (error) {
                 console.error("Failed to seed demo project for new workspace", error);
