@@ -34,9 +34,34 @@ const brandFontVariables = {
   "--font-sidebar": 'var(--font-serif)',
 } as CSSProperties;
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://myvibeproject.com";
+const socialPreviewImage = "/landing/visualization-1776944094220.png";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(appUrl),
   title: "Myvibe project",
   description: "Architectural Project Manager",
+  openGraph: {
+    title: "Myvibe project",
+    description: "Architectural Project Manager",
+    url: "/",
+    siteName: "Myvibe project",
+    images: [
+      {
+        url: socialPreviewImage,
+        width: 1024,
+        height: 1024,
+        alt: "Myvibe project",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Myvibe project",
+    description: "Architectural Project Manager",
+    images: [socialPreviewImage],
+  },
   icons: {
     icon: [{ url: "/logo.svg", type: "image/svg+xml" }],
     shortcut: "/logo.svg",
@@ -89,10 +114,12 @@ const clerkLocalizations = {
     formFieldLabel__emailAddress: "Email address",
     formFieldLabel__firstName: "First name",
     formFieldLabel__lastName: "Last name",
+    formFieldLabel__organizationName: "Organization name",
     formFieldLabel__password: "Password",
     formFieldInputPlaceholder__emailAddress: "Enter your email address",
     formFieldInputPlaceholder__firstName: "First name",
     formFieldInputPlaceholder__lastName: "Last name",
+    formFieldInputPlaceholder__organizationName: "My Organization",
     formFieldInputPlaceholder__password: "Enter your password",
     backButton: "Back",
     signInEnterPasswordTitle: "Enter your password",
@@ -149,6 +176,40 @@ const clerkLocalizations = {
         actionLink: "Sign in",
       },
     },
+    taskChooseOrganization: {
+      title: "Setup your organization",
+      subtitle: "Enter your organization details to continue",
+      signOut: {
+        actionText: "Signed in as {{identifier}}",
+        actionLink: "Sign out",
+      },
+      createOrganization: {
+        title: "Setup your organization",
+        subtitle: "Enter your organization details to continue",
+        formButtonSubmit: "Continue",
+        formButtonReset: "Reset",
+        formFieldLabel__name: "Name",
+        formFieldLabel__slug: "Slug",
+        formFieldInputPlaceholder__name: "My Organization",
+        formFieldInputPlaceholder__slug: "my-organization",
+      },
+      chooseOrganization: {
+        title: "Choose your organization",
+        subtitle: "Select an organization to continue",
+        subtitle__createOrganizationDisabled: "Select an organization to continue",
+        suggestionsAcceptedLabel: "Accepted",
+        action__suggestionsAccept: "Accept",
+        action__createOrganization: "Create organization",
+        action__invitationAccept: "Accept invitation",
+      },
+      organizationCreationDisabled: {
+        title: "Organization setup unavailable",
+        subtitle: "Choose an existing organization to continue.",
+      },
+      alerts: {
+        organizationAlreadyExists: "An organization named {{organizationName}} already exists.",
+      },
+    },
   },
   pl: {
     dividerText: "lub",
@@ -157,10 +218,12 @@ const clerkLocalizations = {
     formFieldLabel__emailAddress: "Adres email",
     formFieldLabel__firstName: "Imię",
     formFieldLabel__lastName: "Nazwisko",
+    formFieldLabel__organizationName: "Nazwa organizacji",
     formFieldLabel__password: "Hasło",
     formFieldInputPlaceholder__emailAddress: "Wpisz adres email",
     formFieldInputPlaceholder__firstName: "Imię",
     formFieldInputPlaceholder__lastName: "Nazwisko",
+    formFieldInputPlaceholder__organizationName: "Moja organizacja",
     formFieldInputPlaceholder__password: "Wpisz hasło",
     backButton: "Wróć",
     signInEnterPasswordTitle: "Wpisz hasło",
@@ -215,6 +278,40 @@ const clerkLocalizations = {
         subtitleCombined: "Witaj! Uzupełnij dane, aby rozpocząć.",
         actionText: "Masz już konto?",
         actionLink: "Zaloguj się",
+      },
+    },
+    taskChooseOrganization: {
+      title: "Skonfiguruj organizację",
+      subtitle: "Wpisz dane organizacji, aby kontynuować",
+      signOut: {
+        actionText: "Zalogowano jako {{identifier}}",
+        actionLink: "Wyloguj się",
+      },
+      createOrganization: {
+        title: "Skonfiguruj organizację",
+        subtitle: "Wpisz dane organizacji, aby kontynuować",
+        formButtonSubmit: "Kontynuuj",
+        formButtonReset: "Resetuj",
+        formFieldLabel__name: "Nazwa",
+        formFieldLabel__slug: "Slug",
+        formFieldInputPlaceholder__name: "Moja organizacja",
+        formFieldInputPlaceholder__slug: "moja-organizacja",
+      },
+      chooseOrganization: {
+        title: "Wybierz organizację",
+        subtitle: "Wybierz organizację, aby kontynuować",
+        subtitle__createOrganizationDisabled: "Wybierz organizację, aby kontynuować",
+        suggestionsAcceptedLabel: "Zaakceptowano",
+        action__suggestionsAccept: "Akceptuj",
+        action__createOrganization: "Utwórz organizację",
+        action__invitationAccept: "Przyjmij zaproszenie",
+      },
+      organizationCreationDisabled: {
+        title: "Konfiguracja organizacji niedostępna",
+        subtitle: "Wybierz istniejącą organizację, aby kontynuować.",
+      },
+      alerts: {
+        organizationAlreadyExists: "Organizacja {{organizationName}} już istnieje.",
       },
     },
   },
