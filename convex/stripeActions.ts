@@ -135,6 +135,7 @@ export const createCheckoutSession = action({
   args: {
     teamId: v.id("teams"),
     priceId: v.string(),
+    quantity: v.optional(v.number()),
     baseUrl: v.optional(v.string()),
   },
   returns: v.object({
@@ -179,13 +180,17 @@ export const createCheckoutSession = action({
       throw new Error("Only team members can manage subscriptions");
     }
 
-    const billingSeatQuantity = Math.max(
-      1,
+    const currentBillableSeatCount =
       Number(
         await runQuery(internalApi.stripe.getTeamBillingSeatCount, {
           teamId: args.teamId,
         }),
-      ) || 1,
+      ) || 1;
+    const requestedSeatQuantity =
+      typeof args.quantity === "number" ? args.quantity : currentBillableSeatCount;
+    const billingSeatQuantity = Math.max(
+      1,
+      Math.min(999, Math.floor(requestedSeatQuantity)),
     );
 
     // Get or create Stripe customer using component
@@ -211,6 +216,11 @@ export const createCheckoutSession = action({
         {
           price: args.priceId,
           quantity: billingSeatQuantity,
+          adjustable_quantity: {
+            enabled: true,
+            minimum: 1,
+            maximum: 999,
+          },
         },
       ],
       success_url: getBillingSettingsUrl(args.baseUrl, "success"),

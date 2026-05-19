@@ -173,6 +173,10 @@ export default function CompanySettings({
   const isSubscriptionPage = mode === "subscription";
   const requestedTab = searchParams.get("tab");
   const checkoutState = searchParams.get("checkout");
+  const requestedCheckoutSeats = Math.max(
+    1,
+    Math.min(999, Number.parseInt(searchParams.get("seats") || "", 10) || 1),
+  );
   const shouldRedirectToSubscription =
     !isSubscriptionPage &&
     (requestedTab === "billing" || requestedTab === "subscription");
@@ -227,6 +231,8 @@ export default function CompanySettings({
     SubscriptionInvoice[] | null
   >(null);
   const [stripeInvoicesLoading, setStripeInvoicesLoading] = useState(false);
+  const [checkoutSeatQuantity, setCheckoutSeatQuantity] = useState(1);
+  const checkoutSeatInitializedRef = useRef(false);
   const displayedInvoices =
     stripeInvoices && stripeInvoices.length > 0 ? stripeInvoices : teamInvoices;
 
@@ -484,6 +490,24 @@ export default function CompanySettings({
     subscriptionAutoSyncAttemptedRef.current = subscription.teamId;
     void syncSubscriptionFromStripe();
   }, [isSubscriptionPage, subscription, syncSubscriptionFromStripe]);
+
+  useEffect(() => {
+    if (!isSubscriptionPage || subscription === undefined) return;
+    if (checkoutSeatInitializedRef.current) return;
+
+    const currentSeatQuantity = Math.max(
+      1,
+      Number(subscription?.billingSeatQuantity) || 1,
+    );
+    setCheckoutSeatQuantity(
+      Math.max(currentSeatQuantity, requestedCheckoutSeats),
+    );
+    checkoutSeatInitializedRef.current = true;
+  }, [
+    isSubscriptionPage,
+    requestedCheckoutSeats,
+    subscription,
+  ]);
 
   useEffect(() => {
     if (
@@ -900,6 +924,7 @@ export default function CompanySettings({
       const result = await createCheckoutSession({
         teamId: teamData.teamId,
         priceId,
+        quantity: selectedBillingSeatQuantity,
         baseUrl: window.location.origin,
       });
 
@@ -994,6 +1019,15 @@ export default function CompanySettings({
     1,
     Number(subscription?.billingSeatQuantity) || 1,
   );
+  const selectedBillingSeatQuantity = Math.max(
+    1,
+    Math.min(999, Math.floor(checkoutSeatQuantity || 1)),
+  );
+  const updateCheckoutSeatQuantity = (nextQuantity: number) => {
+    setCheckoutSeatQuantity(
+      Math.max(1, Math.min(999, Math.floor(nextQuantity || 1))),
+    );
+  };
   const formatBillingAmount = (amount: number, currency = preferredBillingCurrency) =>
     new Intl.NumberFormat(locale === "pl" ? "pl-PL" : "en-US", {
       style: "currency",
@@ -1160,6 +1194,64 @@ export default function CompanySettings({
                 </div>
               </div>
 
+              <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 md:flex-row md:items-center md:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground">
+                    <Users className="size-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <Label
+                      htmlFor="checkout-seat-quantity"
+                      className="text-sm font-medium"
+                    >
+                      {t("companySettings", "billingSeatsLabel")}
+                    </Label>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {t("companySettings", "billingSeatsDescription")}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex w-full shrink-0 items-center gap-2 md:w-auto">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() =>
+                      updateCheckoutSeatQuantity(selectedBillingSeatQuantity - 1)
+                    }
+                    disabled={selectedBillingSeatQuantity <= 1 || isBillingActionPending}
+                    aria-label={t("companySettings", "decreaseBillingSeats")}
+                  >
+                    <span aria-hidden="true">-</span>
+                  </Button>
+                  <Input
+                    id="checkout-seat-quantity"
+                    type="number"
+                    min={1}
+                    max={999}
+                    value={selectedBillingSeatQuantity}
+                    onChange={(event) =>
+                      updateCheckoutSeatQuantity(
+                        Number.parseInt(event.target.value, 10),
+                      )
+                    }
+                    className="h-10 w-full text-center tabular-nums md:w-24"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() =>
+                      updateCheckoutSeatQuantity(selectedBillingSeatQuantity + 1)
+                    }
+                    disabled={selectedBillingSeatQuantity >= 999 || isBillingActionPending}
+                    aria-label={t("companySettings", "increaseBillingSeats")}
+                  >
+                    <span aria-hidden="true">+</span>
+                  </Button>
+                </div>
+              </div>
+
               {visibleBillingPlans.length > 0 ? (
                 <div
                   className={cn(
@@ -1195,7 +1287,7 @@ export default function CompanySettings({
                         isRecommended={isRecommended}
                         currency={preferredBillingCurrency}
                         locale={locale}
-                        seatCount={billingSeatQuantity}
+                        seatCount={selectedBillingSeatQuantity}
                         footer={
                           isCurrentPlan && canOpenPortal ? (
 	                            <Button

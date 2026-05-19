@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { Id } from "@/convex/_generated/dataModel";
@@ -31,11 +32,20 @@ interface InviteMemberDialogProps {
 
 type InvitationRole = "admin" | "member";
 
+type InviteErrorToast = {
+  title: string;
+  description: string;
+  actionLabel?: string;
+};
+
 const getInviteErrorToast = (
   error: unknown,
   t: ReturnType<typeof useI18n>["t"],
-) => {
+): InviteErrorToast => {
   const message = toUserFacingErrorMessage(error);
+  const isTeamMemberLimitError = message.startsWith(
+    "You've reached the maximum number of team members",
+  );
 
   if (message === "Only organization admins can invite new team members.") {
     return {
@@ -58,10 +68,11 @@ const getInviteErrorToast = (
     };
   }
 
-  if (message.startsWith("You've reached the maximum number of team members")) {
+  if (isTeamMemberLimitError) {
     return {
       title: t("inviteMember", "teamMemberLimitReached"),
-      description: message,
+      description: t("inviteMember", "teamMemberLimitReachedDescription"),
+      actionLabel: t("inviteMember", "subscribeNow"),
     };
   }
 
@@ -73,6 +84,7 @@ const getInviteErrorToast = (
 
 export function InviteMemberDialog({ teamId, children }: InviteMemberDialogProps) {
   const { t } = useI18n();
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<InvitationRole>("member");
   const [isOpen, setIsOpen] = useState(false);
@@ -95,6 +107,12 @@ export function InviteMemberDialog({ teamId, children }: InviteMemberDialogProps
       const toastContent = getInviteErrorToast(error, t);
       toast.error(toastContent.title, {
         description: toastContent.description,
+        action: toastContent.actionLabel
+          ? {
+              label: toastContent.actionLabel,
+              onClick: () => router.push("/organisation/subscription?seats=2"),
+            }
+          : undefined,
       });
     } finally {
       setIsSubmitting(false);

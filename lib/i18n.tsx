@@ -576,6 +576,9 @@ const enMessages = {
       billingEmail: "Billing email",
       billingPeriod: "Billing period",
       billingPlanNotConfigured: "Billing plan is not configured yet.",
+      billingSeatsDescription:
+        "Choose how many people should be included in the first Stripe checkout.",
+      billingSeatsLabel: "Seats to bill",
       billingProfileUpdated: "Organization billing profile updated",
       billingUnavailable: "Billing unavailable",
       cad: "Canadian Dollar (C$)",
@@ -616,6 +619,7 @@ const enMessages = {
       currentPlanTitle: "Current Plan",
       currentSelection: "Current selection",
       defaultDueDays: "Default due days",
+      decreaseBillingSeats: "Decrease billed seats",
       ending: "Ending",
       estimatedPerRun: "Estimated per run",
       eur: "Euro (€)",
@@ -636,6 +640,7 @@ const enMessages = {
         "Manage billing, seats, and renewal details from the current plan section above.",
       highestPlanTitle: "You are on the highest available plan",
       imageTooLarge: "Image must be smaller than 5 MB",
+      increaseBillingSeats: "Increase billed seats",
       includedMonthlyCredits: "Included monthly credits",
       invoices: "Invoices",
       invoicingProfile: "Invoicing profile",
@@ -900,7 +905,10 @@ const enMessages = {
       selectRole: "Select a role",
       sendInvitation: "Send Invitation",
       sending: "Sending...",
+      subscribeNow: "Subscribe now",
       teamMemberLimitReached: "Team member limit reached",
+      teamMemberLimitReachedDescription:
+        "Your current plan includes one team seat. Subscribe and choose more seats to invite this person.",
       title: "Invite Team Member",
     },
     billingPlanCard: {
@@ -4004,6 +4012,9 @@ const messages = {
       billingEmail: "Email rozliczeniowy",
       billingPeriod: "Okres rozliczeniowy",
       billingPlanNotConfigured: "Plan rozliczeniowy nie jest jeszcze skonfigurowany.",
+      billingSeatsDescription:
+        "Wybierz, ile osób ma być uwzględnionych w pierwszym checkoutcie Stripe.",
+      billingSeatsLabel: "Miejsca do rozliczenia",
       billingProfileUpdated: "Profil rozliczeniowy organizacji zaktualizowany",
       billingUnavailable: "Rozliczenia niedostępne",
       changeImage: "Zmień obraz",
@@ -4044,6 +4055,7 @@ const messages = {
       currentPlanTitle: "Bieżący plan",
       currentSelection: "Bieżący wybór",
       defaultDueDays: "Domyślna liczba dni płatności",
+      decreaseBillingSeats: "Zmniejsz liczbę rozliczanych miejsc",
       ending: "Kończy się",
       eur: "Euro (€)",
       estimatedPerRun: "Szacunkowo na uruchomienie",
@@ -4064,6 +4076,7 @@ const messages = {
         "Zarządzaj rozliczeniami, miejscami i odnowieniem w sekcji bieżącego planu powyżej.",
       highestPlanTitle: "Korzystasz z najwyższego dostępnego planu",
       imageTooLarge: "Obraz musi być mniejszy niż 5 MB",
+      increaseBillingSeats: "Zwiększ liczbę rozliczanych miejsc",
       includedMonthlyCredits: "Miesięczne kredyty w cenie",
       invoices: "Faktury",
       invoicingProfile: "Profil fakturowania",
@@ -4331,7 +4344,10 @@ const messages = {
       selectRole: "Wybierz rolę",
       sendInvitation: "Wyślij zaproszenie",
       sending: "Wysyłanie...",
+      subscribeNow: "Zasubskrybuj",
       teamMemberLimitReached: "Osiągnięto limit członków zespołu",
+      teamMemberLimitReachedDescription:
+        "Obecny plan obejmuje jedno miejsce w zespole. Wykup subskrypcję i wybierz więcej miejsc, aby zaprosić tę osobę.",
       title: "Zaproś członka zespołu",
     },
     billingPlanCard: {
