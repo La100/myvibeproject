@@ -201,17 +201,26 @@ export default function ProductLibraryPage() {
   return (
     <div className="flex h-full flex-1 flex-col bg-background">
       <div className="border-b border-border/70 bg-background/95 px-5 py-4 backdrop-blur md:px-7">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div className="min-w-0">
-            <h1 className="font-serif text-[2rem] leading-none tracking-[-0.04em] text-foreground">
-              {t("navigation", "productLibrary")}
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {t("productLibrary", "saveReusable")}
-            </p>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h1 className="font-serif text-[2rem] leading-none tracking-[-0.04em] text-foreground">
+                {t("navigation", "productLibrary")}
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {t("productLibrary", "saveReusable")}
+              </p>
+            </div>
+
+            <Button asChild className="h-10 w-full rounded-2xl px-4 sm:w-auto">
+              <Link href="/organisation/product-library/new">
+                <Plus className="h-4 w-4 mr-2" />
+                {t("productLibrary", "addProduct")}
+              </Link>
+            </Button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="relative min-w-[220px] flex-1 xl:w-[320px] xl:flex-none">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -277,13 +286,6 @@ export default function ProductLibraryPage() {
                 <List className="h-4 w-4" />
               </Button>
             </div>
-
-            <Button asChild className="h-10 rounded-2xl px-4">
-              <Link href="/organisation/product-library/new">
-                <Plus className="h-4 w-4 mr-2" />
-                {t("productLibrary", "addProduct")}
-              </Link>
-            </Button>
           </div>
         </div>
       </div>

@@ -1,16 +1,20 @@
 "use client";
 
 import React, { useState } from 'react';
+import { useMutation } from "convex/react";
+import { apiAny } from "@/lib/convexApiAny";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ShoppingCart, ExternalLink, Package, Ruler, Palette, Tag, User, Calendar, Edit } from "lucide-react";
+import { ShoppingCart, ExternalLink, Package, Ruler, Palette, Tag, User, Calendar, Edit, Trash2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { AddToProjectModal } from "./AddToProjectModal";
 import { EditProductModal } from "./EditProductModal";
 import { Id } from "@/convex/_generated/dataModel";
 import { useI18n } from "@/lib/i18n";
+import { toast } from "sonner";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 interface ProductModalProps {
   product: { _id: string; name: string; brand?: string; model?: string; sku?: string; supplierSku?: string; dimensions?: string; weight?: number; material?: string; color?: string; unitPrice?: number; supplier?: string; category?: string; tags: string[]; description?: string; notes?: string; creatorName?: string; _creationTime: number; imageUrl?: string; productLink?: string; };
@@ -21,8 +25,26 @@ interface ProductModalProps {
 
 export function ProductModal({ product, onClose, teamCurrency, teamId }: ProductModalProps) {
   const { t } = useI18n();
+  const deleteProduct = useMutation(apiAny.productLibrary.deleteProduct);
   const [showAddToProjectModal, setShowAddToProjectModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+
+  const handleDeleteProduct = async () => {
+    if (!window.confirm(t("productLibrary", "deleteProductConfirm", { name: product.name }))) {
+      return;
+    }
+
+    try {
+      await deleteProduct({ productId: product._id as Id<"productLibrary"> });
+      toast.success(t("productLibrary", "productDeleted"));
+      onClose();
+    } catch (error) {
+      toast.error(t("productLibrary", "failedDeleteProduct"), {
+        description: toUserFacingErrorMessage(error),
+      });
+      console.error(error);
+    }
+  };
 
   return (
     <>
@@ -218,6 +240,14 @@ export function ProductModal({ product, onClose, teamCurrency, teamId }: Product
             >
               <Edit className="h-4 w-4 mr-2" />
               {t("productLibrary", "edit")}
+            </Button>
+            <Button
+              variant="outline"
+              className="h-11 w-full justify-start rounded-2xl px-4 text-destructive hover:text-destructive sm:w-auto sm:justify-center"
+              onClick={handleDeleteProduct}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {t("productLibrary", "deleteProduct")}
             </Button>
             {product.productLink && (
               <Button

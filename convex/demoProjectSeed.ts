@@ -762,13 +762,6 @@ export const ensureDemoProjectForNewWorkspace = async (
     args.createdByClerkUserId,
     copy,
   );
-  await seedContacts(
-    ctx,
-    projectId,
-    args.teamId,
-    args.createdByClerkUserId,
-    copy,
-  );
   await seedNotes(
     ctx,
     projectId,

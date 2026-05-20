@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Mail, Phone, MapPin } from "lucide-react";
+import { Plus, Search, Mail, Phone, MapPin, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ContactForm } from "./ContactForm";
 import { Doc, Id } from "@/convex/_generated/dataModel";
@@ -88,6 +88,7 @@ export function ContactsView() {
   const assignContactToProject = useMutation(
     apiAny.contacts.assignContactToProject,
   );
+  const deleteContact = useMutation(apiAny.contacts.deleteContact);
 
   const assignedProjectIds = new Set(
     (contactProjects || []).map((project) => project._id),
@@ -121,6 +122,22 @@ export function ContactsView() {
       closeAssignDialog();
     } catch (error) {
       toast.error(t("contacts", "errorAddingToProject"), {
+        description: toUserFacingErrorMessage(error),
+      });
+      console.error(error);
+    }
+  };
+
+  const handleDeleteContact = async (contact: Doc<"contacts">) => {
+    if (!window.confirm(t("contacts", "deleteContactConfirm", { name: contact.name }))) {
+      return;
+    }
+
+    try {
+      await deleteContact({ contactId: contact._id });
+      toast.success(t("contacts", "contactDeleted"));
+    } catch (error) {
+      toast.error(t("contacts", "errorDeletingContact"), {
         description: toUserFacingErrorMessage(error),
       });
       console.error(error);
@@ -281,19 +298,34 @@ export function ContactsView() {
                 </div>
               )}
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="mt-1 w-fit"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  openAssignDialog(contact);
-                }}
-              >
-                <Plus data-icon="inline-start" />
-                {t("contacts", "addToProject")}
-              </Button>
+              <div className="mt-1 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-fit"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openAssignDialog(contact);
+                  }}
+                >
+                  <Plus data-icon="inline-start" />
+                  {t("contacts", "addToProject")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-fit text-destructive hover:text-destructive"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void handleDeleteContact(contact);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {t("contacts", "deleteContact")}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}

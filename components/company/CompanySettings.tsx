@@ -1069,7 +1069,6 @@ export default function CompanySettings({
     subscription?.checkoutPlans ?? {
       core: { usd: null, pln: null },
       ai: { usd: null, pln: null },
-      ai_scale: { usd: null, pln: null },
     };
   const currentPlanDetails = BILLING_PLANS.find(
     (plan) => plan.key === currentPlanKey,
@@ -1078,7 +1077,6 @@ export default function CompanySettings({
     const planNameKeys: Record<BillingPlanKey, string> = {
       core: "coreName",
       ai: "aiName",
-      ai_scale: "aiScaleName",
     };
     return t("billingPlanCard", planNameKeys[planKey]);
   };
@@ -1114,7 +1112,7 @@ export default function CompanySettings({
           ? "core"
           : currentPlanKey === "core"
             ? "ai"
-            : "ai_scale"),
+            : "ai"),
     ) ||
     availableBillingPlans[0] ||
     null;
@@ -1269,11 +1267,9 @@ export default function CompanySettings({
                       currentPlanKey === "free";
                     const availabilityLabel = isCurrentPlan
                       ? t("companySettings", "currentPlan")
-                      : plan.key === "ai_scale"
-                        ? t("companySettings", "bestValue")
-                        : t("companySettings", "available");
+                      : t("companySettings", "available");
                     const availabilityVariant =
-                      isCurrentPlan || plan.key === "ai_scale"
+                      isCurrentPlan
                         ? "secondary"
                         : "outline";
 
@@ -1319,12 +1315,12 @@ export default function CompanySettings({
 	                              disabled={isBillingActionPending}
 	                              className={cn(
 	                                "w-full",
-	                                plan.key === "ai_scale" || isRecommended
+	                                isRecommended
 	                                  ? "h-11"
 	                                  : "h-10",
 	                              )}
 	                              variant={
-	                                plan.key === "ai_scale" || isRecommended
+	                                isRecommended
 	                                  ? "default"
 	                                  : "outline"
 	                              }

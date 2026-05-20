@@ -327,6 +327,18 @@ export const deleteContact = mutation({
       details: { name: contact.name },
     });
 
+    const projectAssignments = await ctx.db
+      .query("projectContacts")
+      .withIndex("by_contact", (q) => q.eq("contactId", args.contactId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    await Promise.all(
+      projectAssignments.map((assignment) =>
+        ctx.db.patch(assignment._id, { isActive: false }),
+      ),
+    );
+
     await ctx.db.patch(args.contactId, {
       isActive: false,
     });
@@ -352,6 +364,9 @@ export const getProjectContacts = query({
     const contacts = await Promise.all(
       projectContacts.map(async (pc) => {
         const contact = await ctx.db.get(pc.contactId);
+        if (!contact || !contact.isActive) {
+          return null;
+        }
         return {
           ...contact,
           projectRole: pc.role,

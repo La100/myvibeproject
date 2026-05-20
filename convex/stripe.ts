@@ -9,6 +9,7 @@ import { components } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { usdToCredits } from "./ai/billing";
 import {
+  AI_CORE_MONTHLY_TOKENS,
   AI_PRO_MONTHLY_TOKENS,
   AI_SCALE_MONTHLY_TOKENS,
   PRO_MONTHLY_TOKENS,
@@ -43,11 +44,11 @@ export const SUBSCRIPTION_PLANS = {
     maxTeamMembers: 999,
     maxStorageGB: 100,
     hasAdvancedFeatures: true,
-    hasAIFeatures: false,
-    price: 15,
-    pricePerUser: 15,
-    aiMonthlyTokensPerUser: 0,
-    aiMonthlyTokens: 0,
+    hasAIFeatures: true,
+    price: 39,
+    pricePerUser: 39,
+    aiMonthlyTokensPerUser: AI_CORE_MONTHLY_TOKENS,
+    aiMonthlyTokens: AI_CORE_MONTHLY_TOKENS,
   },
   basic: {
     id: "basic",
@@ -70,8 +71,8 @@ export const SUBSCRIPTION_PLANS = {
     maxStorageGB: 500,
     hasAdvancedFeatures: true,
     hasAIFeatures: true,
-    price: 29,
-    pricePerUser: 29,
+    price: 59,
+    pricePerUser: 59,
     aiMonthlyTokensPerUser: AI_PRO_MONTHLY_TOKENS,
     aiMonthlyTokens: AI_PRO_MONTHLY_TOKENS,
   },

@@ -181,11 +181,6 @@ const faqItems = [
     answerKey: "faqProductScopeAnswer",
   },
   {
-    categoryKey: "faqOrganizationCategory",
-    questionKey: "faqOrganizationQuestion",
-    answerKey: "faqOrganizationAnswer",
-  },
-  {
     categoryKey: "faqProjectCategory",
     questionKey: "faqProjectQuestion",
     answerKey: "faqProjectAnswer",
@@ -194,21 +189,6 @@ const faqItems = [
     categoryKey: "faqAiAssistantCategory",
     questionKey: "faqAiAssistantQuestion",
     answerKey: "faqAiAssistantAnswer",
-  },
-  {
-    categoryKey: "faqAiSafetyCategory",
-    questionKey: "faqAiSafetyQuestion",
-    answerKey: "faqAiSafetyAnswer",
-  },
-  {
-    categoryKey: "faqAiAttachmentsCategory",
-    questionKey: "faqAiAttachmentsQuestion",
-    answerKey: "faqAiAttachmentsAnswer",
-  },
-  {
-    categoryKey: "faqVisualizationsCategory",
-    questionKey: "faqVisualizationsQuestion",
-    answerKey: "faqVisualizationsAnswer",
   },
   {
     categoryKey: "faqSourcingCategory",
@@ -224,31 +204,6 @@ const faqItems = [
     categoryKey: "faqCommercialCategory",
     questionKey: "faqCommercialQuestion",
     answerKey: "faqCommercialAnswer",
-  },
-  {
-    categoryKey: "faqFilesCategory",
-    questionKey: "faqFilesQuestion",
-    answerKey: "faqFilesAnswer",
-  },
-  {
-    categoryKey: "faqGeneratedDocumentsCategory",
-    questionKey: "faqGeneratedDocumentsQuestion",
-    answerKey: "faqGeneratedDocumentsAnswer",
-  },
-  {
-    categoryKey: "faqPlanningCategory",
-    questionKey: "faqPlanningQuestion",
-    answerKey: "faqPlanningAnswer",
-  },
-  {
-    categoryKey: "faqTeamCategory",
-    questionKey: "faqTeamQuestion",
-    answerKey: "faqTeamAnswer",
-  },
-  {
-    categoryKey: "faqWebClipperCategory",
-    questionKey: "faqWebClipperQuestion",
-    answerKey: "faqWebClipperAnswer",
   },
   {
     categoryKey: "faqPlansCategory",
@@ -1134,8 +1089,8 @@ function PricingSection({ isSignedIn }: { isSignedIn: boolean }) {
             plan={plan}
             currency={billingCurrency}
             locale={locale}
-            availabilityLabel={lt(plan.key === "ai_scale" ? "bestValue" : "available")}
-            availabilityVariant={plan.key === "ai_scale" ? "secondary" : "outline"}
+            availabilityLabel={lt("available")}
+            availabilityVariant="outline"
             footer={
               <Button
                 asChild
@@ -1159,37 +1114,44 @@ function FAQSection() {
   return (
     <section
       id="faq"
-      className="grid items-start gap-10 border-t border-black/6 py-14 lg:grid-cols-[0.34fr_minmax(0,0.66fr)] lg:py-16"
+      className="grid items-start gap-8 border-t border-black/6 py-12 lg:grid-cols-[0.32fr_minmax(0,0.68fr)] lg:py-14"
     >
-      <div className="max-w-[30rem]">
+      <div className="max-w-[28rem]">
         <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground/42">
           {lt("faqEyebrow")}
         </p>
-        <h3 className="mt-5 text-balance text-[clamp(1.85rem,2.7vw,2.7rem)] font-medium leading-[1.03] tracking-[-0.04em] text-foreground">
+        <h3 className="mt-4 text-balance text-[clamp(1.75rem,2.35vw,2.35rem)] font-medium leading-[1.04] tracking-[-0.04em] text-foreground">
           {lt("faqTitle")}
         </h3>
-        <p className="mt-4 text-pretty text-[1.05rem] leading-8 text-foreground/58">
+        <p className="mt-3 max-w-sm text-pretty text-[0.95rem] leading-7 text-foreground/56">
           {lt("faqBody")}
         </p>
       </div>
 
-      <div className="divide-y divide-black/7 border-y border-black/7">
+      <div className="overflow-hidden rounded-[18px] border border-black/7 bg-white/55 shadow-[0_18px_60px_rgba(24,22,18,0.05)]">
         {faqItems.map((item, index) => (
-          <details key={item.questionKey} className="group" open={index === 0}>
-            <summary className="grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-start gap-4 py-5 text-left marker:hidden">
-              <span className="min-w-0">
-                <span className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-foreground/36">
+          <details
+            key={item.questionKey}
+            className="group border-b border-black/6 last:border-b-0 open:bg-[#f7f4ed]"
+            open={index === 0}
+          >
+            <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-4 py-4 text-left marker:hidden sm:px-5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#ebe5d8] text-[11px] font-semibold tabular-nums text-foreground/46">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <span className="min-w-0 space-y-1">
+                <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground/36">
                   {lt(item.categoryKey)}
                 </span>
-                <span className="mt-2 block text-[1.05rem] font-medium leading-7 tracking-[-0.02em] text-foreground/86">
+                <span className="block text-[0.98rem] font-medium leading-6 tracking-[-0.02em] text-foreground/86">
                   {lt(item.questionKey)}
                 </span>
               </span>
-              <span className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-black/7 bg-white/70 text-foreground/54 transition group-open:rotate-180">
+              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/7 bg-white/76 text-foreground/54 transition group-open:rotate-180">
                 <ChevronDown className="h-4 w-4" />
               </span>
             </summary>
-            <p className="max-w-3xl pb-6 pr-12 text-sm leading-7 text-foreground/56">
+            <p className="max-w-2xl pb-5 pl-16 pr-5 text-[0.92rem] leading-7 text-foreground/58 sm:pl-[4.25rem]">
               {lt(item.answerKey)}
             </p>
           </details>
