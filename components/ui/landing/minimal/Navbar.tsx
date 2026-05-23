@@ -111,7 +111,7 @@ export function Navbar() {
         </nav>
 
         <div className="hidden shrink-0 items-center gap-2.5 md:flex">
-          {!isLanding ? languageButton : null}
+          {languageButton}
           {primaryAction}
         </div>
 
