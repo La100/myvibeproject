@@ -1003,6 +1003,30 @@ button, a, [role="button"] {
   animation: fadeIn 300ms ease-out;
 }
 
+@keyframes landing-hero-drift {
+  0% {
+    transform: scale(1.02) translate3d(0, 0, 0);
+  }
+
+  100% {
+    transform: scale(1.07) translate3d(-1.4%, -0.8%, 0);
+  }
+}
+
+@keyframes landing-hero-copy {
+  0% {
+    opacity: 0;
+    transform: translateY(18px);
+    filter: blur(8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
 @keyframes hero-chatkit-float {
   0%,
   100% {
@@ -1136,6 +1160,8 @@ button, a, [role="button"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  [class*="landing-hero-drift"],
+  [class*="landing-hero-copy"],
   .hero-chatkit-window,
   .hero-chatkit-enter,
   .hero-chatkit-typing,

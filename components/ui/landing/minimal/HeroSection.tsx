@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useUser } from "@clerk/nextjs";
-import { ArrowUp, Check, Loader2, Sparkles } from "lucide-react";
+import { ArrowRight, ArrowUp, Check, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -77,6 +77,73 @@ function getDemoActions(stage: number) {
 }
 
 export function HeroSection() {
+  const { t } = useI18n();
+  const ht = useCallback((key: string) => t("landingHero", key), [t]);
+  const { isSignedIn } = useUser();
+  const primaryHref = isSignedIn ? "/organisation" : "/sign-up";
+  const primaryLabel = isSignedIn ? t("landingNav", "dashboard") : ht("newPrimaryCta");
+
+  return (
+    <>
+      <section className="relative min-h-[100svh] overflow-hidden bg-[#17130f] pt-24 text-white">
+        <picture>
+          <source srcSet="/hero%20mobile.png" media="(max-width: 767px)" />
+          <img
+            src="/hero.png"
+            alt={ht("newHeroImageAlt")}
+            className="absolute inset-0 h-full w-full scale-[1.02] object-cover object-center motion-safe:animate-[landing-hero-drift_18s_ease-in-out_infinite_alternate] md:object-[58%_50%]"
+          />
+        </picture>
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(12,10,8,0.72)_0%,rgba(12,10,8,0.48)_34%,rgba(12,10,8,0.10)_68%,rgba(12,10,8,0.22)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(12,10,8,0.05)_0%,rgba(12,10,8,0.04)_48%,rgba(12,10,8,0.66)_100%)]" />
+
+        <div className="relative z-10 mx-auto flex min-h-[calc(100svh-6rem)] w-full max-w-[1520px] flex-col justify-center px-5 pb-20 pt-10 sm:px-6 lg:px-10 lg:pb-20">
+          <div className="max-w-[650px] motion-safe:animate-[landing-hero-copy_760ms_cubic-bezier(0.22,1,0.36,1)_both]">
+            <div className="mb-6 inline-flex max-w-full items-center gap-2 rounded-full border border-white/18 bg-white/[0.07] px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-white/78 backdrop-blur-md sm:text-[10px] sm:tracking-[0.22em]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#f06422]" />
+              {ht("newEyebrow")}
+            </div>
+
+            <h1 className="max-w-[620px] text-balance font-serif text-[2.32rem] font-medium leading-[1.02] tracking-normal sm:text-[3.8rem] sm:leading-[0.98] md:text-[4.55rem] lg:text-[4.85rem]">
+              {ht("newHeadline")}
+            </h1>
+
+            <p className="mt-5 max-w-[560px] text-balance text-[15px] leading-7 text-white/76 sm:mt-6 sm:text-lg">
+              {ht("newSubheadline")}
+            </p>
+
+            <div className="mt-8 flex">
+              <Button
+                asChild
+                className="h-12 rounded-full bg-white px-6 text-[15px] font-semibold text-[#17130f] shadow-[0_18px_42px_rgba(0,0,0,0.24)] transition-transform hover:scale-[1.015] hover:bg-white/92"
+              >
+                <Link href={primaryHref}>
+                  {primaryLabel}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+
+          <div className="absolute bottom-7 left-6 right-6 z-10 hidden flex-col gap-4 border-t border-white/12 pt-5 text-white/70 sm:flex sm:flex-row sm:items-end sm:justify-between lg:left-10 lg:right-10">
+            <p className="max-w-[390px] text-sm leading-6 text-white/68">
+              {ht("newTrustLine")}
+            </p>
+            <div className="flex flex-wrap gap-x-7 gap-y-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/52">
+              <span>{ht("newProofOne")}</span>
+              <span>{ht("newProofTwo")}</span>
+              <span>{ht("newProofThree")}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <WorkspaceHeroShowcase />
+    </>
+  );
+}
+
+function WorkspaceHeroShowcase() {
   const { t } = useI18n();
   const ht = useCallback((key: string) => t("landingHero", key), [t]);
   const { isSignedIn } = useUser();
@@ -162,7 +229,7 @@ export function HeroSection() {
   const showReplyPlaceholder = stage >= 7 && !composerText;
 
   return (
-    <section className="px-6 pb-10 pt-2 lg:px-10">
+    <section className="px-6 pb-10 pt-16 lg:px-10 lg:pt-24">
       <div className="mx-auto w-full max-w-[1520px]">
         <div className="max-w-[720px] pt-8 sm:max-w-[820px] sm:pt-10 md:max-w-[900px] lg:max-w-[760px] xl:max-w-[860px] 2xl:max-w-[620px]">
           <h1 className="text-balance text-[2.25rem] font-medium leading-[0.98] tracking-[-0.04em] text-foreground sm:text-[2.85rem] md:text-[3.35rem] lg:text-[2.6rem] xl:text-[3rem] 2xl:text-[2.35rem] 2xl:leading-[1.05]">

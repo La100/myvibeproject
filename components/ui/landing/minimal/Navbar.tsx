@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Languages, Menu, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import Logo from "../Logo";
 import { useI18n } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
 
 const navLinks = [
   { labelKey: "product", href: "/#product" },
@@ -28,12 +30,18 @@ const userButtonAppearance = {
 export function Navbar() {
   const { locale, setLocale, t } = useI18n();
   const { isSignedIn } = useUser();
+  const pathname = usePathname();
+  const isLanding = pathname === "/";
   const toggleLocale = () => setLocale(locale === "pl" ? "en" : "pl");
   const languageButton = (
     <Button
       type="button"
       variant="outline"
-      className="h-9 rounded-full px-3 text-sm font-medium"
+      className={cn(
+        "h-9 rounded-full px-3 text-sm font-medium",
+        isLanding &&
+          "border-white/18 bg-white/[0.08] text-white hover:bg-white/14 hover:text-white",
+      )}
       aria-label={t("landingNav", "switchLanguage")}
       onClick={toggleLocale}
     >
@@ -41,62 +49,70 @@ export function Navbar() {
       {locale === "pl" ? "EN" : "PL"}
     </Button>
   );
+  const primaryAction = isSignedIn ? (
+    <>
+      <Button
+        asChild
+        className={cn(
+          "h-9 rounded-full px-4 text-sm font-medium",
+          isLanding
+            ? "bg-white text-foreground hover:bg-white/92"
+            : "bg-foreground text-background hover:bg-foreground/92",
+        )}
+      >
+        <Link href="/organisation">
+          <Sparkles className="mr-2 h-4 w-4" />
+          {t("landingNav", "dashboard")}
+        </Link>
+      </Button>
+      {!isLanding ? <UserButton appearance={userButtonAppearance} /> : null}
+    </>
+  ) : (
+    <Button
+      asChild
+      className={cn(
+        "h-9 rounded-full px-4 text-sm font-medium",
+        isLanding
+          ? "bg-white text-foreground hover:bg-white/92"
+          : "bg-foreground text-background hover:bg-foreground/90",
+      )}
+    >
+      <Link href="/sign-up">{t("landingNav", "startFree")}</Link>
+    </Button>
+  );
 
   return (
-    <header className="relative z-30">
-      <div className="mx-auto flex h-24 w-full max-w-[1520px] items-center justify-between px-6 lg:px-10">
+    <header className={cn("relative z-30", isLanding && "absolute inset-x-0 top-0")}>
+      <div className="mx-auto flex h-20 w-full max-w-[1520px] items-center justify-between gap-5 px-5 lg:h-24 lg:px-10">
         <Logo
-          className="size-11 sm:size-12"
+          className={cn("size-9 sm:size-10 lg:size-11", isLanding && "invert")}
           showWordmark
-          wordmarkClassName="text-[1.25rem] sm:text-[1.5rem] [&>span:last-child]:hidden sm:[&>span:last-child]:inline sm:[&>span:last-child]:font-serif sm:[&>span:last-child]:italic sm:[&>span:last-child]:tracking-[-0.04em]"
+          wordmarkClassName={cn(
+            "text-[1.15rem] sm:text-[1.25rem] lg:text-[1.38rem] [&>span:last-child]:hidden sm:[&>span:last-child]:inline sm:[&>span:last-child]:font-serif sm:[&>span:last-child]:italic sm:[&>span:last-child]:tracking-[-0.04em]",
+            isLanding && "text-white",
+          )}
         />
 
-        <nav className="hidden items-center gap-10 md:flex">
+        <nav className="hidden min-w-0 items-center gap-5 xl:flex xl:gap-8">
           {navLinks.map((link) => (
             <Link
               key={link.labelKey}
               href={link.href}
-              className="text-[15px] text-foreground/90 transition-colors hover:text-foreground"
+              className={cn(
+                "text-sm transition-colors xl:text-[15px]",
+                isLanding
+                  ? "text-white/78 hover:text-white"
+                  : "text-foreground/90 hover:text-foreground",
+              )}
             >
               {t("landingNav", link.labelKey)}
             </Link>
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2.5 md:flex">
-          {languageButton}
-          {isSignedIn ? (
-            <>
-              <Button
-                asChild
-                className="h-9 rounded-full bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/92"
-              >
-                <Link href="/organisation">
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  {t("landingNav", "dashboard")}
-                </Link>
-              </Button>
-              <UserButton
-                appearance={userButtonAppearance}
-              />
-            </>
-          ) : (
-            <>
-              <Button
-                asChild
-                variant="ghost"
-                className="h-9 rounded-full px-4 text-sm font-medium text-foreground hover:bg-muted"
-              >
-                <Link href="/sign-in">{t("landingNav", "signIn")}</Link>
-              </Button>
-              <Button
-                asChild
-                className="h-9 rounded-full bg-foreground px-4 text-sm font-medium text-background hover:bg-foreground/90"
-              >
-                <Link href="/sign-up">{t("landingNav", "startFree")}</Link>
-              </Button>
-            </>
-          )}
+        <div className="hidden shrink-0 items-center gap-2.5 md:flex">
+          {!isLanding ? languageButton : null}
+          {primaryAction}
         </div>
 
         <div className="flex items-center gap-2 md:hidden">
@@ -106,7 +122,12 @@ export function Navbar() {
               <button
                 type="button"
                 aria-label={t("landingNav", "openNavigation")}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-background text-foreground"
+                className={cn(
+                  "inline-flex h-10 w-10 items-center justify-center rounded-full border",
+                  isLanding
+                    ? "border-white/18 bg-white/[0.08] text-white"
+                    : "border-border/70 bg-background text-foreground",
+                )}
               >
                 <Menu className="h-5 w-5" />
               </button>
