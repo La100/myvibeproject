@@ -341,43 +341,44 @@ export default function TaskForm({ projectId, teamId, teamMembers, task, onTaskC
                     )}
                 />
                 {/* Date and Time Options */}
-                <div className="flex flex-col gap-4 rounded-lg border p-4">
-                    <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-4 rounded-lg border bg-muted/20 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
                         <Label className="text-base font-medium">{t("taskForm", "dateTime")}</Label>
-                        <div className="flex items-center gap-2">
-                            <Checkbox
-                                id="all-day"
-                                checked={isAllDay}
-                                onCheckedChange={(checked) => setIsAllDay(checked as boolean)}
-                            />
-                            <Label htmlFor="all-day" className="text-sm font-normal cursor-pointer">
-                                {t("taskForm", "allDay")}
-                            </Label>
+                        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+                            <div className="flex items-center gap-2">
+                                <Checkbox
+                                    id="single-day"
+                                    checked={singleDayTask}
+                                    onCheckedChange={(checked) => {
+                                        setSingleDayTask(checked as boolean);
+                                        if (checked) {
+                                            const currentStartDate = form.watch("startDate");
+                                            if (currentStartDate) {
+                                                form.setValue("endDate", currentStartDate);
+                                            }
+                                        }
+                                    }}
+                                />
+                                <Label htmlFor="single-day" className="cursor-pointer text-sm font-normal leading-none">
+                                    {t("taskForm", "singleDayEvent")}
+                                </Label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Checkbox
+                                    id="all-day"
+                                    checked={isAllDay}
+                                    onCheckedChange={(checked) => setIsAllDay(checked as boolean)}
+                                />
+                                <Label htmlFor="all-day" className="cursor-pointer text-sm font-normal leading-none">
+                                    {t("taskForm", "allDay")}
+                                </Label>
+                            </div>
                         </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <Checkbox
-                            id="single-day"
-                            checked={singleDayTask}
-                            onCheckedChange={(checked) => {
-                                setSingleDayTask(checked as boolean);
-                                if (checked) {
-                                    const currentStartDate = form.watch("startDate");
-                                    if (currentStartDate) {
-                                        form.setValue("endDate", currentStartDate);
-                                    }
-                                }
-                            }}
-                        />
-                        <Label htmlFor="single-day" className="text-sm font-normal cursor-pointer">
-                            {t("taskForm", "singleDayEvent")}
-                        </Label>
                     </div>
 
                     <div className="flex flex-col gap-4">
                         {/* Date Selection */}
-                        <div className={singleDayTask ? "grid grid-cols-1 gap-4" : "grid grid-cols-1 sm:grid-cols-2 gap-4"}>
+                        <div className={singleDayTask ? "grid grid-cols-1 gap-4 sm:max-w-md" : "grid grid-cols-1 gap-4 sm:grid-cols-2"}>
                             {/* Start Date */}
                             <FormField
                                 control={form.control}

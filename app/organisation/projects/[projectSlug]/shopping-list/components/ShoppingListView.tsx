@@ -18,6 +18,7 @@ import { apiAny } from '@/lib/convexApiAny';
 import { downloadCsvFile } from '@/lib/csvExport';
 import { exportSectionedTablePdf } from '@/lib/sectionedTablePdfExport';
 import { calculateShoppingTotal, buildShoppingSetContext, isItemCountedInShoppingTotal } from '@/lib/shoppingSets';
+import { formatShoppingQuantity } from '@/lib/shoppingUnits';
 import {
   type ShoppingExportColumnOptions,
   formatShoppingExportProductLabel,
@@ -335,6 +336,7 @@ export default function ShoppingListView() {
     catalogNumber?: string;
     dimensions?: string;
     quantity: number;
+    unit?: string;
     unitPrice?: number;
     priceTaxMode?: ShoppingListItem["priceTaxMode"];
     taxRateId?: string | null;
@@ -429,7 +431,7 @@ export default function ShoppingListView() {
           item.name,
           item.setId ? exportSetTitleById.get(String(item.setId)) : undefined,
         ),
-        qty: String(item.quantity),
+        qty: formatShoppingQuantity(item.quantity, item.unit),
         unitNet: formatMoney(item.unitPrice, currencySymbol),
         unitTax: formatMoney(0, currencySymbol),
         unitGross: formatMoney(item.unitPrice, currencySymbol),

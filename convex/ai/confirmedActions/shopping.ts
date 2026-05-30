@@ -46,6 +46,7 @@ export const createConfirmedShoppingItem = action({
     itemData: v.object({
       name: v.string(),
       quantity: v.number(),
+      unit: v.optional(v.string()),
       notes: v.optional(v.string()),
       priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("urgent"))),
       buyBefore: v.optional(v.string()),
@@ -80,6 +81,7 @@ export const createConfirmedShoppingItem = action({
         projectId: args.projectId,
         name: args.itemData.name,
         quantity: args.itemData.quantity,
+        unit: args.itemData.unit,
         notes: args.itemData.notes,
         priority: args.itemData.priority || "medium",
         buyBefore: buyBeforeNumber,
@@ -211,6 +213,7 @@ export const editConfirmedShoppingItem = action({
       category: v.optional(v.string()),
       dimensions: v.optional(v.string()),
       quantity: v.optional(v.number()),
+      unit: v.optional(v.string()),
       unitPrice: v.optional(v.number()),
       setId: v.optional(v.union(v.id("shoppingSets"), v.null())),
       realizationStatus: v.optional(v.union(v.literal("PLANNED"), v.literal("ORDERED"), v.literal("IN_TRANSIT"), v.literal("DELIVERED"), v.literal("COMPLETED"), v.literal("CANCELLED"))),
@@ -255,6 +258,7 @@ export const editConfirmedShoppingItem = action({
         category: args.updates.category,
         dimensions: args.updates.dimensions,
         quantity: args.updates.quantity,
+        unit: args.updates.unit,
         unitPrice: args.updates.unitPrice,
         setId: args.updates.setId,
         realizationStatus: args.updates.realizationStatus,
@@ -495,4 +499,3 @@ export const deleteConfirmedShoppingSet = action({
     }
   },
 });
-

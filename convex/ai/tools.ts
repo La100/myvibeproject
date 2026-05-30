@@ -142,6 +142,7 @@ const shoppingFields = z.object({
   name: z.string().describe("Item name"),
   notes: z.string().optional().describe("Additional notes or description"),
   quantity: z.number().optional().describe("Quantity needed"),
+  unit: z.string().optional().describe("Unit of measurement (pcs, m², m/linear meter, m³, kg, l, set, box, pack, roll)"),
   priority: z.enum(["low", "medium", "high", "urgent"]).optional().describe("Item priority"),
   buyBefore: z.string().optional().describe("Buy before date in ISO format (YYYY-MM-DD)"),
   supplier: z.string().optional().describe("Supplier or store name"),
@@ -1048,6 +1049,7 @@ async function executeSinglePayload(
       typeof data.quantity === "number" && Number.isFinite(data.quantity)
         ? data.quantity
         : 1,
+    unit: typeof data.unit === "string" ? data.unit : undefined,
     notes: typeof data.notes === "string" ? data.notes : undefined,
     priority: data.priority,
     buyBefore: typeof data.buyBefore === "string" ? data.buyBefore : undefined,
@@ -1087,6 +1089,7 @@ async function executeSinglePayload(
     category: typeof updates.category === "string" ? updates.category : undefined,
     dimensions: typeof updates.dimensions === "string" ? updates.dimensions : undefined,
     quantity: typeof updates.quantity === "number" ? updates.quantity : undefined,
+    unit: typeof updates.unit === "string" ? updates.unit : undefined,
     unitPrice: typeof updates.unitPrice === "number" ? updates.unitPrice : undefined,
     setId: updates.setId === null || typeof updates.setId === "string" ? updates.setId : undefined,
     realizationStatus: updates.realizationStatus,
@@ -1821,6 +1824,7 @@ function normalizeShoppingMoodboardItems(
     supplier: typeof item.supplier === "string" ? item.supplier : undefined,
     dimensions: typeof item.dimensions === "string" ? item.dimensions : undefined,
     quantity: typeof item.quantity === "number" ? item.quantity : undefined,
+    unit: typeof item.unit === "string" ? item.unit : undefined,
     unitPrice: typeof item.unitPrice === "number" ? item.unitPrice : undefined,
     imageUrl: typeof item.imageUrl === "string" ? item.imageUrl : undefined,
     productLink: typeof item.productLink === "string" ? item.productLink : undefined,

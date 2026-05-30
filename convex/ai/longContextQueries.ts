@@ -105,6 +105,7 @@ export const getProjectContextSnapshot = internalQuery({
       imageUrl: v.optional(v.string()),
       productLink: v.optional(v.string()),
       quantity: v.number(),
+      unit: v.optional(v.string()),
       unitPrice: v.optional(v.number()),
       totalPrice: v.optional(v.number()),
       realizationStatus: v.union(
@@ -345,6 +346,7 @@ export const getProjectContextSnapshot = internalQuery({
           imageUrl: s.imageUrl,
           productLink: s.productLink,
           quantity: s.quantity,
+          unit: s.unit,
           unitPrice: s.unitPrice,
           totalPrice: s.totalPrice,
           realizationStatus: s.realizationStatus,

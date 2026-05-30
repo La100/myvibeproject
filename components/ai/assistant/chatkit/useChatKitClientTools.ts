@@ -2378,6 +2378,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                     projectId,
                     name,
                     quantity: asNumber(item.quantity) ?? 1,
+                    unit: asNonEmptyString(item.unit),
                     notes: joinNotes(
                       asNonEmptyString(item.notes),
                       asNonEmptyString(item.storeAddress),
@@ -2471,6 +2472,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               if (dimensions !== undefined) updates.dimensions = dimensions;
               const quantity = asNumber(item.quantity);
               if (quantity !== undefined) updates.quantity = quantity;
+              const unit = asNonEmptyString(item.unit);
+              if (unit !== undefined) updates.unit = unit;
               const unitPrice =
                 asNumber(item.unitPrice) ?? asNumber(item.price);
               if (unitPrice !== undefined) updates.unitPrice = unitPrice;
@@ -2499,7 +2502,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 return {
                   ok: false,
                   error:
-                    "No valid shopping item update fields were provided. Use at least one editable field such as notes, quantity, unitPrice, supplier, status or realizationStatus, sectionId, or assignedTo.",
+                    "No valid shopping item update fields were provided. Use at least one editable field such as notes, quantity, unit, unitPrice, supplier, status or realizationStatus, sectionId, or assignedTo.",
                 };
               }
 
@@ -3494,6 +3497,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             }
 
             const quantity = asNumber(params.quantity) ?? 1;
+            const unit = asNonEmptyString(params.unit);
             const unitPrice =
               asNumber(params.unitPrice) ?? asNumber(params.price);
             const supplier =
@@ -3525,6 +3529,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 projectId,
                 name,
                 quantity,
+                unit,
                 notes,
                 buyBefore: asTimestamp(params.buyBefore),
                 priority: asTaskPriority(params.priority) ?? "medium",
@@ -3618,6 +3623,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             const quantity = asNumber(params.quantity);
             if (quantity !== undefined) updates.quantity = quantity;
 
+            const unit = asNonEmptyString(params.unit);
+            if (unit !== undefined) updates.unit = unit;
+
             const unitPrice =
               asNumber(params.unitPrice) ?? asNumber(params.price);
             if (unitPrice !== undefined) updates.unitPrice = unitPrice;
@@ -3647,7 +3655,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               return {
                 ok: false,
                 error:
-                  "No valid shopping item update fields were provided. Use at least one editable field such as notes, quantity, unitPrice, supplier, status or realizationStatus, sectionId, or assignedTo.",
+                  "No valid shopping item update fields were provided. Use at least one editable field such as notes, quantity, unit, unitPrice, supplier, status or realizationStatus, sectionId, or assignedTo.",
               };
             }
 

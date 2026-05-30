@@ -167,7 +167,7 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
           {surveys?.map((survey) => (
             <Card
               key={survey._id}
-              className="group overflow-hidden rounded-[28px] border-border/70 bg-card/92 py-0 shadow-[0_24px_70px_-54px_rgba(24,20,16,0.42)] transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:border-foreground/12 hover:shadow-[0_34px_90px_-58px_rgba(24,20,16,0.5)]"
+              className="group overflow-hidden rounded-lg border-border/70 bg-card/92 py-0 transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:border-foreground/12"
             >
               <CardHeader className="gap-5 px-5 pb-0 pt-5">
                 {survey.isRequired || survey.allowMultipleResponses ? (
@@ -203,7 +203,7 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
                 </div>
               </CardHeader>
               <CardContent className="flex flex-col gap-5 px-5 pb-5 pt-2">
-                <div className="vibe-row grid grid-cols-2 gap-0 overflow-hidden rounded-[20px] border-border/70 bg-secondary/58 text-xs shadow-none">
+                <div className="vibe-row grid grid-cols-2 gap-0 overflow-hidden rounded-lg border-border/70 bg-secondary/58 text-xs shadow-none">
                   <div className="flex min-w-0 flex-col gap-1.5 border-r border-border/70 px-4 py-3.5">
                     <span className="flex items-center gap-1.5 truncate text-muted-foreground">
                       <ClipboardList className="size-3.5 shrink-0" />
@@ -233,7 +233,7 @@ export function SurveysList({ projectSlug }: SurveysListProps) {
                     <Button
                       asChild
                       size="sm"
-                      className="col-span-2 h-10 rounded-full px-4 shadow-[0_16px_34px_-24px_rgba(24,20,16,0.7)]"
+                      className="col-span-2 h-10 rounded-full px-4"
                     >
                       <Link
                         href={`/organisation/projects/${projectSlug}/surveys/${survey._id}/responses`}

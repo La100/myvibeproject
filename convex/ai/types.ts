@@ -61,6 +61,7 @@ export interface ShoppingItemContext {
   imageUrl?: string;
   productLink?: string;
   quantity: number;
+  unit?: string;
   unitPrice?: number;
   totalPrice?: number;
   realizationStatus:

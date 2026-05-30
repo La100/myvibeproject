@@ -20,6 +20,10 @@ import { apiAny } from "@/lib/convexApiAny";
 import type { TeamMember } from "@/lib/teamMember";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import {
+  DEFAULT_SHOPPING_UNIT,
+  SHOPPING_UNITS,
+} from "@/lib/shoppingUnits";
 import type { TeamTaxRate } from "@/lib/organizationTax";
 import {
   calculatePriceTaxBreakdown,
@@ -48,6 +52,7 @@ interface AddItemFormProps {
     catalogNumber?: string;
     dimensions?: string;
     quantity: number;
+    unit?: string;
     unitPrice?: number;
     priceTaxMode?: PriceTaxMode;
     taxRateId?: string | null;
@@ -106,6 +111,7 @@ export function AddItemForm({
   const [newItemCatalogNumber, setNewItemCatalogNumber] = useState("");
   const [newItemDimensions, setNewItemDimensions] = useState("");
   const [newItemQuantity, setNewItemQuantity] = useState(1);
+  const [newItemUnit, setNewItemUnit] = useState(DEFAULT_SHOPPING_UNIT);
   const [newItemUnitPrice, setNewItemUnitPrice] = useState("");
   const [newItemPriceTaxMode, setNewItemPriceTaxMode] =
     useState<PriceTaxMode>("unspecified");
@@ -256,6 +262,12 @@ export function AddItemForm({
     }
 
     const normalizedUnitPrice = newItemUnitPrice.trim();
+    const normalizedQuantity = Number(newItemQuantity);
+    if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) {
+      toast.error(t("shoppingList", "quantityGreaterThanZero"));
+      return;
+    }
+
     const unitPrice =
       normalizedUnitPrice === ""
         ? undefined
@@ -293,7 +305,8 @@ export function AddItemForm({
         setId: defaultSetId,
         catalogNumber: newItemCatalogNumber.trim() || undefined,
         dimensions: newItemDimensions.trim() || undefined,
-        quantity: newItemQuantity,
+        quantity: normalizedQuantity,
+        unit: newItemUnit,
         unitPrice: Number.isFinite(unitPrice) ? unitPrice : undefined,
         priceTaxMode: normalizedPriceTaxMode,
         taxRateId:
@@ -333,6 +346,7 @@ export function AddItemForm({
       setNewItemCatalogNumber("");
       setNewItemDimensions("");
       setNewItemQuantity(1);
+      setNewItemUnit(DEFAULT_SHOPPING_UNIT);
       setNewItemUnitPrice("");
       setNewItemPriceTaxMode("unspecified");
       setNewItemTaxRateId(getDefaultPriceTaxRateId(activeTaxRates) ?? "");
@@ -451,13 +465,29 @@ export function AddItemForm({
           <FieldLabel>{t("shoppingList", "quantity")}</FieldLabel>
           <Input
             type="number"
-            min="1"
+            min="0.01"
+            step="0.01"
             value={newItemQuantity}
             onChange={(e) =>
-              setNewItemQuantity(parseInt(e.target.value, 10) || 1)
+              setNewItemQuantity(Number.parseFloat(e.target.value) || 1)
             }
             className="h-12 text-sm"
           />
+        </Field>
+        <Field>
+          <FieldLabel>{t("shoppingList", "unit")}</FieldLabel>
+          <Select value={newItemUnit} onValueChange={setNewItemUnit}>
+            <SelectTrigger className="h-12 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SHOPPING_UNITS.map((unit) => (
+                <SelectItem key={unit.value} value={unit.value}>
+                  {unit.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
         <Field>
           <FieldLabel>{t("shoppingList", "unitPrice")} ({currencySymbol})</FieldLabel>

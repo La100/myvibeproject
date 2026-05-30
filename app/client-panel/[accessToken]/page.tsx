@@ -67,6 +67,7 @@ import {
   type ShoppingExportRow,
 } from "@/lib/shoppingListExport";
 import { calculatePriceTaxBreakdown, type PriceTaxMetadata } from "@/lib/priceTax";
+import { formatShoppingQuantity } from "@/lib/shoppingUnits";
 import { cn, getCurrencySymbol } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 
@@ -332,7 +333,7 @@ const getInitialSelectedOptionIds = (
 };
 
 const getQtyLabel = (item: ClientPanelItem, t: ReturnType<typeof useI18n>["t"]) =>
-  t("clientPanel", "qty", { quantity: `${item.quantity} ${item.unit || "pcs"}` });
+  t("clientPanel", "qty", { quantity: formatShoppingQuantity(item.quantity, item.unit) });
 
 const getSelectedIdsForGroup = (
   group: ShoppingGroup,
@@ -1080,7 +1081,7 @@ export default function PublicClientPanelPage() {
                   item.name,
                   item.setTitle || group.leadItem.setTitle || group.title,
                 ),
-                qty: String(item.quantity),
+                qty: formatShoppingQuantity(item.quantity, item.unit),
                 unitNet: formatMoney(unitBreakdown.amount, currencySymbol),
                 unitTax: unitBreakdown.hasBreakdown
                   ? formatMoney(unitBreakdown.tax, currencySymbol)

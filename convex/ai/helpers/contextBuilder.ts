@@ -53,7 +53,7 @@ export const buildContextFromSnapshot = (snapshot: ProjectContextSnapshot): stri
     parts.push(`\nSHOPPING (${snapshot.shoppingItems.length}):`);
     snapshot.shoppingItems.forEach((item) => {
       const details = [
-        `Qty: ${item.quantity}`,
+        `Qty: ${item.quantity}${item.unit ? ` ${item.unit}` : ""}`,
         item.realizationStatus,
         item.sectionName ? `section: ${item.sectionName}` : null,
         item.setTitle ? `set: ${item.setTitle}` : null,

@@ -6,6 +6,7 @@ export type ShoppingMoodboardSourceItem = {
   supplier?: string;
   dimensions?: string;
   quantity?: number;
+  unit?: string;
   unitPrice?: number;
   imageUrl?: string;
   productLink?: string;
@@ -113,7 +114,9 @@ function buildItemDescriptor(item: ShoppingMoodboardSourceItem) {
     item.setTitle ? `set: ${item.setTitle}` : null,
     item.supplier ? `supplier: ${item.supplier}` : null,
     item.dimensions ? `dimensions: ${item.dimensions}` : null,
-    typeof item.quantity === "number" ? `qty: ${item.quantity}` : null,
+    typeof item.quantity === "number"
+      ? `qty: ${item.quantity}${item.unit ? ` ${item.unit}` : ""}`
+      : null,
   ].filter((entry): entry is string => Boolean(entry));
 
   return details.length > 0

@@ -18,6 +18,11 @@ import { toast } from "sonner";
 import { AddItemForm } from "./AddItemForm";
 import { ShoppingListItemDetails } from "./ShoppingListItemDetails";
 import {
+  DEFAULT_SHOPPING_UNIT,
+  SHOPPING_UNITS,
+  normalizeShoppingUnit,
+} from "@/lib/shoppingUnits";
+import {
   CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
@@ -137,6 +142,7 @@ interface EditFormData {
   catalogNumber?: string;
   dimensions?: string;
   quantity?: number;
+  unit?: string;
   unitPrice?: string;
   priceTaxMode?: PriceTaxMode;
   taxRateId?: string | null;
@@ -173,6 +179,7 @@ interface ShoppingListSectionProps {
     catalogNumber?: string;
     dimensions?: string;
     quantity: number;
+    unit?: string;
     unitPrice?: number;
     priceTaxMode?: PriceTaxMode;
     taxRateId?: string | null;
@@ -357,6 +364,7 @@ export function ShoppingListSection({
       catalogNumber: item.catalogNumber || "",
       dimensions: item.dimensions || "",
       quantity: item.quantity,
+      unit: normalizeShoppingUnit(item.unit),
       unitPrice:
         item.unitPrice !== undefined ? item.unitPrice.toString() : "",
       priceTaxMode: normalizePriceTaxMode(item.priceTaxMode),
@@ -480,9 +488,9 @@ export function ShoppingListSection({
           updates = { dimensions: trimmed || undefined };
           break;
         case "quantity": {
-          const quantity = Number.parseInt(trimmed, 10);
-          if (!Number.isFinite(quantity) || quantity < 1) {
-            toast.error(t("shoppingList", "quantityAtLeastOne"));
+          const quantity = Number.parseFloat(trimmed);
+          if (!Number.isFinite(quantity) || quantity <= 0) {
+            toast.error(t("shoppingList", "quantityGreaterThanZero"));
             return;
           }
           updates = { quantity };
@@ -574,6 +582,12 @@ export function ShoppingListSection({
       return;
     }
     const buyBefore = editFormData.buyBefore ? new Date(editFormData.buyBefore).getTime() : undefined;
+    const normalizedQuantity = Number(editFormData.quantity || 1);
+    if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) {
+      toast.error(t("shoppingList", "quantityGreaterThanZero"));
+      return;
+    }
+
     const nextSectionId =
       editFormData.sectionId === "none"
         ? undefined
@@ -613,7 +627,8 @@ export function ShoppingListSection({
         setId: nextSetId,
         catalogNumber: editFormData.catalogNumber?.trim() || undefined,
         dimensions: editFormData.dimensions?.trim() || undefined,
-        quantity: editFormData.quantity || 1,
+        quantity: normalizedQuantity,
+        unit: editFormData.unit || DEFAULT_SHOPPING_UNIT,
         unitPrice: Number.isFinite(unitPrice) ? unitPrice : undefined,
         priceTaxMode: normalizedPriceTaxMode,
         taxRateId:
@@ -774,7 +789,7 @@ export function ShoppingListSection({
   };
 
   const renderEditForm = (item: ShoppingListItem) => (
-    <div className="flex flex-col gap-5 rounded-[22px] border border-border/70 bg-card p-5 shadow-none">
+    <div className="flex flex-col gap-5 rounded-lg border border-border/70 bg-card p-5 shadow-none">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Field>
           <FieldLabel>{t("shoppingList", "productName")}</FieldLabel>
@@ -847,11 +862,30 @@ export function ShoppingListSection({
           <FieldLabel>{t("shoppingList", "quantity")}</FieldLabel>
           <Input
             type="number"
-            min="1"
+            min="0.01"
+            step="0.01"
             value={editFormData.quantity || 1}
-            onChange={(event) => setEditFormData({ ...editFormData, quantity: parseInt(event.target.value, 10) || 1 })}
+            onChange={(event) => setEditFormData({ ...editFormData, quantity: Number.parseFloat(event.target.value) || 1 })}
             className="h-12 text-sm"
           />
+        </Field>
+        <Field>
+          <FieldLabel>{t("shoppingList", "unit")}</FieldLabel>
+          <Select
+            value={editFormData.unit || DEFAULT_SHOPPING_UNIT}
+            onValueChange={(value) => setEditFormData({ ...editFormData, unit: value })}
+          >
+            <SelectTrigger className="h-12 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SHOPPING_UNITS.map((unit) => (
+                <SelectItem key={unit.value} value={unit.value}>
+                  {unit.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
         <Field>
           <FieldLabel>{t("shoppingList", "unitPrice")} ({currencySymbol})</FieldLabel>
@@ -1171,8 +1205,8 @@ export function ShoppingListSection({
         autoFocus
         type={options.type ?? "text"}
         value={inlineEdit.value}
-        min={options.type === "number" ? "0" : undefined}
-        step={field === "unitPrice" ? "0.01" : undefined}
+        min={options.type === "number" ? "0.01" : undefined}
+        step={field === "unitPrice" || field === "quantity" ? "0.01" : undefined}
         placeholder={options.placeholder}
         disabled={savingInlineEditKey === getInlineEditKey(itemId, field)}
         onChange={(event) =>
@@ -1399,6 +1433,9 @@ export function ShoppingListSection({
                         inputClassName: "w-16",
                         inputType: "number",
                       })}
+                      <span className="font-medium text-foreground/75">
+                        {normalizeShoppingUnit(item.unit)}
+                      </span>
                     </span>
                     {item.unitPrice !== undefined ? (
                       <span className="inline-flex flex-wrap items-baseline gap-x-1.5 whitespace-nowrap rounded-full bg-secondary/45 px-2.5 py-1">
