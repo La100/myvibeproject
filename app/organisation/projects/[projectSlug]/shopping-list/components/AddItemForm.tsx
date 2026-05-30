@@ -557,7 +557,7 @@ export function AddItemForm({
                 className="h-12 shrink-0 px-4"
                 asChild
               >
-                <label>
+                <label className="cursor-pointer">
                   <UploadIcon className="h-4 w-4" />
                   <span className="ml-2 hidden sm:inline">
                     {t("shoppingList", "uploadImage")}
