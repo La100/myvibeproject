@@ -250,6 +250,17 @@ function getScrapeMatchesBySelector(
   return results.find((entry) => entry.selector === selector)?.results ?? [];
 }
 
+function getScrapeMatchValue(match: ScrapeElementMatch): string | undefined {
+  const attributes = getScrapeAttributeMap(match);
+  return (
+    normalizeScrapeText(match.text) ??
+    normalizeScrapeText(attributes.get("content")) ??
+    normalizeScrapeText(attributes.get("value")) ??
+    normalizeScrapeText(attributes.get("data-price")) ??
+    normalizeScrapeText(attributes.get("data-product-price"))
+  );
+}
+
 function detectCurrencyFromText(value: string | undefined): string | undefined {
   const normalized = value?.trim().toUpperCase();
   if (!normalized) return undefined;
@@ -316,10 +327,10 @@ function buildCloudflareHtml(
   }
 
   const priceCandidates = [
-    ...getScrapeMatchesBySelector(results, "[itemprop='price']").map((match) => match.text),
-    ...getScrapeMatchesBySelector(results, "[data-price]").map((match) => match.text),
-    ...getScrapeMatchesBySelector(results, "[data-product-price]").map((match) => match.text),
-    ...getScrapeMatchesBySelector(results, "[data-testid*='price']").map((match) => match.text),
+    ...getScrapeMatchesBySelector(results, "[itemprop='price']").map(getScrapeMatchValue),
+    ...getScrapeMatchesBySelector(results, "[data-price]").map(getScrapeMatchValue),
+    ...getScrapeMatchesBySelector(results, "[data-product-price]").map(getScrapeMatchValue),
+    ...getScrapeMatchesBySelector(results, "[data-testid*='price']").map(getScrapeMatchValue),
   ]
     .map((value) => normalizeScrapeText(value))
     .filter((value): value is string => Boolean(value));
@@ -875,35 +886,36 @@ function extractDimensionsFromHtml(html: string, meta: ReturnType<typeof parseMe
   return pickBestDimensionCandidate(candidates);
 }
 
-function parsePrice(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
-    return value;
-  }
+function roundPrice(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
 
-  if (typeof value !== "string") {
-    return undefined;
-  }
+function parseNumericPriceToken(rawToken: string): number | undefined {
+  const compact = rawToken.replace(/\s+/g, "").replace(/[^\d.,-]/g, "");
+  if (!compact) return undefined;
 
-  const cleaned = value
-    .replace(/\s+/g, "")
-    .replace(/[^\d,.-]/g, "")
-    .replace(/(,\-|\.\-)$/g, "");
+  const unsigned = compact.replace(/^-/, "");
+  const commaCount = (unsigned.match(/,/g) ?? []).length;
+  const dotCount = (unsigned.match(/\./g) ?? []).length;
 
-  if (!cleaned) return undefined;
-
-  const commaCount = (cleaned.match(/,/g) ?? []).length;
-  const dotCount = (cleaned.match(/\./g) ?? []).length;
-
-  let normalized = cleaned;
+  let normalized = unsigned;
 
   if (commaCount > 0 && dotCount > 0) {
-    if (cleaned.lastIndexOf(",") > cleaned.lastIndexOf(".")) {
-      normalized = cleaned.replace(/\./g, "").replace(",", ".");
+    if (unsigned.lastIndexOf(",") > unsigned.lastIndexOf(".")) {
+      normalized = unsigned.replace(/\./g, "").replace(",", ".");
     } else {
-      normalized = cleaned.replace(/,/g, "");
+      normalized = unsigned.replace(/,/g, "");
     }
   } else if (commaCount > 0) {
-    normalized = cleaned.replace(/,/g, ".");
+    if (commaCount === 1 && /,\d{1,2}$/.test(unsigned)) {
+      normalized = unsigned.replace(",", ".");
+    } else {
+      normalized = unsigned.replace(/,/g, "");
+    }
+  } else if (dotCount > 0) {
+    if (!(dotCount === 1 && /\.\d{1,2}$/.test(unsigned))) {
+      normalized = unsigned.replace(/\./g, "");
+    }
   }
 
   const parsed = Number.parseFloat(normalized);
@@ -911,30 +923,134 @@ function parsePrice(value: unknown): number | undefined {
     return undefined;
   }
 
-  return parsed;
+  return roundPrice(parsed);
+}
+
+function pickBestPriceToken(input: string): string | undefined {
+  const matches = Array.from(input.matchAll(/\d[\d\s.,]*\d|\d/g));
+  if (matches.length === 0) return undefined;
+
+  let bestToken: string | undefined;
+  let bestScore = Number.NEGATIVE_INFINITY;
+
+  for (const match of matches) {
+    const token = match[0]?.trim();
+    if (!token) continue;
+
+    const start = match.index ?? 0;
+    const end = start + token.length;
+    const contextBefore = input.slice(Math.max(0, start - 18), start);
+    const contextAfter = input.slice(end, Math.min(input.length, end + 18));
+    const context = `${contextBefore} ${contextAfter}`;
+    const digitsOnly = token.replace(/\D/g, "");
+    if (!digitsOnly) continue;
+
+    let score = 0;
+    if (/[,.]/.test(token)) score += 14;
+    if (/\s/.test(token)) score += 4;
+    if (digitsOnly.length >= 3 && digitsOnly.length <= 8) score += 12;
+    if (digitsOnly.length <= 2) score -= 12;
+    if (/(?:[.,]\d{1,2})$/.test(token)) score += 10;
+    if (/[€$£¥₽]|(?:\bzł\b)|(?:\bpln\b)|(?:\busd\b)|(?:\beur\b)|(?:\bgbp\b)|(?:\bchf\b)|(?:\bsek\b)|(?:\bnok\b)|(?:\bdkk\b)|(?:\bkr\b)/i.test(context)) {
+      score += 28;
+    }
+    if (/\b(price|cena|koszt|amount|total|now|teraz|sale|final|our price)\b/i.test(context)) {
+      score += 8;
+    }
+    if (/%/.test(context)) score -= 24;
+    if (/\/(?:kg|g|100g|l|ml|m2|m²|m|cm|mm|szt|pc|pcs|pack)\b/i.test(context)) {
+      score -= 14;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestToken = token;
+    }
+  }
+
+  return bestScore < 0 ? undefined : bestToken;
+}
+
+function parsePrice(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return roundPrice(value);
+  }
+
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const token = pickBestPriceToken(value);
+  return token ? parseNumericPriceToken(token) : undefined;
 }
 
 function extractOfferData(offers: unknown): { price?: number; currency?: string } {
-  const tryOffer = (offer: unknown): { price?: number; currency?: string } => {
+  const getStructuredTypes = (typeValue: unknown): string[] => {
+    if (typeof typeValue === "string") return [typeValue.toLowerCase()];
+    if (Array.isArray(typeValue)) {
+      return typeValue
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.toLowerCase());
+    }
+    return [];
+  };
+
+  const tryOffer = (offer: unknown): { price?: number; currency?: string; score?: number } => {
     if (!offer || typeof offer !== "object") return {};
     const record = offer as JsonLdNode;
+    const types = getStructuredTypes(record["@type"]);
+    const isAggregateOffer = types.includes("aggregateoffer");
+    const textBag = JSON.stringify(record).toLowerCase();
+    const hasInstallmentSignal =
+      /\b(from|starting|starting at|lowest|as low as|rata|raty|na raty|monthly|month|installment|leasing)\b/i.test(textBag);
+    const hasOldPriceSignal =
+      /\b(old|regular|before|was|compare|strike|crossed|list|msrp|catalog)\b/i.test(textBag);
 
-    const price =
-      parsePrice(record.price) ??
-      parsePrice(record.lowPrice) ??
-      parsePrice(record.highPrice) ??
-      parsePrice((record.priceSpecification as JsonLdNode | undefined)?.price);
+    const candidates: Array<{ price: number; score: number }> = [];
+    const pushCandidate = (price: number | undefined, score: number) => {
+      if (price === undefined) return;
+      let adjustedScore = score;
+      if (hasInstallmentSignal) adjustedScore -= 70;
+      if (hasOldPriceSignal) adjustedScore -= 24;
+      candidates.push({ price, score: adjustedScore });
+    };
+
+    pushCandidate(parsePrice(record.price), 120);
+    pushCandidate(parsePrice((record.priceSpecification as JsonLdNode | undefined)?.price), 108);
+
+    const lowPrice = parsePrice(record.lowPrice);
+    const highPrice = parsePrice(record.highPrice);
+    if (lowPrice !== undefined && highPrice !== undefined) {
+      const rangeRatio = highPrice / Math.max(lowPrice, 0.01);
+      if (rangeRatio >= 1.35) {
+        pushCandidate(lowPrice, isAggregateOffer ? 62 : 70);
+        pushCandidate(highPrice, isAggregateOffer ? 78 : 88);
+      } else {
+        pushCandidate(lowPrice, 92);
+      }
+    } else {
+      pushCandidate(lowPrice, isAggregateOffer ? 70 : 86);
+      pushCandidate(highPrice, isAggregateOffer ? 64 : 78);
+    }
 
     const currency = extractString(record.priceCurrency ?? record.currency);
-    return { price, currency };
+    const best = candidates.sort((a, b) => b.score - a.score)[0];
+    return { price: best?.price, currency, score: best?.score ?? 0 };
   };
 
   if (Array.isArray(offers)) {
+    const candidates: Array<{ price: number; currency?: string; score: number }> = [];
     for (const offer of offers) {
       const data = tryOffer(offer);
-      if (data.price) return data;
+      if (data.price) {
+        candidates.push({
+          price: data.price,
+          currency: data.currency,
+          score: data.score ?? 0,
+        });
+      }
     }
-    return {};
+    return candidates.sort((a, b) => b.score - a.score)[0] ?? {};
   }
 
   return tryOffer(offers);

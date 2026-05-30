@@ -29,6 +29,7 @@ import {
   PlusIcon,
   SaveIcon,
   TrashIcon,
+  UploadIcon,
   WandSparkles,
   XIcon,
 } from "lucide-react";
@@ -223,6 +224,8 @@ export function ShoppingListSection({
   const [showAddForm, setShowAddForm] = useState(false);
   const [addingAlternativeSetId, setAddingAlternativeSetId] = useState<string | null>(null);
   const [isEditScraping, setIsEditScraping] = useState(false);
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [isUploadingEditImage, setIsUploadingEditImage] = useState(false);
   const [savingToLibraryItemId, setSavingToLibraryItemId] = useState<string | null>(null);
   const [updatingStatusItemId, setUpdatingStatusItemId] = useState<string | null>(null);
   const [inlineEdit, setInlineEdit] = useState<InlineEditState | null>(null);
@@ -231,6 +234,7 @@ export function ShoppingListSection({
   const createProductFromShoppingListItem = useMutation(
     apiAny.productLibrary.createProductFromShoppingListItem,
   );
+  const generateUploadUrl = useMutation(apiAny.files.generateUploadUrlWithCustomKey);
 
   const setsById = useMemo(
     () => new Map(allSets.map((set) => [String(set._id), set])),
@@ -342,6 +346,7 @@ export function ShoppingListSection({
 
   const handleStartEdit = (item: ShoppingListItem) => {
     setInlineEdit(null);
+    setEditImageFile(null);
     setEditingItemId(String(item._id));
     setEditFormData({
       name: item.name,
@@ -364,6 +369,42 @@ export function ShoppingListSection({
       assigneeId: item.assignedTo || "none",
       hasAlternatives: Boolean(item.setId),
     });
+  };
+
+  const handleEditImageFileChange = (file: File | null) => {
+    if (!file) {
+      setEditImageFile(null);
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      toast.error(t("shoppingList", "invalidImageFile"));
+      return;
+    }
+
+    setEditImageFile(file);
+  };
+
+  const uploadEditImageFile = async (file: File) => {
+    const uploadData = await generateUploadUrl({
+      projectId,
+      fileName: file.name,
+      fileSize: file.size,
+    });
+
+    const response = await fetch(uploadData.url, {
+      method: "PUT",
+      body: file,
+      headers: {
+        "Content-Type": file.type || "application/octet-stream",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.status}`);
+    }
+
+    return uploadData.publicUrl;
   };
 
   const getInlineEditKey = (itemId: string, field: InlineEditField) => `${itemId}:${field}`;
@@ -556,32 +597,43 @@ export function ShoppingListSection({
       nextSetId = null;
     }
 
-    await onUpdateItem(itemId, {
-      name: nextName,
-      notes: editFormData.notes?.trim() || undefined,
-      supplier: editFormData.supplier?.trim() || undefined,
-      category: editFormData.category?.trim() || undefined,
-      sectionId: nextSectionId,
-      setId: nextSetId,
-      catalogNumber: editFormData.catalogNumber?.trim() || undefined,
-      dimensions: editFormData.dimensions?.trim() || undefined,
-      quantity: editFormData.quantity || 1,
-      unitPrice: Number.isFinite(unitPrice) ? unitPrice : undefined,
-      priceTaxMode: normalizedPriceTaxMode,
-      taxRateId:
-        normalizedPriceTaxMode === "net" || normalizedPriceTaxMode === "gross"
-          ? taxRateSnapshot?.id ?? taxRateId ?? null
-          : null,
-      taxRateSnapshot: taxRateSnapshot ?? null,
-      productLink: editFormData.productLink?.trim() || undefined,
-      imageUrl: editFormData.imageUrl?.trim() || undefined,
-      priority: editFormData.priority,
-      realizationStatus: editFormData.realizationStatus as ShoppingListItem["realizationStatus"],
-      buyBefore,
-      assignedTo: editFormData.assigneeId === "none" ? undefined : editFormData.assigneeId,
-    });
-    setEditingItemId(null);
-    setEditFormData({});
+    try {
+      let imageUrl = editFormData.imageUrl?.trim() || undefined;
+      if (editImageFile) {
+        setIsUploadingEditImage(true);
+        imageUrl = await uploadEditImageFile(editImageFile);
+      }
+
+      await onUpdateItem(itemId, {
+        name: nextName,
+        notes: editFormData.notes?.trim() || undefined,
+        supplier: editFormData.supplier?.trim() || undefined,
+        category: editFormData.category?.trim() || undefined,
+        sectionId: nextSectionId,
+        setId: nextSetId,
+        catalogNumber: editFormData.catalogNumber?.trim() || undefined,
+        dimensions: editFormData.dimensions?.trim() || undefined,
+        quantity: editFormData.quantity || 1,
+        unitPrice: Number.isFinite(unitPrice) ? unitPrice : undefined,
+        priceTaxMode: normalizedPriceTaxMode,
+        taxRateId:
+          normalizedPriceTaxMode === "net" || normalizedPriceTaxMode === "gross"
+            ? taxRateSnapshot?.id ?? taxRateId ?? null
+            : null,
+        taxRateSnapshot: taxRateSnapshot ?? null,
+        productLink: editFormData.productLink?.trim() || undefined,
+        imageUrl,
+        priority: editFormData.priority,
+        realizationStatus: editFormData.realizationStatus as ShoppingListItem["realizationStatus"],
+        buyBefore,
+        assignedTo: editFormData.assigneeId === "none" ? undefined : editFormData.assigneeId,
+      });
+      setEditingItemId(null);
+      setEditFormData({});
+      setEditImageFile(null);
+    } finally {
+      setIsUploadingEditImage(false);
+    }
   };
 
   const handleEditScrapeByUrl = async () => {
@@ -936,13 +988,58 @@ export function ShoppingListSection({
           </div>
         </Field>
         <Field className="lg:col-span-2">
-          <FieldLabel>{t("shoppingList", "imageUrl")}</FieldLabel>
-          <Input
-            value={editFormData.imageUrl || ""}
-            onChange={(event) => setEditFormData({ ...editFormData, imageUrl: event.target.value })}
-            placeholder="https://..."
-            className="h-12 text-sm"
-          />
+          <FieldLabel>{t("shoppingList", "imageUrlOrUpload")}</FieldLabel>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Input
+                value={editFormData.imageUrl || ""}
+                onChange={(event) => setEditFormData({ ...editFormData, imageUrl: event.target.value })}
+                placeholder="https://..."
+                className="h-12 text-sm"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 shrink-0 px-4"
+                asChild
+              >
+                <label>
+                  <UploadIcon className="h-4 w-4" />
+                  <span className="ml-2 hidden sm:inline">
+                    {t("shoppingList", "uploadImage")}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onClick={(event) => {
+                      event.currentTarget.value = "";
+                    }}
+                    onChange={(event) =>
+                      handleEditImageFileChange(event.target.files?.[0] ?? null)
+                    }
+                  />
+                </label>
+              </Button>
+            </div>
+            {editImageFile ? (
+              <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs text-muted-foreground">
+                <span className="truncate">
+                  {t("shoppingList", "selectedImage")}: {editImageFile.name}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 shrink-0 px-2"
+                  onClick={() => setEditImageFile(null)}
+                >
+                  <XIcon className="h-4 w-4" />
+                  <span className="sr-only">{t("shoppingList", "removeImage")}</span>
+                </Button>
+              </div>
+            ) : null}
+          </div>
         </Field>
       </div>
 
@@ -1031,13 +1128,24 @@ export function ShoppingListSection({
         <Button
           size="sm"
           onClick={() => handleSaveEdit(item._id)}
-          disabled={isPending}
+          disabled={isPending || isUploadingEditImage}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
-          <SaveIcon className="mr-1 h-4 w-4" />
-          {t("shoppingList", "save")}
+          {isUploadingEditImage ? (
+            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+          ) : (
+            <SaveIcon className="mr-1 h-4 w-4" />
+          )}
+          {isUploadingEditImage ? t("shoppingList", "uploadingImage") : t("shoppingList", "save")}
         </Button>
-        <Button variant="outline" size="sm" onClick={() => setEditingItemId(null)}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setEditingItemId(null);
+            setEditImageFile(null);
+          }}
+        >
           <XIcon className="mr-1 h-4 w-4" />
           {t("shoppingList", "cancel")}
         </Button>

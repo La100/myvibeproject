@@ -252,18 +252,18 @@ async function waitForFreshTokenFromAuthTab(
   return null
 }
 
-async function getStoredFreshToken(): Promise<string | null> {
+async function getStoredExtensionToken(): Promise<string | null> {
   const stored = await chrome.storage.local.get([STORAGE_KEYS.TOKEN])
   const token =
     typeof stored[STORAGE_KEYS.TOKEN] === "string"
       ? stored[STORAGE_KEYS.TOKEN]
       : null
 
-  return token && isTokenFresh(token) ? token : null
+  return token
 }
 
 async function handleExtensionOpen(): Promise<void> {
-  const token = await getStoredFreshToken()
+  const token = await getStoredExtensionToken()
   if (!token) {
     await initiateAuthFlow()
     return

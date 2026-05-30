@@ -1920,7 +1920,9 @@ const enMessages = {
       includeStatus: "Include Status",
       includeSupplier: "Include Supplier",
       included: "Included",
+      imageUrlOrUpload: "Image URL or upload",
       imageUrl: "Image URL",
+      invalidImageFile: "Please choose an image file",
       inTransit: "In transit",
       installClipperDescription:
         "Open the Chrome Web Store and add the extension before clipping products.",
@@ -1972,6 +1974,7 @@ const enMessages = {
       quantityAtLeastOne: "Quantity must be at least 1",
       quickAdd: "Quick add",
       rejected: "Rejected",
+      removeImage: "Remove image",
       removeGroup: "Remove group",
       removeAlternativeGroupHint:
         "To remove this alternative group, first delete the other options in it.",
@@ -1999,6 +2002,7 @@ const enMessages = {
       selectTaxRateOrLeaveUnspecified:
         "Select a tax rate or leave tax as not specified",
       selectUser: "Select user",
+      selectedImage: "Selected image",
       setDate: "Set date",
       setupDescription:
         "is empty. Add sections, install the Chrome extension, then save the first product.",
@@ -2023,6 +2027,8 @@ const enMessages = {
       unitPrice: "Unit Price",
       unitPriceZeroOrHigher: "Unit price must be zero or higher",
       unassigned: "Unassigned",
+      uploadImage: "Upload image",
+      uploadingImage: "Uploading image...",
       urgent: "Urgent",
       xlsxItemsSheet: "Items",
     },
@@ -6415,7 +6421,9 @@ Object.assign((messages.pl as Record<string, unknown>), {
     includeStatus: "Uwzględnij status",
     includeSupplier: "Uwzględnij dostawcę",
     included: "Uwzględnione",
+    imageUrlOrUpload: "URL obrazu lub upload",
     imageUrl: "URL obrazu",
+    invalidImageFile: "Wybierz plik obrazu",
     inTransit: "W transporcie",
     installClipperDescription:
       "Otwórz Chrome Web Store i dodaj rozszerzenie przed przypinaniem produktów.",
@@ -6467,6 +6475,7 @@ Object.assign((messages.pl as Record<string, unknown>), {
     quantityAtLeastOne: "Ilość musi wynosić co najmniej 1",
     quickAdd: "Szybkie dodawanie",
     rejected: "Odrzucone",
+    removeImage: "Usuń obraz",
     removeGroup: "Usuń grupę",
     removeAlternativeGroupHint:
       "Aby usunąć tę grupę alternatyw, najpierw usuń pozostałe opcje.",
@@ -6493,6 +6502,7 @@ Object.assign((messages.pl as Record<string, unknown>), {
     selectTaxRateOrLeaveUnspecified:
       "Wybierz stawkę podatku albo zostaw podatek jako nieokreślony",
     selectUser: "Wybierz użytkownika",
+    selectedImage: "Wybrany obraz",
     setDate: "Ustaw datę",
     setupDescription:
       "jest pusty. Dodaj sekcje, zainstaluj rozszerzenie Chrome, a potem zapisz pierwszy produkt.",
@@ -6517,6 +6527,8 @@ Object.assign((messages.pl as Record<string, unknown>), {
     unitPrice: "Cena jednostkowa",
     unitPriceZeroOrHigher: "Cena jednostkowa musi być równa 0 lub wyższa",
     unassigned: "Nieprzypisane",
+    uploadImage: "Dodaj obraz",
+    uploadingImage: "Przesyłanie obrazu...",
     urgent: "Pilny",
     xlsxItemsSheet: "Pozycje",
   },

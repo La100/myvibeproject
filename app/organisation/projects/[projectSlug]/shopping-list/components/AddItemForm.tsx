@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { CheckedState } from "@radix-ui/react-checkbox";
+import { useMutation } from "convex/react";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -13,8 +14,9 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, WandSparkles } from "lucide-react";
+import { Loader2, UploadIcon, WandSparkles, XIcon } from "lucide-react";
 import { Doc, Id } from "@/convex/_generated/dataModel";
+import { apiAny } from "@/lib/convexApiAny";
 import type { TeamMember } from "@/lib/teamMember";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
@@ -93,6 +95,7 @@ export function AddItemForm({
   submitLabel,
 }: AddItemFormProps) {
   const { t } = useI18n();
+  const generateUploadUrl = useMutation(apiAny.files.generateUploadUrlWithCustomKey);
   const resolvedSubmitLabel = submitLabel ?? t("shoppingList", "addProduct");
   const [newItemName, setNewItemName] = useState("");
   const [newItemSupplier, setNewItemSupplier] = useState("");
@@ -111,11 +114,13 @@ export function AddItemForm({
   );
   const [newItemProductLink, setNewItemProductLink] = useState("");
   const [newItemImageUrl, setNewItemImageUrl] = useState("");
+  const [newItemImageFile, setNewItemImageFile] = useState<File | null>(null);
   const [newItemAssignedTo, setNewItemAssignedTo] = useState<string>("none");
   const [newItemBuyBefore, setNewItemBuyBefore] = useState<Date | undefined>(
     undefined,
   );
   const [isScraping, setIsScraping] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [newItemHasAlternatives, setNewItemHasAlternatives] = useState(false);
   const activeTaxRates = taxRates.filter((entry) => !entry.isArchived);
   const selectedTaxRateId =
@@ -138,6 +143,42 @@ export function AddItemForm({
       throw new Error("Invalid URL protocol");
     }
     return parsed.toString();
+  };
+
+  const handleImageFileChange = (file: File | null) => {
+    if (!file) {
+      setNewItemImageFile(null);
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      toast.error(t("shoppingList", "invalidImageFile"));
+      return;
+    }
+
+    setNewItemImageFile(file);
+  };
+
+  const uploadImageFile = async (file: File) => {
+    const uploadData = await generateUploadUrl({
+      projectId,
+      fileName: file.name,
+      fileSize: file.size,
+    });
+
+    const response = await fetch(uploadData.url, {
+      method: "PUT",
+      body: file,
+      headers: {
+        "Content-Type": file.type || "application/octet-stream",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.status}`);
+    }
+
+    return uploadData.publicUrl;
   };
 
   const handleScrapeByUrl = async () => {
@@ -235,6 +276,12 @@ export function AddItemForm({
     }
 
     try {
+      let imageUrl = newItemImageUrl.trim() || undefined;
+      if (newItemImageFile) {
+        setIsUploadingImage(true);
+        imageUrl = await uploadImageFile(newItemImageFile);
+      }
+
       const itemId = await onAddItem({
         name: newItemName.trim(),
         supplier: newItemSupplier.trim() || undefined,
@@ -255,7 +302,7 @@ export function AddItemForm({
             : null,
         taxRateSnapshot: taxRateSnapshot ?? null,
         productLink: normalizedProductLink,
-        imageUrl: newItemImageUrl.trim() || undefined,
+        imageUrl,
         priority: "medium",
         realizationStatus: "PLANNED",
         assignedTo:
@@ -291,6 +338,7 @@ export function AddItemForm({
       setNewItemTaxRateId(getDefaultPriceTaxRateId(activeTaxRates) ?? "");
       setNewItemProductLink("");
       setNewItemImageUrl("");
+      setNewItemImageFile(null);
       setNewItemAssignedTo("none");
       setNewItemBuyBefore(undefined);
       setNewItemHasAlternatives(false);
@@ -299,6 +347,8 @@ export function AddItemForm({
       toast.error(t("shoppingList", "failedToAddItem"), {
         description: toUserFacingErrorMessage(error),
       });
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -492,13 +542,58 @@ export function AddItemForm({
           </div>
         </Field>
         <Field className="md:col-span-2 lg:col-span-3">
-          <FieldLabel>{t("shoppingList", "imageUrl")}</FieldLabel>
-          <Input
-            value={newItemImageUrl}
-            onChange={(e) => setNewItemImageUrl(e.target.value)}
-            placeholder="https://..."
-            className="h-12 text-sm"
-          />
+          <FieldLabel>{t("shoppingList", "imageUrlOrUpload")}</FieldLabel>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Input
+                value={newItemImageUrl}
+                onChange={(e) => setNewItemImageUrl(e.target.value)}
+                placeholder="https://..."
+                className="h-12 text-sm"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 shrink-0 px-4"
+                asChild
+              >
+                <label>
+                  <UploadIcon className="h-4 w-4" />
+                  <span className="ml-2 hidden sm:inline">
+                    {t("shoppingList", "uploadImage")}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onClick={(event) => {
+                      event.currentTarget.value = "";
+                    }}
+                    onChange={(event) =>
+                      handleImageFileChange(event.target.files?.[0] ?? null)
+                    }
+                  />
+                </label>
+              </Button>
+            </div>
+            {newItemImageFile ? (
+              <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs text-muted-foreground">
+                <span className="truncate">
+                  {t("shoppingList", "selectedImage")}: {newItemImageFile.name}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 shrink-0 px-2"
+                  onClick={() => setNewItemImageFile(null)}
+                >
+                  <XIcon className="h-4 w-4" />
+                  <span className="sr-only">{t("shoppingList", "removeImage")}</span>
+                </Button>
+              </div>
+            ) : null}
+          </div>
         </Field>
         <Field>
           <FieldLabel>{t("shoppingList", "assignTo")}</FieldLabel>
@@ -584,10 +679,14 @@ export function AddItemForm({
       <div className="flex justify-end gap-3">
         <Button
           onClick={handleAddItem}
-          disabled={isPending || isScraping || !newItemName.trim()}
+          disabled={isPending || isScraping || isUploadingImage || !newItemName.trim()}
           className="h-11 px-6"
         >
-          {isPending ? t("shoppingList", "adding") : resolvedSubmitLabel}
+          {isPending || isUploadingImage
+            ? isUploadingImage
+              ? t("shoppingList", "uploadingImage")
+              : t("shoppingList", "adding")
+            : resolvedSubmitLabel}
         </Button>
       </div>
     </div>
