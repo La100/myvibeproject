@@ -25,6 +25,31 @@ const getTeamTokenBalance = (team: {
   return Math.max(0, team.aiTokens);
 };
 
+const INTERNAL_CREDIT_COST_PER_1M_USD = 5;
+const CLOUDFLARE_BROWSER_RENDERING_COST_PER_HOUR_USD = 0.09;
+const MAX_PUBLIC_USAGE_TOKENS = 100_000;
+const MAX_BROWSER_RENDERING_MS = 60_000;
+
+const normalizePublicUsageNumber = (
+  value: number | undefined,
+  max = MAX_PUBLIC_USAGE_TOKENS,
+) => {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+  return Math.min(Math.round(value), max);
+};
+
+const creditsFromBrowserRenderingMs = (browserMs: number) => {
+  const normalizedMs = normalizePublicUsageNumber(browserMs, MAX_BROWSER_RENDERING_MS);
+  const costUsd =
+    (normalizedMs / 3_600_000) * CLOUDFLARE_BROWSER_RENDERING_COST_PER_HOUR_USD;
+  return Math.max(
+    0,
+    Math.ceil((costUsd / INTERNAL_CREDIT_COST_PER_1M_USD) * 1_000_000),
+  );
+};
+
 type DailyUsageRow = {
   date: string;
   requests: number;
@@ -131,14 +156,31 @@ export const recordSelfHostedChatKitUsage = mutation({
       clerkUserId = teamAccess.clerkUserId;
     }
 
+    const normalizedResponseTimeMs =
+      args.responseTimeMs === undefined
+        ? undefined
+        : normalizePublicUsageNumber(args.responseTimeMs, MAX_BROWSER_RENDERING_MS);
+    const sanitizedTotalTokens = normalizePublicUsageNumber(args.totalTokens);
     const payload = {
       ...args,
+      inputTokens: normalizePublicUsageNumber(args.inputTokens),
+      outputTokens: normalizePublicUsageNumber(args.outputTokens),
+      totalTokens: sanitizedTotalTokens,
+      billableTokens:
+        args.mode === "chatkit_scrape"
+          ? creditsFromBrowserRenderingMs(normalizedResponseTimeMs ?? 0)
+          : normalizePublicUsageNumber(args.billableTokens ?? sanitizedTotalTokens),
+      estimatedCostCents:
+        args.estimatedCostCents === undefined
+          ? undefined
+          : normalizePublicUsageNumber(args.estimatedCostCents, 10_000),
+      responseTimeMs: normalizedResponseTimeMs,
       userClerkId: clerkUserId,
     };
     const resolvedFeature =
       payload.feature ||
       (payload.requestType === "chat" ? "assistant" : "other");
-    const billableTokens = Math.max(0, payload.billableTokens ?? payload.totalTokens);
+    const billableTokens = payload.billableTokens;
 
     const usageId = await ctx.db.insert("aiTokenUsage", {
       ...payload,

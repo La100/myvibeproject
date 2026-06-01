@@ -35,6 +35,7 @@ import { Doc, Id } from "@/convex/_generated/dataModel";
 import { apiAny } from "@/lib/convexApiAny";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { downloadCsvFile } from "@/lib/csvExport";
+import { safeLocalStorageGet, safeLocalStorageSet } from "@/lib/safeLocalStorage";
 import {
   getLaborExportCsvRow,
   getLaborExportHeaders,
@@ -410,7 +411,7 @@ const formatMoodboardSectionLabel = (
 
 const getOrCreatePublicRespondentKey = (accessToken: string) => {
   const storageKey = `client-panel-respondent:${accessToken}`;
-  const existing = window.localStorage.getItem(storageKey);
+  const existing = safeLocalStorageGet(storageKey);
   if (existing && existing.trim().length > 0) {
     return existing;
   }
@@ -419,7 +420,7 @@ const getOrCreatePublicRespondentKey = (accessToken: string) => {
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  window.localStorage.setItem(storageKey, generated);
+  safeLocalStorageSet(storageKey, generated);
   return generated;
 };
 
@@ -908,7 +909,7 @@ export default function PublicClientPanelPage() {
   useEffect(() => {
     if (!accessToken || typeof window === "undefined") return;
     const storageKey = `client-panel-respondent-name:${accessToken}`;
-    const savedName = window.localStorage.getItem(storageKey);
+    const savedName = safeLocalStorageGet(storageKey);
     if (savedName) {
       setRespondentName(savedName);
     }
@@ -1341,7 +1342,7 @@ export default function PublicClientPanelPage() {
     try {
       if (typeof window !== "undefined" && cleanedRespondentName) {
         const storageKey = `client-panel-respondent-name:${accessToken}`;
-        window.localStorage.setItem(storageKey, cleanedRespondentName);
+        safeLocalStorageSet(storageKey, cleanedRespondentName);
       }
 
       await respondToShoppingItem({
@@ -1377,7 +1378,7 @@ export default function PublicClientPanelPage() {
     try {
       if (typeof window !== "undefined" && cleanedRespondentName) {
         const storageKey = `client-panel-respondent-name:${accessToken}`;
-        window.localStorage.setItem(storageKey, cleanedRespondentName);
+        safeLocalStorageSet(storageKey, cleanedRespondentName);
       }
 
       await saveShoppingItemComment({
@@ -1454,7 +1455,7 @@ export default function PublicClientPanelPage() {
     try {
       if (typeof window !== "undefined" && cleanedRespondentName) {
         const storageKey = `client-panel-respondent-name:${accessToken}`;
-        window.localStorage.setItem(storageKey, cleanedRespondentName);
+        safeLocalStorageSet(storageKey, cleanedRespondentName);
       }
 
       await respondToLaborItem({
@@ -1488,7 +1489,7 @@ export default function PublicClientPanelPage() {
     try {
       if (typeof window !== "undefined" && cleanedRespondentName) {
         const storageKey = `client-panel-respondent-name:${accessToken}`;
-        window.localStorage.setItem(storageKey, cleanedRespondentName);
+        safeLocalStorageSet(storageKey, cleanedRespondentName);
       }
 
       await saveLaborItemComment({
@@ -2257,7 +2258,7 @@ export default function PublicClientPanelPage() {
     try {
       if (typeof window !== "undefined") {
         const storageKey = `client-panel-respondent-name:${accessToken}`;
-        window.localStorage.setItem(storageKey, cleanedRespondentName);
+        safeLocalStorageSet(storageKey, cleanedRespondentName);
       }
       await submitPublicSurvey({
         accessToken,

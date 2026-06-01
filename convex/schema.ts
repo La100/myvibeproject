@@ -809,7 +809,7 @@ export default defineSchema({
     projectId: v.id("projects"),
     teamId: v.id("teams"),
     createdBy: v.string(), // Clerk user ID
-    assignedTo: v.optional(v.string()), // Clerk user ID
+    assignedTo: v.optional(v.union(v.string(), v.null())), // Clerk user ID
     updatedAt: v.optional(v.number()),
   })
     .index("by_project", ["projectId"])
@@ -996,7 +996,7 @@ export default defineSchema({
     projectId: v.id("projects"),
     teamId: v.id("teams"),
     createdBy: v.string(), // Clerk user ID
-    assignedTo: v.optional(v.string()), // Clerk user ID (contractor)
+    assignedTo: v.optional(v.union(v.string(), v.null())), // Clerk user ID (contractor)
     customerDecision: v.optional(
       v.union(v.literal("accepted"), v.literal("rejected"), v.null()),
     ),

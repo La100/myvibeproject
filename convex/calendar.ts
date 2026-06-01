@@ -858,10 +858,15 @@ export const updateTaskDates = mutation({
     const hasAccess = await hasProjectAccess(ctx, task.projectId, true);
     if (!hasAccess) throw new Error("Permission denied");
 
-    await ctx.db.patch(args.taskId, {
-      startDate: args.startDate,
-      endDate: args.endDate,
-    });
+    const patch: { startDate?: number; endDate?: number } = {};
+    if (Object.prototype.hasOwnProperty.call(args, "startDate")) {
+      patch.startDate = args.startDate;
+    }
+    if (Object.prototype.hasOwnProperty.call(args, "endDate")) {
+      patch.endDate = args.endDate;
+    }
+
+    await ctx.db.patch(args.taskId, patch);
 
     return { success: true };
   },
@@ -882,7 +887,12 @@ export const updateShoppingItemBuyBefore = mutation({
     const hasAccess = await hasProjectAccess(ctx, item.projectId, true);
     if (!hasAccess) throw new Error("Permission denied");
 
-    await ctx.db.patch(args.itemId, { buyBefore: args.buyBefore });
+    const patch: { buyBefore?: number } = {};
+    if (Object.prototype.hasOwnProperty.call(args, "buyBefore")) {
+      patch.buyBefore = args.buyBefore;
+    }
+
+    await ctx.db.patch(args.itemId, patch);
 
     return { success: true };
   },

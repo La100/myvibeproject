@@ -246,11 +246,18 @@ export default function NewProjectPage() {
       });
 
       if (coverImageFile && createdProject?.id) {
-        const uploadedCoverUrl = await uploadProjectCoverImage(createdProject.id, coverImageFile);
-        await updateProject({
-          projectId: createdProject.id,
-          coverImageUrl: uploadedCoverUrl,
-        });
+        try {
+          const uploadedCoverUrl = await uploadProjectCoverImage(createdProject.id, coverImageFile);
+          await updateProject({
+            projectId: createdProject.id,
+            coverImageUrl: uploadedCoverUrl,
+          });
+        } catch (coverError) {
+          console.error("Error uploading project cover:", coverError);
+          toast.warning("Project created, but cover upload failed", {
+            description: toUserFacingErrorMessage(coverError),
+          });
+        }
       }
 
       if (createdProject?.slug) {

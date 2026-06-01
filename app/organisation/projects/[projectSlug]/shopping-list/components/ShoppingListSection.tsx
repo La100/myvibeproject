@@ -19,8 +19,10 @@ import { AddItemForm } from "./AddItemForm";
 import { ShoppingListItemDetails } from "./ShoppingListItemDetails";
 import {
   DEFAULT_SHOPPING_UNIT,
-  SHOPPING_UNITS,
+  ensureShoppingUnitOption,
+  getShoppingUnitsForMeasurementSystem,
   normalizeShoppingUnit,
+  type ShoppingMeasurementSystem,
 } from "@/lib/shoppingUnits";
 import {
   CheckIcon,
@@ -54,6 +56,12 @@ import {
 import { useI18n } from "@/lib/i18n";
 
 type ShoppingListItem = Doc<"shoppingListItems">;
+type ShoppingListItemUpdate = Partial<
+  Omit<ShoppingListItem, "assignedTo" | "sectionId">
+> & {
+  assignedTo?: string | null;
+  sectionId?: Id<"shoppingListSections"> | null;
+};
 type ShoppingSet = Doc<"shoppingSets"> & {
   resolvedBySource?: "team" | "client" | null;
   resolvedByName?: string | null;
@@ -167,7 +175,8 @@ interface ShoppingListSectionProps {
   teamMembers?: TeamMember[];
   sections: Doc<"shoppingListSections">[];
   taxRates?: TeamTaxRate[];
-  onUpdateItem: (id: Id<"shoppingListItems">, updates: Partial<ShoppingListItem>) => Promise<void>;
+  measurementSystem: ShoppingMeasurementSystem;
+  onUpdateItem: (id: Id<"shoppingListItems">, updates: ShoppingListItemUpdate) => Promise<void>;
   onDeleteItem: (id: Id<"shoppingListItems">) => Promise<void>;
   onAddItem: (itemData: {
     name: string;
@@ -194,7 +203,7 @@ interface ShoppingListSectionProps {
   onCreateAlternativesForItem: (
     itemId: Id<"shoppingListItems">,
     itemName: string,
-    sectionId?: Id<"shoppingListSections">,
+    sectionId?: Id<"shoppingListSections"> | null,
   ) => Promise<Id<"shoppingSets">>;
   onUpdateSet: (
     id: Id<"shoppingSets">,
@@ -216,6 +225,7 @@ export function ShoppingListSection({
   teamMembers,
   sections,
   taxRates = [],
+  measurementSystem,
   onUpdateItem,
   onDeleteItem,
   onAddItem,
@@ -238,6 +248,8 @@ export function ShoppingListSection({
   const [inlineEdit, setInlineEdit] = useState<InlineEditState | null>(null);
   const [savingInlineEditKey, setSavingInlineEditKey] = useState<string | null>(null);
   const activeTaxRates = taxRates.filter((entry) => !entry.isArchived);
+  const baseUnitOptions = getShoppingUnitsForMeasurementSystem(measurementSystem, locale);
+  const editUnitOptions = ensureShoppingUnitOption(baseUnitOptions, editFormData.unit);
   const createProductFromShoppingListItem = useMutation(
     apiAny.productLibrary.createProductFromShoppingListItem,
   );
@@ -302,7 +314,7 @@ export function ShoppingListSection({
     );
   };
 
-  const getAssignedMemberName = (assignedTo?: string) => {
+  const getAssignedMemberName = (assignedTo?: string | null) => {
     if (!assignedTo) return null;
     const member = teamMembers?.find((entry) => entry.clerkUserId === assignedTo);
     return member?.name || assignedTo;
@@ -590,7 +602,7 @@ export function ShoppingListSection({
 
     const nextSectionId =
       editFormData.sectionId === "none"
-        ? undefined
+        ? null
         : (editFormData.sectionId as Id<"shoppingListSections"> | undefined);
     const wantsAlternatives = editFormData.hasAlternatives ?? Boolean(item.setId);
     const relatedSetItems = item.setId
@@ -641,11 +653,15 @@ export function ShoppingListSection({
         priority: editFormData.priority,
         realizationStatus: editFormData.realizationStatus as ShoppingListItem["realizationStatus"],
         buyBefore,
-        assignedTo: editFormData.assigneeId === "none" ? undefined : editFormData.assigneeId,
+        assignedTo: editFormData.assigneeId === "none" ? null : editFormData.assigneeId,
       });
       setEditingItemId(null);
       setEditFormData({});
       setEditImageFile(null);
+    } catch (error) {
+      toast.error(t("shoppingList", "couldNotUpdateProduct"), {
+        description: toUserFacingErrorMessage(error),
+      });
     } finally {
       setIsUploadingEditImage(false);
     }
@@ -879,7 +895,7 @@ export function ShoppingListSection({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {SHOPPING_UNITS.map((unit) => (
+              {editUnitOptions.map((unit) => (
                 <SelectItem key={unit.value} value={unit.value}>
                   {unit.label}
                 </SelectItem>
@@ -1750,6 +1766,7 @@ export function ShoppingListSection({
               teamMembers={teamMembers}
               taxRates={activeTaxRates}
               currencySymbol={currencySymbol}
+              measurementSystem={measurementSystem}
               onAddItem={async (itemData) => {
                 const itemId = await onAddItem({
                   ...itemData,
@@ -1873,6 +1890,7 @@ export function ShoppingListSection({
             teamMembers={teamMembers}
             taxRates={activeTaxRates}
             currencySymbol={currencySymbol}
+            measurementSystem={measurementSystem}
             onAddItem={async (itemData) => {
               const itemId = await onAddItem({
                 ...itemData,

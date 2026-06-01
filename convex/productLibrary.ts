@@ -302,30 +302,31 @@ export const updateProduct = mutation({
   args: {
     productId: v.id("productLibrary"),
     name: v.optional(v.string()),
-    description: v.optional(v.string()),
-    category: v.optional(v.string()),
-    brand: v.optional(v.string()),
-    model: v.optional(v.string()),
-    sku: v.optional(v.string()),
-    imageUrl: v.optional(v.string()),
-    productLink: v.optional(v.string()),
-    supplier: v.optional(v.string()),
-    supplierSku: v.optional(v.string()),
-    dimensions: v.optional(v.string()),
-    weight: v.optional(v.number()),
-    material: v.optional(v.string()),
-    color: v.optional(v.string()),
-    unitPrice: v.optional(v.number()),
+    description: v.optional(v.union(v.string(), v.null())),
+    category: v.optional(v.union(v.string(), v.null())),
+    brand: v.optional(v.union(v.string(), v.null())),
+    model: v.optional(v.union(v.string(), v.null())),
+    sku: v.optional(v.union(v.string(), v.null())),
+    imageUrl: v.optional(v.union(v.string(), v.null())),
+    productLink: v.optional(v.union(v.string(), v.null())),
+    supplier: v.optional(v.union(v.string(), v.null())),
+    supplierSku: v.optional(v.union(v.string(), v.null())),
+    dimensions: v.optional(v.union(v.string(), v.null())),
+    weight: v.optional(v.union(v.number(), v.null())),
+    material: v.optional(v.union(v.string(), v.null())),
+    color: v.optional(v.union(v.string(), v.null())),
+    unitPrice: v.optional(v.union(v.number(), v.null())),
     tags: v.optional(v.array(v.string())),
-    notes: v.optional(v.string()),
+    notes: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
     const { productId, ...updates } = args;
     await ensureProductAccess(ctx, productId);
     
-    // Remove undefined values
     const cleanUpdates = Object.fromEntries(
-      Object.entries(updates).filter(([, value]) => value !== undefined)
+      Object.entries(updates)
+        .filter(([, value]) => value !== undefined)
+        .map(([key, value]) => [key, value === null ? undefined : value])
     );
     
     return await ctx.db.patch(productId, cleanUpdates);

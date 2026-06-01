@@ -179,6 +179,18 @@ const TEAM_MEMBER_QUERY_WORDS = new Set([
   "zespole",
   "zespolu",
 ]);
+const UNASSIGNED_ASSIGNEE_VALUES = new Set([
+  "none",
+  "no assignee",
+  "unassigned",
+  "remove assignee",
+  "clear assignee",
+  "bez przypisania",
+  "nieprzypisane",
+  "nieprzypisany",
+  "usun przypisanie",
+  "usuń przypisanie",
+]);
 const MOODBOARD_QUERY_WORDS = new Set([
   "moodboard",
   "moodboards",
@@ -1210,16 +1222,22 @@ function extractContactName(
 
 function extractTaskAssigneeIdentifier(
   params: Record<string, unknown>,
-): string | undefined {
+): unknown {
   return (
-    asNonEmptyString(params.assignedTo) ??
-    asNonEmptyString(params.assignee) ??
-    asNonEmptyString(params.assigneeId) ??
-    asNonEmptyString(params.assigneeUserId) ??
-    asNonEmptyString(params.assigneeClerkUserId) ??
-    asNonEmptyString(params.assignedToUserId) ??
-    asNonEmptyString(params.assignedToClerkUserId)
+    params.assignedTo ??
+    params.assignee ??
+    params.assigneeId ??
+    params.assigneeUserId ??
+    params.assigneeClerkUserId ??
+    params.assignedToUserId ??
+    params.assignedToClerkUserId
   );
+}
+
+function isClearAssigneeValue(value: unknown): boolean {
+  if (value === null) return true;
+  if (typeof value !== "string") return false;
+  return UNASSIGNED_ASSIGNEE_VALUES.has(normalizeLookupValue(value));
 }
 
 function hasTaskMutationFields(payload: Record<string, unknown>): boolean {
@@ -1651,9 +1669,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
           : [];
       };
 
-      const resolveTaskAssignee = async (
+      const resolveTeamAssignee = async (
         value: unknown,
       ): Promise<string | null | undefined> => {
+        if (isClearAssigneeValue(value)) return null;
         const assignee = asNonEmptyString(value);
         if (assignee === undefined) return undefined;
 
@@ -1698,6 +1717,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
       const resolveSectionId = async (
         domain: "shopping" | "labor",
         params: Record<string, unknown>,
+        options?: { createIfMissing?: boolean },
       ): Promise<string | null | undefined> => {
         if (params.sectionId === null) {
           return null;
@@ -1732,6 +1752,12 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             : undefined;
         if (existingSectionId) {
           return existingSectionId;
+        }
+
+        if (options?.createIfMissing === false) {
+          throw new Error(
+            `Could not find ${domain} section "${sectionName}". Create the section first or use an existing section name.`,
+          );
         }
 
         const createResult =
@@ -2023,8 +2049,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               }
 
               const assigneeInput = extractTaskAssigneeIdentifier(item);
-              const assignedTo = await resolveTaskAssignee(assigneeInput);
-              if (assigneeInput && assignedTo === null) {
+              const assignedTo = await resolveTeamAssignee(assigneeInput);
+              if (assigneeInput && assignedTo === null && !isClearAssigneeValue(assigneeInput)) {
                 return {
                   ok: false,
                   error:
@@ -2087,8 +2113,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               if (priority !== undefined) updates.priority = priority;
 
               const assigneeInput = extractTaskAssigneeIdentifier(item);
-              const assignedTo = await resolveTaskAssignee(assigneeInput);
-              if (assigneeInput && assignedTo === null) {
+              const assignedTo = await resolveTeamAssignee(assigneeInput);
+              if (assigneeInput && assignedTo === null && !isClearAssigneeValue(assigneeInput)) {
                 return {
                   ok: false,
                   error:
@@ -2371,6 +2397,15 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                   asNonEmptyString(item.productLink) ??
                   asNonEmptyString(item.link) ??
                   (imageUrl ? undefined : asNonEmptyString(item.url));
+                const assigneeInput = extractTaskAssigneeIdentifier(item);
+                const assignedTo = await resolveTeamAssignee(assigneeInput);
+                if (assigneeInput && assignedTo === null && !isClearAssigneeValue(assigneeInput)) {
+                  return {
+                    ok: false,
+                    error:
+                      "Could not match `assignedTo` to a team member. Use an exact team member name, email, Clerk ID, or say 'assign to me'.",
+                  };
+                }
 
                 const itemId = await convex.mutation(
                   apiAny.shopping.createShoppingListItem,
@@ -2402,7 +2437,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                     realizationStatus:
                       extractShoppingRealizationStatus(item) ?? "PLANNED",
                     sectionId: sectionId ?? null,
-                    assignedTo: asNonEmptyString(item.assignedTo),
+                    assignedTo: assignedTo ?? undefined,
                   },
                 );
 
@@ -2489,13 +2524,24 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               if (realizationStatus !== undefined) {
                 updates.realizationStatus = realizationStatus;
               }
-              const sectionId = await resolveSectionId("shopping", item);
+              const sectionId = await resolveSectionId("shopping", item, {
+                createIfMissing: false,
+              });
               if (sectionId === null) {
                 updates.sectionId = null;
               } else if (sectionId !== undefined) {
                 updates.sectionId = sectionId;
               }
-              const assignedTo = asNonEmptyString(item.assignedTo);
+
+              const assigneeInput = extractTaskAssigneeIdentifier(item);
+              const assignedTo = await resolveTeamAssignee(assigneeInput);
+              if (assigneeInput && assignedTo === null && !isClearAssigneeValue(assigneeInput)) {
+                return {
+                  ok: false,
+                  error:
+                    "Could not match `assignedTo` to a team member. Use an exact team member name, email, Clerk ID, or say 'assign to me'.",
+                };
+              }
               if (assignedTo !== undefined) updates.assignedTo = assignedTo;
 
               if (!hasManagedUpdateFields(updates, ["itemId"])) {
@@ -2730,7 +2776,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 return { ok: false, error: validationError };
               }
 
-              const sectionId = await resolveSectionId("shopping", item);
+              const sectionId = await resolveSectionId("shopping", item, {
+                createIfMissing: false,
+              });
 
               const updates = compactDefinedFields({
                 title:
@@ -2870,7 +2918,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 return { ok: false, error: validationError };
               }
 
-              const sectionId = await resolveSectionId("labor", item);
+              const sectionId = await resolveSectionId("labor", item, {
+                createIfMissing: false,
+              });
 
               const updates = compactDefinedFields({
                 name: extractLaborName(item),
@@ -3216,8 +3266,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             }
 
             const assigneeInput = extractTaskAssigneeIdentifier(params);
-            const assignedTo = await resolveTaskAssignee(assigneeInput);
-            if (assigneeInput && assignedTo === null) {
+            const assignedTo = await resolveTeamAssignee(assigneeInput);
+            if (assigneeInput && assignedTo === null && !isClearAssigneeValue(assigneeInput)) {
               return {
                 ok: false,
                 error:
@@ -3284,8 +3334,8 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             if (priority !== undefined) updates.priority = priority;
 
             const assigneeInput = extractTaskAssigneeIdentifier(params);
-            const assignedTo = await resolveTaskAssignee(assigneeInput);
-            if (assigneeInput && assignedTo === null) {
+            const assignedTo = await resolveTeamAssignee(assigneeInput);
+            if (assigneeInput && assignedTo === null && !isClearAssigneeValue(assigneeInput)) {
               return {
                 ok: false,
                 error:
@@ -3522,6 +3572,15 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               asNonEmptyString(params.sourceSummary),
             );
             const sectionId = await resolveSectionId("shopping", params);
+            const assigneeInput = extractTaskAssigneeIdentifier(params);
+            const assignedTo = await resolveTeamAssignee(assigneeInput);
+            if (assigneeInput && assignedTo === null && !isClearAssigneeValue(assigneeInput)) {
+              return {
+                ok: false,
+                error:
+                  "Could not match `assignedTo` to a team member. Use an exact team member name, email, Clerk ID, or say 'assign to me'.",
+              };
+            }
 
             const itemId = await convex.mutation(
               apiAny.shopping.createShoppingListItem,
@@ -3544,7 +3603,7 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 realizationStatus:
                   extractShoppingRealizationStatus(params) ?? "PLANNED",
                 sectionId: sectionId ?? null,
-                assignedTo: asNonEmptyString(params.assignedTo),
+                assignedTo: assignedTo ?? undefined,
               },
             );
 
@@ -3648,7 +3707,15 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               updates.sectionId = sectionId;
             }
 
-            const assignedTo = asNonEmptyString(params.assignedTo);
+            const assigneeInput = extractTaskAssigneeIdentifier(params);
+            const assignedTo = await resolveTeamAssignee(assigneeInput);
+            if (assigneeInput && assignedTo === null && !isClearAssigneeValue(assigneeInput)) {
+              return {
+                ok: false,
+                error:
+                  "Could not match `assignedTo` to a team member. Use an exact team member name, email, Clerk ID, or say 'assign to me'.",
+              };
+            }
             if (assignedTo !== undefined) updates.assignedTo = assignedTo;
 
             if (!hasManagedUpdateFields(updates, ["itemId"])) {
@@ -4122,7 +4189,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               return { ok: false, error: validationError };
             }
 
-            const sectionId = await resolveSectionId("shopping", params);
+            const sectionId = await resolveSectionId("shopping", params, {
+              createIfMissing: false,
+            });
 
             const result = await convex.action(
               apiAny.ai.confirmedActions.createConfirmedShoppingSet,
@@ -4168,7 +4237,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               return { ok: false, error: validationError };
             }
 
-            const sectionId = await resolveSectionId("shopping", params);
+            const sectionId = await resolveSectionId("shopping", params, {
+              createIfMissing: false,
+            });
 
             const updates = compactDefinedFields({
               title:
@@ -4294,7 +4365,9 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               return { ok: false, error: validationError };
             }
 
-            const sectionId = await resolveSectionId("labor", params);
+            const sectionId = await resolveSectionId("labor", params, {
+              createIfMissing: false,
+            });
 
             const updates = compactDefinedFields({
               name: extractLaborName(params),

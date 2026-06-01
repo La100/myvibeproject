@@ -60,7 +60,7 @@ export const createConfirmedShoppingItem = action({
       totalPrice: v.optional(v.number()),
       sectionId: v.optional(v.id("shoppingListSections")),
       setId: v.optional(v.id("shoppingSets")),
-      assignedTo: v.optional(v.string()),
+      assignedTo: v.optional(v.union(v.string(), v.null())),
     }),
   },
   returns: v.object({
@@ -218,7 +218,7 @@ export const editConfirmedShoppingItem = action({
       setId: v.optional(v.union(v.id("shoppingSets"), v.null())),
       realizationStatus: v.optional(v.union(v.literal("PLANNED"), v.literal("ORDERED"), v.literal("IN_TRANSIT"), v.literal("DELIVERED"), v.literal("COMPLETED"), v.literal("CANCELLED"))),
       sectionId: v.optional(v.union(v.id("shoppingListSections"), v.null())),
-      assignedTo: v.optional(v.string()),
+      assignedTo: v.optional(v.union(v.string(), v.null())),
     }),
   },
   returns: v.object({

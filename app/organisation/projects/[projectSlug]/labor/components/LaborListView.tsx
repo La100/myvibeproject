@@ -42,6 +42,11 @@ import { LaborSectionManager } from './LaborSectionManager';
 import { useI18n } from '@/lib/i18n';
 
 type LaborItem = Doc<"laborItems">;
+type LaborItemUpdate = Partial<Omit<LaborItem, "sectionId" | "unitPrice" | "assignedTo">> & {
+  sectionId?: Id<"laborSections"> | null;
+  unitPrice?: number | null;
+  assignedTo?: string | null;
+};
 
 export function LaborListViewLoading() {
   return <Spinner className="p-4 sm:p-6" />;
@@ -102,7 +107,7 @@ export default function LaborListView() {
   const formatItemCountLabel = (count: number) => `${count} ${count === 1 ? t('labor', 'item') : t('labor', 'items')}`;
   const getSectionOptionLabel = (section: string) => section === t('labor', 'noSection') ? t('labor', 'noSectionLower') : section;
 
-  const getAssignedMemberName = (assignedTo?: string) => {
+  const getAssignedMemberName = (assignedTo?: string | null) => {
     if (!assignedTo) return null;
     const member = teamMembers?.find((entry) => entry.clerkUserId === assignedTo);
     return member?.name || assignedTo;
@@ -249,14 +254,14 @@ export default function LaborListView() {
   const handleAddItem = async (itemData: {
     name: string;
     notes?: string;
-    sectionId?: Id<"laborSections">;
+    sectionId?: Id<"laborSections"> | null;
     quantity: number;
     unit: string;
-    unitPrice?: number;
+    unitPrice?: number | null;
     priceTaxMode?: LaborItem["priceTaxMode"];
     taxRateId?: string | null;
     taxRateSnapshot?: LaborItem["taxRateSnapshot"];
-    assignedTo?: string;
+    assignedTo?: string | null;
     referenceLink?: string | null;
     attachmentFileId?: Id<"files"> | null;
     startDate?: number;
@@ -269,7 +274,7 @@ export default function LaborListView() {
     toast.success(t('labor', 'laborItemAdded'));
   };
 
-  const handleUpdateItem = async (id: Id<"laborItems">, updates: Partial<LaborItem>) => {
+  const handleUpdateItem = async (id: Id<"laborItems">, updates: LaborItemUpdate) => {
     try {
       await updateItem({ itemId: id, ...updates });
     } catch (error) {

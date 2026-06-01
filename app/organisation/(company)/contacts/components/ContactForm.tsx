@@ -121,11 +121,18 @@ export function ContactForm({
         })) as Id<"contacts">;
 
         if (projectId) {
-          await assignContactToProject({
-            projectId,
-            contactId: createdContactId,
-          });
-          toast.success(t("contacts", "contactAddedToProject"));
+          try {
+            await assignContactToProject({
+              projectId,
+              contactId: createdContactId,
+            });
+            toast.success(t("contacts", "contactAddedToProject"));
+          } catch (assignError) {
+            console.error(assignError);
+            toast.warning(t("contacts", "contactAdded"), {
+              description: toUserFacingErrorMessage(assignError),
+            });
+          }
         } else {
           toast.success(t("contacts", "contactAdded"));
         }

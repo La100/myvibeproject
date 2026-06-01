@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
-import { ensureDemoProjectForNewWorkspace } from "./demoProjectSeed";
 import { SUBSCRIPTION_PLANS } from "./stripe";
 const internalAny = require("./_generated/api").internal as any;
 
@@ -292,7 +291,6 @@ export const createOrUpdateMembership = internalMutation({
             .withIndex("by_clerk_org", (q) => q.eq("clerkOrgId", args.clerkOrgId))
             .unique();
         
-        let createdTeam = false;
         if(!team) {
             console.warn(`Team not found for clerkOrgId: ${args.clerkOrgId}. Creating it from membership webhook.`);
             const defaults = automaticWorkspaceDefaults();
@@ -312,7 +310,6 @@ export const createOrUpdateMembership = internalMutation({
                 imageUrl: args.orgImageUrl,
                 ...defaults,
             };
-            createdTeam = true;
         } else {
             const patch: Record<string, unknown> = {};
             if (!team.onboardingCompletedAt || team.onboardingCompletedAt <= 0) {
@@ -384,8 +381,6 @@ export const createOrUpdateMembership = internalMutation({
             role = "member"; // org:member, basic_member, itp.
         }
 
-        let isFirstTeamMembership = false;
-
         // 1.5. Check whether this is the first organization member (should be an admin)
         if (!membership) {
             const existingMembers = await ctx.db
@@ -396,7 +391,6 @@ export const createOrUpdateMembership = internalMutation({
             // If this is the first organization member, make them an admin
             if (existingMembers.length === 0) {
                 role = "admin";
-                isFirstTeamMembership = true;
             }
         }
 
@@ -418,19 +412,6 @@ export const createOrUpdateMembership = internalMutation({
                 internalAny.stripeActions.syncTeamSeatQuantity,
                 { teamId: team._id },
             );
-        }
-
-        if (createdTeam || isFirstTeamMembership) {
-            try {
-                await ensureDemoProjectForNewWorkspace(ctx, {
-                    teamId: team._id,
-                    clerkOrgId: args.clerkOrgId,
-                    createdByClerkUserId: args.clerkUserId,
-                    locale: "pl",
-                });
-            } catch (error) {
-                console.error("Failed to seed demo project for new workspace", error);
-            }
         }
     }
 });

@@ -5,6 +5,7 @@ import {
   resolveOrganizationTaxSettings,
   type OrganizationPriceDisplay,
 } from "../lib/organizationTax";
+import { ensureProjectAccess, ensureTeamAccess } from "./authz";
 
 const ESTIMATION_NUMBER_REGEX = /^EST-(\d{4})-(\d{3,})$/;
 
@@ -13,6 +14,8 @@ const ESTIMATION_NUMBER_REGEX = /^EST-(\d{4})-(\d{3,})$/;
 export const listCostEstimations = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
+    await ensureProjectAccess(ctx, args.projectId);
+
     return await ctx.db
       .query("costEstimations")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -24,7 +27,12 @@ export const listCostEstimations = query({
 export const getCostEstimation = query({
   args: { estimationId: v.id("costEstimations") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.estimationId);
+    const estimation = await ctx.db.get(args.estimationId);
+    if (!estimation) return null;
+
+    await ensureProjectAccess(ctx, estimation.projectId);
+
+    return estimation;
   },
 });
 
@@ -33,6 +41,8 @@ export const getCostEstimationWithItems = query({
   handler: async (ctx, args) => {
     const estimation = await ctx.db.get(args.estimationId);
     if (!estimation) return null;
+
+    await ensureProjectAccess(ctx, estimation.projectId);
 
     const laborItems =
       estimation.laborSnapshots ??
@@ -81,11 +91,7 @@ export const createCostEstimation = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const project = await ctx.db.get(args.projectId);
-    if (!project) throw new Error("Project not found");
+    const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
 
     const title = normalizeRequiredString(args.title, "Title");
     const location = normalizeOptionalString(args.location);
@@ -175,14 +181,14 @@ export const createCostEstimation = mutation({
       notes,
       projectId: args.projectId,
       teamId: project.teamId,
-      createdBy: identity.subject,
+      createdBy: clerkUserId,
       updatedAt: Date.now(),
     });
 
     await ctx.db.insert("activityLog", {
       teamId: project.teamId,
       projectId: args.projectId,
-      userId: identity.subject,
+      userId: clerkUserId,
       actionType: "estimation.create",
       entityId: estimationId,
       entityType: "estimation",
@@ -225,14 +231,10 @@ export const updateCostEstimation = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
     const { estimationId } = args;
     const estimation = await ctx.db.get(estimationId);
     if (!estimation) throw new Error("Estimation not found");
-    const project = await ctx.db.get(estimation.projectId);
-    if (!project) throw new Error("Project not found");
+    const { project, clerkUserId } = await ensureProjectAccess(ctx, estimation.projectId);
 
     const laborItemIds = args.laborItemIds
       ? deduplicateIds(args.laborItemIds)
@@ -364,7 +366,7 @@ export const updateCostEstimation = mutation({
     await ctx.db.insert("activityLog", {
       teamId: estimation.teamId,
       projectId: estimation.projectId,
-      userId: identity.subject,
+      userId: clerkUserId,
       actionType: "estimation.update",
       entityId: estimationId,
       entityType: "estimation",
@@ -381,16 +383,14 @@ export const updateCostEstimation = mutation({
 export const deleteCostEstimation = mutation({
   args: { estimationId: v.id("costEstimations") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
     const estimation = await ctx.db.get(args.estimationId);
     if (!estimation) throw new Error("Estimation not found");
+    const { clerkUserId } = await ensureProjectAccess(ctx, estimation.projectId);
 
     await ctx.db.insert("activityLog", {
       teamId: estimation.teamId,
       projectId: estimation.projectId,
-      userId: identity.subject,
+      userId: clerkUserId,
       actionType: "estimation.delete",
       entityId: args.estimationId,
       entityType: "estimation",
@@ -417,11 +417,9 @@ export const updateEstimationStatus = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
     const estimation = await ctx.db.get(args.estimationId);
     if (!estimation) throw new Error("Estimation not found");
+    const { clerkUserId } = await ensureProjectAccess(ctx, estimation.projectId);
 
     await ctx.db.patch(args.estimationId, {
       status: args.status,
@@ -431,7 +429,7 @@ export const updateEstimationStatus = mutation({
     await ctx.db.insert("activityLog", {
       teamId: estimation.teamId,
       projectId: estimation.projectId,
-      userId: identity.subject,
+      userId: clerkUserId,
       actionType: "estimation.status_change",
       entityId: args.estimationId,
       entityType: "estimation",
@@ -451,11 +449,9 @@ export const updateEstimationStatus = mutation({
 export const recalculateEstimation = mutation({
   args: { estimationId: v.id("costEstimations") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
     const estimation = await ctx.db.get(args.estimationId);
     if (!estimation) throw new Error("Estimation not found");
+    await ensureProjectAccess(ctx, estimation.projectId);
 
     const resolvedItems = await resolveEstimationSourceItems(ctx, {
       projectId: estimation.projectId,
@@ -507,8 +503,7 @@ export const recalculateEstimation = mutation({
 export const getEstimationsByTeam = query({
   args: { teamId: v.id("teams") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    await ensureTeamAccess(ctx, args.teamId);
 
     return await ctx.db
       .query("costEstimations")
@@ -530,6 +525,8 @@ export const getEstimationsByStatus = query({
     ),
   },
   handler: async (ctx, args) => {
+    await ensureProjectAccess(ctx, args.projectId);
+
     const estimations = await ctx.db
       .query("costEstimations")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -542,6 +539,8 @@ export const getEstimationsByStatus = query({
 export const getEstimationStats = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
+    await ensureProjectAccess(ctx, args.projectId);
+
     const estimations = await ctx.db
       .query("costEstimations")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -573,6 +572,8 @@ export const getEstimationStats = query({
 export const getNextEstimationNumber = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
+    await ensureProjectAccess(ctx, args.projectId);
+
     return await generateNextEstimationNumber(ctx, args.projectId);
   },
 });

@@ -1,3 +1,5 @@
+import { v } from "convex/values";
+import { internalMutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 
 type SeedCtx = {
@@ -682,15 +684,57 @@ const generateNextProjectId = async (ctx: SeedCtx) => {
   return (lastProject?.projectId || 0) + 1;
 };
 
-const hasDemoProject = async (ctx: SeedCtx, teamId: Id<"teams">) => {
-  const existingDemo = await ctx.db
+const findDemoProject = async (ctx: SeedCtx, teamId: Id<"teams">) => {
+  return await ctx.db
     .query("projects")
     .withIndex("by_team_and_slug", (q: any) =>
       q.eq("teamId", teamId).eq("slug", DEMO_PROJECT_SLUG),
     )
     .first();
+};
 
-  return Boolean(existingDemo);
+const resolveDemoCopyForProject = (
+  project: { currency?: string; measurements?: string } | null,
+  locale?: DemoSeedLocale,
+) => {
+  if (locale) {
+    return demoSeedCopy[normalizeDemoSeedLocale(locale)];
+  }
+
+  return project?.currency === "PLN" || project?.measurements === "metric"
+    ? demoSeedCopy.pl
+    : demoSeedCopy.en;
+};
+
+const repairDemoShoppingUnits = async (
+  ctx: SeedCtx,
+  projectId: Id<"projects">,
+  copy: DemoSeedContent,
+) => {
+  const unitByName = new Map(copy.shoppingItems.map((item) => [item[0], item[5]]));
+  const items = await ctx.db
+    .query("shoppingListItems")
+    .withIndex("by_project", (q: any) => q.eq("projectId", projectId))
+    .collect();
+  const now = Date.now();
+  let patched = 0;
+
+  await Promise.all(
+    items.map((item: any) => {
+      const currentUnit = typeof item.unit === "string" ? item.unit.trim() : "";
+      if (currentUnit) {
+        return null;
+      }
+
+      patched += 1;
+      return ctx.db.patch(item._id, {
+        unit: unitByName.get(item.name) || "pcs",
+        updatedAt: now,
+      });
+    }),
+  );
+
+  return patched;
 };
 
 export const ensureDemoProjectForNewWorkspace = async (
@@ -702,7 +746,13 @@ export const ensureDemoProjectForNewWorkspace = async (
     locale?: DemoSeedLocale;
   },
 ) => {
-  if (await hasDemoProject(ctx, args.teamId)) {
+  const existingDemo = await findDemoProject(ctx, args.teamId);
+  if (existingDemo) {
+    await repairDemoShoppingUnits(
+      ctx,
+      existingDemo._id,
+      resolveDemoCopyForProject(existingDemo, args.locale),
+    );
     return null;
   }
 
@@ -774,6 +824,27 @@ export const ensureDemoProjectForNewWorkspace = async (
   return projectId;
 };
 
+export const repairDemoProjectShoppingUnits = internalMutation({
+  args: {
+    teamId: v.id("teams"),
+    locale: v.optional(v.union(v.literal("en"), v.literal("pl"))),
+  },
+  handler: async (ctx, args) => {
+    const existingDemo = await findDemoProject(ctx, args.teamId);
+    if (!existingDemo) {
+      return { patched: 0, projectId: null };
+    }
+
+    const patched = await repairDemoShoppingUnits(
+      ctx,
+      existingDemo._id,
+      resolveDemoCopyForProject(existingDemo, args.locale),
+    );
+
+    return { patched, projectId: existingDemo._id };
+  },
+});
+
 const seedTasks = async (
   ctx: SeedCtx,
   projectId: Id<"projects">,
@@ -844,7 +915,7 @@ const seedShopping = async (
           supplier: copy.demoSupplier,
           category,
           quantity,
-          unit,
+          unit: unit || "pcs",
           unitPrice,
           totalPrice: quantity * unitPrice,
           realizationStatus: copy.orderedItemNames.includes(name)

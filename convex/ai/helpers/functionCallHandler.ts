@@ -138,7 +138,7 @@ export const processFunctionCalls = async (
             break;
           }
 
-          if (type === "task" && typeof data.assignedTo === "string") {
+          if ((type === "task" || type === "shopping") && typeof data.assignedTo === "string") {
             const resolved = resolveTeamMember(data.assignedTo, teamMembers);
             if (resolved) {
               data.assignedTo = resolved.clerkUserId;

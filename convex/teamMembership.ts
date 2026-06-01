@@ -193,7 +193,7 @@ export const ensureCurrentUserTeamMembership = mutation({
       );
     }
 
-    if (createdTeam || isFirstTeamMembership) {
+    if (createdTeam || isFirstTeamMembership || membership) {
       try {
         await ensureDemoProjectForNewWorkspace(ctx, {
           teamId: team._id,

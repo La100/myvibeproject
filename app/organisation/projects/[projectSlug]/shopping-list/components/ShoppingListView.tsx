@@ -18,7 +18,7 @@ import { apiAny } from '@/lib/convexApiAny';
 import { downloadCsvFile } from '@/lib/csvExport';
 import { exportSectionedTablePdf } from '@/lib/sectionedTablePdfExport';
 import { calculateShoppingTotal, buildShoppingSetContext, isItemCountedInShoppingTotal } from '@/lib/shoppingSets';
-import { formatShoppingQuantity } from '@/lib/shoppingUnits';
+import { formatShoppingQuantity, resolveShoppingMeasurementSystem } from '@/lib/shoppingUnits';
 import {
   type ShoppingExportColumnOptions,
   formatShoppingExportProductLabel,
@@ -44,6 +44,12 @@ import { ShoppingListOnboarding } from './ShoppingListOnboarding';
 import { ShoppingListSection } from './ShoppingListSection';
 
 type ShoppingListItem = Doc<"shoppingListItems">;
+type ShoppingListItemUpdate = Partial<
+  Omit<ShoppingListItem, "assignedTo" | "sectionId">
+> & {
+  assignedTo?: string | null;
+  sectionId?: Id<"shoppingListSections"> | null;
+};
 type ShoppingSet = Doc<"shoppingSets"> & {
   resolvedBySource?: "team" | "client" | null;
   resolvedByName?: string | null;
@@ -134,6 +140,10 @@ export default function ShoppingListView() {
   }
 
   const currencySymbol = getCurrencySymbol(project.currency);
+  const measurementSystem = resolveShoppingMeasurementSystem(
+    project.measurements,
+    project.location,
+  );
   const activeTaxRates = getActivePriceTaxRates(
     team.taxRates,
     team.organizationTaxSettings,
@@ -298,7 +308,7 @@ export default function ShoppingListView() {
   const handleEnableAlternativesForItem = async (
     itemId: Id<"shoppingListItems">,
     itemName: string,
-    sectionId?: Id<"shoppingListSections">,
+    sectionId?: Id<"shoppingListSections"> | null,
   ) => {
     const setId = await createSet({
       projectId: project._id,
@@ -358,7 +368,7 @@ export default function ShoppingListView() {
     return itemId;
   };
 
-  const handleUpdateItem = async (itemId: Id<"shoppingListItems">, updates: Partial<ShoppingListItem>) => {
+  const handleUpdateItem = async (itemId: Id<"shoppingListItems">, updates: ShoppingListItemUpdate) => {
     await updateItem({ itemId, ...updates });
 
     const currentItem = items.find((item) => item._id === itemId);
@@ -584,6 +594,7 @@ export default function ShoppingListView() {
                 teamMembers={teamMembers}
                 taxRates={activeTaxRates}
                 currencySymbol={currencySymbol}
+                measurementSystem={measurementSystem}
                 onAddItem={handleAddItem}
                 onEnableAlternatives={handleEnableAlternativesForItem}
                 isPending={isPending}
@@ -782,6 +793,7 @@ export default function ShoppingListView() {
               teamMembers={teamMembers}
               sections={sections}
               taxRates={activeTaxRates}
+              measurementSystem={measurementSystem}
               onUpdateItem={handleUpdateItem}
               onDeleteItem={handleDeleteItem}
               onAddItem={handleAddItem}

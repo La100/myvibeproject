@@ -900,33 +900,20 @@ export const createProjectInOrg = mutation({
 
     const nextProjectId = await generateNextProjectId(ctx);
 
-    // Check if creator is already a team member
+    if (args.teamId !== team._id) {
+      throw new Error("Project team does not belong to this organization");
+    }
+
     const creatorMembership = await ctx.db
       .query("teamMembers")
       .withIndex("by_team_and_user", (q) =>
         q.eq("teamId", team._id).eq("clerkUserId", identity.subject),
       )
+      .filter((q) => q.eq(q.field("isActive"), true))
       .unique();
 
-    if (!creatorMembership) {
-      // If not a member, add as admin
-      await ctx.db.insert("teamMembers", {
-        teamId: team._id,
-        clerkUserId: identity.subject,
-        clerkOrgId: args.clerkOrgId,
-        role: "admin",
-        isActive: true,
-        joinedAt: Date.now(),
-        permissions: [],
-      });
-      await ctx.scheduler.runAfter(
-        0,
-        internalAny.stripeActions.syncTeamSeatQuantity,
-        { teamId: team._id },
-      );
-    } else if (creatorMembership.role !== "admin") {
-      // If already a member but not admin, promote to admin
-      await ctx.db.patch(creatorMembership._id, { role: "admin" });
+    if (!creatorMembership || creatorMembership.role !== "admin") {
+      throw new Error("Only active team admins can create projects");
     }
 
     const normalizedCoverImageUrl = args.coverImageUrl?.trim();
@@ -935,7 +922,7 @@ export const createProjectInOrg = mutation({
       name: args.name,
       description: args.description,
       coverImageUrl: normalizedCoverImageUrl || undefined,
-      teamId: args.teamId,
+      teamId: team._id,
       slug: slug,
       projectId: nextProjectId,
       status: "planning",

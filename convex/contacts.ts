@@ -258,19 +258,28 @@ export const updateContact = mutation({
       throw new Error("Access denied");
     }
 
-    await ctx.db.patch(args.contactId, {
+    const patch: Record<string, unknown> = {
       name: args.name,
-      companyName: args.companyName,
-      email: args.email,
-      phone: args.phone,
-      address: args.address,
-      city: args.city,
-      postalCode: args.postalCode,
-      website: args.website,
-      taxId: args.taxId,
       type: args.type,
-      notes: args.notes,
-    });
+    };
+
+    for (const field of [
+      "companyName",
+      "email",
+      "phone",
+      "address",
+      "city",
+      "postalCode",
+      "website",
+      "taxId",
+      "notes",
+    ] as const) {
+      if (Object.prototype.hasOwnProperty.call(args, field)) {
+        patch[field] = args[field];
+      }
+    }
+
+    await ctx.db.patch(args.contactId, patch);
 
     await ctx.runMutation(logActivityMutation, {
       teamId: contact.teamId,

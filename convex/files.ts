@@ -12,7 +12,7 @@ import { v } from "convex/values";
 import { getEffectiveLimits } from "./stripe";
 import { Doc, Id } from "./_generated/dataModel";
 import { aiDebugLog } from "./ai/helpers/debugLog";
-import { canAccessProjectWithMembership } from "./authz";
+import { canAccessProjectWithMembership, ensureTeamAccess } from "./authz";
 import { resolveActorFromExtensionSessionToken } from "./extensionSessions";
 
 export const r2 = new R2(components.r2);
@@ -2175,6 +2175,21 @@ export const deleteFileByStorageId = mutation({
 export const getFileMetadata = query({
   args: { fileKey: v.string() },
   handler: async (ctx, args) => {
+    const file = await ctx.db
+      .query("files")
+      .filter((q) => q.eq(q.field("storageId"), args.fileKey))
+      .first();
+
+    if (!file) {
+      throw new Error("File not found");
+    }
+
+    if (file.projectId) {
+      await requireCurrentProjectAccess(ctx, file.projectId);
+    } else {
+      await ensureTeamAccess(ctx, file.teamId);
+    }
+
     return await r2.getMetadata(ctx, args.fileKey);
   },
 });

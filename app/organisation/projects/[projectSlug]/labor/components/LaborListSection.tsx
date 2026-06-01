@@ -19,6 +19,11 @@ import { formatPriceTaxBreakdown } from '@/lib/priceTax';
 import { useI18n } from '@/lib/i18n';
 
 type LaborItem = Doc<'laborItems'>;
+type LaborItemUpdate = Partial<Omit<LaborItem, 'sectionId' | 'unitPrice' | 'assignedTo'>> & {
+  sectionId?: Id<'laborSections'> | null;
+  unitPrice?: number | null;
+  assignedTo?: string | null;
+};
 
 type TeamMember = {
   _id: Id<'teamMembers'>;
@@ -45,19 +50,19 @@ interface LaborListSectionProps {
   teamMembers?: TeamMember[];
   taxRates?: TeamTaxRate[];
   sections: Doc<'laborSections'>[];
-  onUpdateItem: (id: Id<'laborItems'>, updates: Partial<LaborItem>) => Promise<void>;
+  onUpdateItem: (id: Id<'laborItems'>, updates: LaborItemUpdate) => Promise<void>;
   onDeleteItem: (id: Id<'laborItems'>) => Promise<void>;
   onAddItem: (itemData: {
     name: string;
     notes?: string;
-    sectionId?: Id<'laborSections'>;
+    sectionId?: Id<'laborSections'> | null;
     quantity: number;
     unit: string;
-    unitPrice?: number;
+    unitPrice?: number | null;
     priceTaxMode?: LaborItem['priceTaxMode'];
     taxRateId?: string | null;
     taxRateSnapshot?: LaborItem['taxRateSnapshot'];
-    assignedTo?: string;
+    assignedTo?: string | null;
     referenceLink?: string | null;
     attachmentFileId?: Id<'files'> | null;
     startDate?: number;
@@ -97,7 +102,7 @@ export function LaborListSection({
     setEditingItemId(null);
   };
 
-  const getAssignedMemberName = (assignedTo?: string) => {
+  const getAssignedMemberName = (assignedTo?: string | null) => {
     if (!assignedTo) return null;
     const member = teamMembers?.find((entry) => entry.clerkUserId === assignedTo);
     return member?.name || assignedTo;

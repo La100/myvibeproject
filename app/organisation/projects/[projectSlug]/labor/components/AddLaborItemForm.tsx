@@ -41,14 +41,14 @@ interface AddLaborItemFormProps {
   onAddItem: (itemData: {
     name: string;
     notes?: string;
-    sectionId?: Id<"laborSections">;
+    sectionId?: Id<"laborSections"> | null;
     quantity: number;
     unit: string;
-    unitPrice?: number;
+    unitPrice?: number | null;
     priceTaxMode?: PriceTaxMode;
     taxRateId?: string | null;
     taxRateSnapshot?: PriceTaxRateSnapshot | null;
-    assignedTo?: string;
+    assignedTo?: string | null;
     referenceLink?: string | null;
     attachmentFileId?: Id<"files"> | null;
     startDate?: number;
@@ -68,7 +68,7 @@ interface AddLaborItemFormProps {
     priceTaxMode?: PriceTaxMode;
     taxRateId?: string | null;
     taxRateSnapshot?: PriceTaxRateSnapshot | null;
-    assignedTo?: string;
+    assignedTo?: string | null;
     referenceLink?: string | null;
     startDate?: number;
     endDate?: number;
@@ -260,7 +260,11 @@ export function AddLaborItemForm({
   const handleAddItem = async () => {
     if (!newItemName.trim() || isUploadingAttachment) return;
 
-    const unitPrice = parseFloat(newItemUnitPrice) || undefined;
+    const unitPrice = newItemUnitPrice.trim()
+      ? Number.parseFloat(newItemUnitPrice)
+      : initialValues
+        ? null
+        : undefined;
     const normalizedPriceTaxMode = normalizePriceTaxMode(newItemPriceTaxMode);
     const taxRateSnapshot = resolvePriceTaxSnapshot(
       normalizedPriceTaxMode,
@@ -302,7 +306,12 @@ export function AddLaborItemForm({
       await onAddItem({
         name: newItemName.trim(),
         notes: newItemNotes.trim() || undefined,
-        sectionId: newItemSectionId === "none" ? undefined : (newItemSectionId || undefined),
+        sectionId:
+          newItemSectionId === "none"
+            ? initialValues
+              ? null
+              : undefined
+            : (newItemSectionId || undefined),
         quantity: newItemQuantity,
         unit: newItemUnit,
         unitPrice: unitPrice,
@@ -312,7 +321,12 @@ export function AddLaborItemForm({
             ? taxRateSnapshot?.id ?? selectedTaxRateId
             : null,
         taxRateSnapshot: taxRateSnapshot ?? null,
-        assignedTo: newItemAssignedTo === 'none' ? undefined : newItemAssignedTo,
+        assignedTo:
+          newItemAssignedTo === 'none'
+            ? initialValues
+              ? null
+              : undefined
+            : newItemAssignedTo,
         referenceLink: normalizedReferenceLink,
         attachmentFileId,
         startDate: computedStartDate,

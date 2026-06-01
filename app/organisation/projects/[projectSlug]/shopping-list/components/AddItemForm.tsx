@@ -21,8 +21,10 @@ import type { TeamMember } from "@/lib/teamMember";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import {
-  DEFAULT_SHOPPING_UNIT,
-  SHOPPING_UNITS,
+  ensureShoppingUnitOption,
+  getDefaultShoppingUnit,
+  getShoppingUnitsForMeasurementSystem,
+  type ShoppingMeasurementSystem,
 } from "@/lib/shoppingUnits";
 import type { TeamTaxRate } from "@/lib/organizationTax";
 import {
@@ -78,6 +80,7 @@ interface AddItemFormProps {
   isPending: boolean;
   defaultSectionId?: Id<"shoppingListSections">;
   defaultSetId?: Id<"shoppingSets">;
+  measurementSystem: ShoppingMeasurementSystem;
   hideSectionField?: boolean;
   hideAlternativeControls?: boolean;
   submitLabel?: string;
@@ -95,11 +98,12 @@ export function AddItemForm({
   isPending,
   defaultSectionId,
   defaultSetId,
+  measurementSystem,
   hideSectionField = false,
   hideAlternativeControls = false,
   submitLabel,
 }: AddItemFormProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const generateUploadUrl = useMutation(apiAny.files.generateUploadUrlWithCustomKey);
   const resolvedSubmitLabel = submitLabel ?? t("shoppingList", "addProduct");
   const [newItemName, setNewItemName] = useState("");
@@ -111,7 +115,7 @@ export function AddItemForm({
   const [newItemCatalogNumber, setNewItemCatalogNumber] = useState("");
   const [newItemDimensions, setNewItemDimensions] = useState("");
   const [newItemQuantity, setNewItemQuantity] = useState(1);
-  const [newItemUnit, setNewItemUnit] = useState(DEFAULT_SHOPPING_UNIT);
+  const [newItemUnit, setNewItemUnit] = useState(getDefaultShoppingUnit());
   const [newItemUnitPrice, setNewItemUnitPrice] = useState("");
   const [newItemPriceTaxMode, setNewItemPriceTaxMode] =
     useState<PriceTaxMode>("unspecified");
@@ -129,6 +133,10 @@ export function AddItemForm({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [newItemHasAlternatives, setNewItemHasAlternatives] = useState(false);
   const activeTaxRates = taxRates.filter((entry) => !entry.isArchived);
+  const unitOptions = ensureShoppingUnitOption(
+    getShoppingUnitsForMeasurementSystem(measurementSystem, locale),
+    newItemUnit,
+  );
   const selectedTaxRateId =
     newItemTaxRateId || getDefaultPriceTaxRateId(activeTaxRates) || "";
   const selectedTaxSnapshot = resolvePriceTaxSnapshot(
@@ -346,7 +354,7 @@ export function AddItemForm({
       setNewItemCatalogNumber("");
       setNewItemDimensions("");
       setNewItemQuantity(1);
-      setNewItemUnit(DEFAULT_SHOPPING_UNIT);
+      setNewItemUnit(getDefaultShoppingUnit());
       setNewItemUnitPrice("");
       setNewItemPriceTaxMode("unspecified");
       setNewItemTaxRateId(getDefaultPriceTaxRateId(activeTaxRates) ?? "");
@@ -481,7 +489,7 @@ export function AddItemForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {SHOPPING_UNITS.map((unit) => (
+              {unitOptions.map((unit) => (
                 <SelectItem key={unit.value} value={unit.value}>
                   {unit.label}
                 </SelectItem>

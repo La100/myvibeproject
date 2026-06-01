@@ -368,7 +368,7 @@ export const createLaborItem = mutation({
     taxRateId: v.optional(v.union(v.string(), v.null())),
     taxRateSnapshot: v.optional(v.union(priceTaxRateSnapshotValidator, v.null())),
     sectionId: v.optional(v.union(v.id("laborSections"), v.null())),
-    assignedTo: v.optional(v.string()),
+    assignedTo: v.optional(v.union(v.string(), v.null())),
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
   },
@@ -384,10 +384,18 @@ export const createLaborItem = mutation({
     const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
     await ensureLaborSectionBelongsToProject(ctx, args.sectionId ?? null, args.projectId);
 
+    if (args.quantity <= 0) {
+      throw new Error("Labor quantity must be greater than 0");
+    }
+    if (args.unitPrice !== undefined && args.unitPrice < 0) {
+      throw new Error("Labor unit price cannot be negative");
+    }
+
     const normalizedReferenceLink = normalizeReferenceLink(args.referenceLink);
     await assertAttachmentBelongsToProject(ctx, args.projectId, args.attachmentFileId);
 
-    const totalPrice = args.unitPrice ? args.quantity * args.unitPrice : undefined;
+    const totalPrice =
+      args.unitPrice !== undefined ? args.quantity * args.unitPrice : undefined;
 
     const itemId = await ctx.db.insert("laborItems", {
       name: args.name,
@@ -396,7 +404,7 @@ export const createLaborItem = mutation({
       attachmentFileId: args.attachmentFileId || null,
       quantity: args.quantity,
       unit: args.unit,
-      unitPrice: args.unitPrice || undefined,
+      unitPrice: args.unitPrice,
       totalPrice: totalPrice,
       priceTaxMode: args.priceTaxMode ?? "unspecified",
       taxRateId: args.taxRateId ?? null,
@@ -405,7 +413,7 @@ export const createLaborItem = mutation({
       projectId: args.projectId,
       teamId: project.teamId,
       createdBy: clerkUserId,
-      assignedTo: args.assignedTo || undefined,
+      assignedTo: args.assignedTo ?? null,
       startDate: args.startDate,
       endDate: args.endDate,
       updatedAt: Date.now(),
@@ -439,23 +447,37 @@ export const updateLaborItem = mutation({
     attachmentFileId: v.optional(v.union(v.id("files"), v.null())),
     quantity: v.optional(v.number()),
     unit: v.optional(v.string()),
-    unitPrice: v.optional(v.number()),
+    unitPrice: v.optional(v.union(v.number(), v.null())),
     priceTaxMode: v.optional(priceTaxModeValidator),
     taxRateId: v.optional(v.union(v.string(), v.null())),
     taxRateSnapshot: v.optional(v.union(priceTaxRateSnapshotValidator, v.null())),
     sectionId: v.optional(v.union(v.id("laborSections"), v.null())),
-    assignedTo: v.optional(v.string()),
+    assignedTo: v.optional(v.union(v.string(), v.null())),
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const { itemId, ...updates } = args;
     const item = await ensureLaborItemAccess(ctx, itemId);
+    const hasOwn = (key: keyof typeof updates) =>
+      Object.prototype.hasOwnProperty.call(updates, key);
 
-    const nextStartDate = Object.prototype.hasOwnProperty.call(updates, "startDate")
+    if (hasOwn("quantity") && updates.quantity !== undefined && updates.quantity <= 0) {
+      throw new Error("Labor quantity must be greater than 0");
+    }
+    if (
+      hasOwn("unitPrice") &&
+      updates.unitPrice !== undefined &&
+      updates.unitPrice !== null &&
+      updates.unitPrice < 0
+    ) {
+      throw new Error("Labor unit price cannot be negative");
+    }
+
+    const nextStartDate = hasOwn("startDate")
       ? updates.startDate
       : item.startDate;
-    const nextEndDate = Object.prototype.hasOwnProperty.call(updates, "endDate")
+    const nextEndDate = hasOwn("endDate")
       ? updates.endDate
       : item.endDate;
 
@@ -467,16 +489,18 @@ export const updateLaborItem = mutation({
       throw new Error("Labor end date cannot be earlier than the start date");
     }
 
-    if (Object.prototype.hasOwnProperty.call(updates, "sectionId")) {
+    if (hasOwn("sectionId")) {
       await ensureLaborSectionBelongsToProject(ctx, updates.sectionId ?? null, item.projectId);
     }
 
     let totalPrice = item.totalPrice;
     const quantity = updates.quantity ?? item.quantity;
-    const unitPrice = updates.unitPrice ?? item.unitPrice;
+    const unitPrice = hasOwn("unitPrice")
+      ? (updates.unitPrice ?? undefined)
+      : item.unitPrice;
 
-    if (updates.quantity !== undefined || updates.unitPrice !== undefined) {
-      totalPrice = unitPrice ? quantity * unitPrice : undefined;
+    if (hasOwn("quantity") || hasOwn("unitPrice")) {
+      totalPrice = unitPrice !== undefined ? quantity * unitPrice : undefined;
     }
 
     const patch: Record<string, unknown> = {
@@ -492,6 +516,14 @@ export const updateLaborItem = mutation({
     if ("attachmentFileId" in updates) {
       await assertAttachmentBelongsToProject(ctx, item.projectId, updates.attachmentFileId);
       patch.attachmentFileId = updates.attachmentFileId || null;
+    }
+
+    if (hasOwn("unitPrice")) {
+      patch.unitPrice = updates.unitPrice ?? undefined;
+    }
+
+    if (hasOwn("assignedTo")) {
+      patch.assignedTo = updates.assignedTo ?? null;
     }
 
     await ctx.db.patch(itemId, patch);

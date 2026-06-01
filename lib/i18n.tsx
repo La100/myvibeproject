@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { locales, type Locale } from "@/lib/i18nConfig";
+import { safeLocalStorageGet, safeLocalStorageSet } from "@/lib/safeLocalStorage";
 export type { Locale } from "@/lib/i18nConfig";
 
 const localeStorageKey = "myvibe.locale";
@@ -6979,7 +6980,7 @@ const getInitialLocale = (fallback: Locale): Locale => {
     return fallback;
   }
 
-  const storedLocale = window.localStorage.getItem(localeStorageKey);
+  const storedLocale = safeLocalStorageGet(localeStorageKey);
   return isLocale(storedLocale) ? storedLocale : fallback;
 };
 
@@ -6998,7 +6999,7 @@ export function I18nProvider({
 
   useEffect(() => {
     document.documentElement.lang = locale;
-    window.localStorage.setItem(localeStorageKey, locale);
+    safeLocalStorageSet(localeStorageKey, locale);
     document.cookie = `${localeStorageKey}=${locale};path=/;max-age=31536000;samesite=lax`;
   }, [locale]);
 

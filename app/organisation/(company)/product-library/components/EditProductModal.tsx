@@ -96,25 +96,34 @@ export function EditProductModal({ product, onClose }: EditProductModalProps) {
 
     setIsSubmitting(true);
     try {
+      const optionalText = (value: string) => {
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : null;
+      };
+      const optionalNumber = (value: string) => {
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? parseFloat(trimmed) : null;
+      };
+
       await updateProduct({
         productId: product._id as Id<"productLibrary">,
-        name: formData.name,
-        description: formData.description || undefined,
-        category: formData.category || undefined,
-        brand: formData.brand || undefined,
-        model: formData.model || undefined,
-        sku: formData.sku || undefined,
-        imageUrl: formData.imageUrl || undefined,
-        productLink: formData.productLink || undefined,
-        supplier: formData.supplier || undefined,
-        supplierSku: formData.supplierSku || undefined,
-        dimensions: formData.dimensions || undefined,
-        weight: formData.weight ? parseFloat(formData.weight) : undefined,
-        material: formData.material || undefined,
-        color: formData.color || undefined,
-        unitPrice: formData.unitPrice ? parseFloat(formData.unitPrice) : undefined,
+        name: formData.name.trim(),
+        description: optionalText(formData.description),
+        category: optionalText(formData.category),
+        brand: optionalText(formData.brand),
+        model: optionalText(formData.model),
+        sku: optionalText(formData.sku),
+        imageUrl: optionalText(formData.imageUrl),
+        productLink: optionalText(formData.productLink),
+        supplier: optionalText(formData.supplier),
+        supplierSku: optionalText(formData.supplierSku),
+        dimensions: optionalText(formData.dimensions),
+        weight: optionalNumber(formData.weight),
+        material: optionalText(formData.material),
+        color: optionalText(formData.color),
+        unitPrice: optionalNumber(formData.unitPrice),
         tags: tags,
-        notes: formData.notes || undefined,
+        notes: optionalText(formData.notes),
       });
 
       toast.success(t("productLibrary", "updateProduct"));

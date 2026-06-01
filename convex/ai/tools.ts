@@ -158,6 +158,14 @@ const shoppingFields = z.object({
   sectionName: z.string().optional().describe("Shopping list section name"),
   setId: z.string().optional().describe("Optional shopping set ID when this item belongs to a set"),
   setName: z.string().optional().describe("Optional shopping set title when grouping related items"),
+  assignedTo: z
+    .union([z.string(), z.null()])
+    .optional()
+    .describe("Clerk ID, team member name, email, 'me', or null to clear the shopping item assignee"),
+  assignee: z
+    .union([z.string(), z.null()])
+    .optional()
+    .describe("Alias for assignedTo"),
 }).passthrough();
 
 const shoppingSetFields = z.object({
@@ -1064,6 +1072,12 @@ async function executeSinglePayload(
     totalPrice: typeof data.totalPrice === "number" ? data.totalPrice : undefined,
     sectionId: data.sectionId,
     setId: data.setId,
+    assignedTo:
+      typeof data.assignedTo === "string" || data.assignedTo === null
+        ? data.assignedTo
+        : typeof data.assignee === "string" || data.assignee === null
+          ? data.assignee
+          : undefined,
   });
 
   const shoppingSetCreateData = compactRecord({
@@ -1097,7 +1111,12 @@ async function executeSinglePayload(
       updates.sectionId === null || typeof updates.sectionId === "string"
         ? updates.sectionId
         : undefined,
-    assignedTo: typeof updates.assignedTo === "string" ? updates.assignedTo : undefined,
+    assignedTo:
+      typeof updates.assignedTo === "string" || updates.assignedTo === null
+        ? updates.assignedTo
+        : typeof updates.assignee === "string" || updates.assignee === null
+          ? updates.assignee
+          : undefined,
   });
 
   const shoppingSetUpdateData = compactRecord({
@@ -1909,7 +1928,8 @@ function hasMeaningfulValue(
   options?: { allowZeroNumber?: boolean },
 ): boolean {
   const { allowZeroNumber = true } = options ?? {};
-  if (value === undefined || value === null) return false;
+  if (value === undefined) return false;
+  if (value === null) return true;
   if (typeof value === "string") return value.trim().length > 0;
   if (typeof value === "number") return Number.isFinite(value) && (allowZeroNumber || value !== 0);
   if (Array.isArray(value)) return value.some((entry) => hasMeaningfulValue(entry, options));
@@ -2517,7 +2537,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
               error: "Project start date must be a valid ISO date or timestamp",
             });
           }
-          updates.startDate = rawStartDate.length > 0 ? rawStartDate : undefined;
+          updates.startDate = rawStartDate.length > 0 ? Date.parse(rawStartDate) : undefined;
         }
         if (hasOwn("endDate")) {
           const rawEndDate =
@@ -2527,7 +2547,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
               error: "Project end date must be a valid ISO date or timestamp",
             });
           }
-          updates.endDate = rawEndDate.length > 0 ? rawEndDate : undefined;
+          updates.endDate = rawEndDate.length > 0 ? Date.parse(rawEndDate) : undefined;
         }
         if (hasOwn("customer")) {
           updates.customer =
@@ -2565,11 +2585,11 @@ export function createStreamingTools(options?: StreamingToolOptions) {
         }
 
         const startTimestamp =
-          typeof updates.startDate === "string"
-            ? Date.parse(updates.startDate)
+          typeof updates.startDate === "number"
+            ? updates.startDate
             : undefined;
         const endTimestamp =
-          typeof updates.endDate === "string" ? Date.parse(updates.endDate) : undefined;
+          typeof updates.endDate === "number" ? updates.endDate : undefined;
         if (
           typeof startTimestamp === "number" &&
           Number.isFinite(startTimestamp) &&

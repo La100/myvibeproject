@@ -964,12 +964,19 @@ export const createShoppingListItem = mutation({
     setId: v.optional(v.union(v.id("shoppingSets"), v.null())),
     realizationStatus: v.union(v.literal("PLANNED"), v.literal("ORDERED"), v.literal("IN_TRANSIT"), v.literal("DELIVERED"), v.literal("COMPLETED"), v.literal("CANCELLED")),
     sectionId: v.optional(v.union(v.id("shoppingListSections"), v.null())),
-    assignedTo: v.optional(v.string()),
+    assignedTo: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
     const { project, clerkUserId } = await ensureProjectAccess(ctx, args.projectId);
     await ensureSectionBelongsToProject(ctx, args.sectionId ?? null, args.projectId);
     await ensureSetBelongsToProject(ctx, args.setId ?? null, args.projectId);
+
+    if (!Number.isFinite(args.quantity) || args.quantity <= 0) {
+      throw new Error("Quantity must be greater than zero");
+    }
+    if (args.unitPrice !== undefined && (!Number.isFinite(args.unitPrice) || args.unitPrice < 0)) {
+      throw new Error("Unit price must be zero or greater");
+    }
 
     const unitPrice = args.unitPrice;
     const hasUnitPrice = unitPrice !== undefined;
@@ -985,7 +992,7 @@ export const createShoppingListItem = mutation({
       projectId: args.projectId,
       teamId: project.teamId,
       createdBy: clerkUserId,
-      assignedTo: args.assignedTo || undefined,
+      assignedTo: args.assignedTo ?? null,
       supplier: args.supplier || undefined,
       category: args.category || undefined,
       realizationStatus: args.realizationStatus,
@@ -1046,7 +1053,7 @@ export const updateShoppingListItem = mutation({
     setId: v.optional(v.union(v.id("shoppingSets"), v.null())),
     realizationStatus: v.optional(v.union(v.literal("PLANNED"), v.literal("ORDERED"), v.literal("IN_TRANSIT"), v.literal("DELIVERED"), v.literal("COMPLETED"), v.literal("CANCELLED"))),
     sectionId: v.optional(v.union(v.id("shoppingListSections"), v.null())),
-    assignedTo: v.optional(v.string()),
+    assignedTo: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
     const { itemId, ...updates } = args;
@@ -1057,6 +1064,12 @@ export const updateShoppingListItem = mutation({
     }
     if (Object.prototype.hasOwnProperty.call(updates, "setId")) {
       await ensureSetBelongsToProject(ctx, updates.setId ?? null, item.projectId);
+    }
+    if (updates.quantity !== undefined && (!Number.isFinite(updates.quantity) || updates.quantity <= 0)) {
+      throw new Error("Quantity must be greater than zero");
+    }
+    if (updates.unitPrice !== undefined && (!Number.isFinite(updates.unitPrice) || updates.unitPrice < 0)) {
+      throw new Error("Unit price must be zero or greater");
     }
 
     let totalPrice = item.totalPrice;

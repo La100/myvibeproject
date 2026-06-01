@@ -102,6 +102,7 @@ export function PostAuthRouter() {
   );
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
+  const [bootstrapReadyOrgId, setBootstrapReadyOrgId] = useState<string | null>(null);
   const bootstrappedOrgIdRef = useRef<string | null>(null);
   const bootstrapStartedAtRef = useRef<number | null>(null);
 
@@ -118,6 +119,7 @@ export function PostAuthRouter() {
   useEffect(() => {
     bootstrapStartedAtRef.current = null;
     bootstrappedOrgIdRef.current = null;
+    setBootstrapReadyOrgId(null);
     setBootstrapError(null);
     setBootstrapAttempt(0);
   }, [organization?.id]);
@@ -125,7 +127,6 @@ export function PostAuthRouter() {
   useEffect(() => {
     if (
       !activeWorkspaceOrgId ||
-      teamSettings !== null ||
       isConvexAuthLoading ||
       !isConvexAuthenticated ||
       bootstrappedOrgIdRef.current === activeWorkspaceOrgId
@@ -166,7 +167,10 @@ export function PostAuthRouter() {
         if (isSyncPendingResult(result)) {
           bootstrappedOrgIdRef.current = null;
           retryBootstrap();
+          return;
         }
+
+        setBootstrapReadyOrgId(activeWorkspaceOrgId);
       })
       .catch((error) => {
       if (cancelled) {
@@ -188,18 +192,17 @@ export function PostAuthRouter() {
     isConvexAuthLoading,
     locale,
     organization?.name,
-    teamSettings,
     t,
   ]);
 
   useEffect(() => {
-    if (!organization?.id || !teamSettings) {
+    if (!organization?.id || !teamSettings || bootstrapReadyOrgId !== organization.id) {
       return;
     }
 
     bootstrapStartedAtRef.current = null;
     router.replace("/organisation");
-  }, [organization?.id, router, teamSettings]);
+  }, [bootstrapReadyOrgId, organization?.id, router, teamSettings]);
 
   const loadingDescription = useMemo(() => {
     if (!isAuthLoaded || !isOrganizationLoaded) {
