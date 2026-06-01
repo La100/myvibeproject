@@ -69,6 +69,12 @@ export const ensureCurrentUserTeamMembership = mutation({
           .unique();
 
         if (existingMembership) {
+          await ensureDemoProjectForNewWorkspace(ctx, {
+            teamId: existingTeam._id,
+            clerkOrgId: args.clerkOrgId,
+            createdByClerkUserId: identity.subject,
+            locale: args.locale,
+          });
           return ready(existingTeam._id);
         }
       }
@@ -200,16 +206,12 @@ export const ensureCurrentUserTeamMembership = mutation({
     }
 
     if (createdTeam || isFirstTeamMembership || membership) {
-      try {
-        await ensureDemoProjectForNewWorkspace(ctx, {
-          teamId: team._id,
-          clerkOrgId: args.clerkOrgId,
-          createdByClerkUserId: identity.subject,
-          locale: args.locale,
-        });
-      } catch (error) {
-        console.error("Failed to seed demo project for new workspace", error);
-      }
+      await ensureDemoProjectForNewWorkspace(ctx, {
+        teamId: team._id,
+        clerkOrgId: args.clerkOrgId,
+        createdByClerkUserId: identity.subject,
+        locale: args.locale,
+      });
     }
 
     return ready(team._id);

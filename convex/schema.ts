@@ -368,6 +368,7 @@ export default defineSchema({
     aiTokens: v.optional(v.number()), // Total tokens available for this team
     timezone: v.optional(v.string()), // Team timezone (e.g. "Europe/Warsaw")
     onboardingCompletedAt: v.optional(v.number()),
+    demoProjectSeededAt: v.optional(v.number()),
     stripeConnectAccountId: v.optional(v.string()),
     stripeConnectChargesEnabled: v.optional(v.boolean()),
     stripeConnectPayoutsEnabled: v.optional(v.boolean()),

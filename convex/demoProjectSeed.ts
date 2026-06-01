@@ -693,6 +693,12 @@ const findDemoProject = async (ctx: SeedCtx, teamId: Id<"teams">) => {
     .first();
 };
 
+const markDemoProjectSeeded = async (ctx: SeedCtx, teamId: Id<"teams">) => {
+  await ctx.db.patch(teamId, {
+    demoProjectSeededAt: Date.now(),
+  });
+};
+
 const resolveDemoCopyForProject = (
   project: { currency?: string; measurements?: string } | null,
   locale?: DemoSeedLocale,
@@ -753,6 +759,7 @@ export const ensureDemoProjectForNewWorkspace = async (
       existingDemo._id,
       resolveDemoCopyForProject(existingDemo, args.locale),
     );
+    await markDemoProjectSeeded(ctx, args.teamId);
     return null;
   }
 
@@ -812,6 +819,13 @@ export const ensureDemoProjectForNewWorkspace = async (
     args.createdByClerkUserId,
     copy,
   );
+  await seedContacts(
+    ctx,
+    projectId,
+    args.teamId,
+    args.createdByClerkUserId,
+    copy,
+  );
   await seedNotes(
     ctx,
     projectId,
@@ -820,6 +834,8 @@ export const ensureDemoProjectForNewWorkspace = async (
     now,
     copy,
   );
+
+  await markDemoProjectSeeded(ctx, args.teamId);
 
   return projectId;
 };

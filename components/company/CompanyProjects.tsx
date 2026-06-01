@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
@@ -66,10 +66,18 @@ export default function CompanyProjects() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<ProjectSort>("recent_activity");
   const [projectView, setProjectView] = useState<ProjectView>("active");
+  const demoSeedAttemptedOrgIdRef = useRef<string | null>(null);
   const updateProject = useMutation(apiAny.projects.updateProject);
+  const ensureCurrentUserTeamMembership = useMutation(
+    apiAny.teamMembership.ensureCurrentUserTeamMembership,
+  );
 
   const projects = useQuery(
     apiAny.projects.listProjectsByClerkOrg,
+    organization?.id ? { clerkOrgId: organization.id } : "skip",
+  );
+  const teamSettings = useQuery(
+    apiAny.teams.getTeamSettingsByClerkOrg,
     organization?.id ? { clerkOrgId: organization.id } : "skip",
   );
 
@@ -113,6 +121,37 @@ export default function CompanyProjects() {
     projects?.filter((project) => project.status !== "archived").length ?? 0;
   const archivedProjectCount =
     projects?.filter((project) => project.status === "archived").length ?? 0;
+
+  useEffect(() => {
+    if (
+      !organization?.id ||
+      projects === undefined ||
+      projects.length > 0 ||
+      teamSettings === undefined ||
+      teamSettings === null ||
+      teamSettings.demoProjectSeeded ||
+      demoSeedAttemptedOrgIdRef.current === organization.id
+    ) {
+      return;
+    }
+
+    demoSeedAttemptedOrgIdRef.current = organization.id;
+    void ensureCurrentUserTeamMembership({
+      clerkOrgId: organization.id,
+      orgName: organization.name,
+      locale,
+    }).catch((error) => {
+      demoSeedAttemptedOrgIdRef.current = null;
+      console.error("Failed to repair demo project seed", error);
+    });
+  }, [
+    ensureCurrentUserTeamMembership,
+    locale,
+    organization?.id,
+    organization?.name,
+    projects,
+    teamSettings,
+  ]);
 
   const handleArchiveToggle = async (project: {
     _id: string;

@@ -422,6 +422,7 @@ export const getTeamSettingsByClerkOrg = query({
       imageUrl: team.imageUrl,
       hasCustomOrganizationImage: Boolean(team.customOrganizationImageSetAt),
       onboardingCompleted: Boolean(team.onboardingCompletedAt && team.onboardingCompletedAt > 0),
+      demoProjectSeeded: Boolean(team.demoProjectSeededAt && team.demoProjectSeededAt > 0),
       currency: team.currency || "PLN",
       timezone: team.timezone,
       billingProfile: resolveOrganizationBillingProfile(
