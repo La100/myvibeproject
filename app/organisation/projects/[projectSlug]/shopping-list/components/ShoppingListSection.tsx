@@ -1367,7 +1367,6 @@ export function ShoppingListSection({
     const customerDecisionTone = getCustomerDecisionTone(item.customerDecision);
     const customerDecisionLabel = getCustomerDecisionLabel(item.customerDecision);
     const headerDetails = [
-      item.category ? { label: t("shoppingList", "category"), value: item.category, field: "category" as const } : null,
       item.dimensions ? { label: t("shoppingList", "dimensions"), value: item.dimensions, field: "dimensions" as const } : null,
       item.catalogNumber ? { label: t("shoppingList", "catalogShort"), value: item.catalogNumber, field: "catalogNumber" as const } : null,
     ].filter(Boolean) as Array<{ label: string; value: string; field: InlineEditField }>;
@@ -1498,6 +1497,23 @@ export function ShoppingListSection({
                         inputClassName: "w-44",
                         placeholder: t("shoppingList", "supplier"),
                       })
+                    ) : null}
+                    {item.category ? (
+                      <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-secondary/35 px-2.5 py-1">
+                        <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                          {t("shoppingList", "category")}
+                        </span>
+                        {renderEditableValue(
+                          item,
+                          "category",
+                          <span className="block max-w-full truncate">{item.category}</span>,
+                          {
+                            className: "min-w-0 max-w-full text-muted-foreground",
+                            inputClassName: "w-40",
+                            placeholder: t("shoppingList", "categoryPlaceholder"),
+                          },
+                        )}
+                      </span>
                     ) : null}
                   </div>
                   {item.priority || item.buyBefore || assignedName ? (
