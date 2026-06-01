@@ -6984,6 +6984,16 @@ const getInitialLocale = (fallback: Locale): Locale => {
   return isLocale(storedLocale) ? storedLocale : fallback;
 };
 
+const persistLocale = (locale: Locale) => {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  document.documentElement.lang = locale;
+  safeLocalStorageSet(localeStorageKey, locale);
+  document.cookie = `${localeStorageKey}=${locale};path=/;max-age=31536000;samesite=lax`;
+};
+
 export function I18nProvider({
   children,
   initialLocale = "en",
@@ -6991,19 +7001,18 @@ export function I18nProvider({
   children: ReactNode;
   initialLocale?: Locale;
 }) {
-  const [locale, setLocaleState] = useState<Locale>(initialLocale);
+  const [locale, setLocaleState] = useState<Locale>(() => getInitialLocale(initialLocale));
 
   useEffect(() => {
     setLocaleState(getInitialLocale(initialLocale));
   }, [initialLocale]);
 
   useEffect(() => {
-    document.documentElement.lang = locale;
-    safeLocalStorageSet(localeStorageKey, locale);
-    document.cookie = `${localeStorageKey}=${locale};path=/;max-age=31536000;samesite=lax`;
+    persistLocale(locale);
   }, [locale]);
 
   const setLocale = useCallback((nextLocale: Locale) => {
+    persistLocale(nextLocale);
     setLocaleState(nextLocale);
   }, []);
 

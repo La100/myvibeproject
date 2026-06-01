@@ -4,8 +4,8 @@ This repo now treats `AI` as a self-hosted ChatKit surface.
 
 ## Architecture
 
-- Public web app: this Next.js app on Railway
-- Private ChatKit backend: one Railway service with two ChatKit endpoints
+- Public web app: the Next.js app deployed separately, for example on Vercel
+- ChatKit backend: one Railway service with two ChatKit endpoints
 - Browser traffic: `AI` calls `/api/chatkit/self-hosted`
 - App proxy: forwards requests to `CHATKIT_SELF_HOSTED_SERVER_URL`
 - Backend auth: the proxy attaches an internal secret plus user, team, project, and Convex context headers
@@ -21,13 +21,9 @@ OpenAI's ChatKit advanced integration uses a custom API URL instead of hosted Ch
 - `components/ai/chatkit/VisualizationChatKit.tsx` is a second ChatKit surface for organization-level visualizations
 - `app/api/chatkit/visualizations/[[...path]]/route.ts` is the team-scoped proxy for visualization-only ChatKit traffic
 
-## Railway service 1: Next.js app
+## Web app environment
 
-Use the repo root as the service root.
-
-Config is in [railway.json](/Users/cinu/Desktop/myvibeproject/railway.json).
-
-Required variables:
+Set these in the production Next.js host, not in the Railway ChatKit service:
 
 - `NEXT_PUBLIC_BASE_URL=https://<your-app-domain>`
 - `NEXT_PUBLIC_APP_URL=https://<your-app-domain>`
@@ -37,16 +33,16 @@ Required variables:
 - `CLERK_JWT_ISSUER_DOMAIN=<your-clerk-jwt-issuer-domain>`
 - `NEXT_PUBLIC_CHATKIT_SELF_HOSTED_URL=/api/chatkit/self-hosted`
 - `NEXT_PUBLIC_CHATKIT_SELF_HOSTED_DOMAIN_KEY=<domain-key-issued-for-your-chatkit-backend>`
-- `CHATKIT_SELF_HOSTED_SERVER_URL=http://<your-private-chatkit-service>:<port>/chatkit`
+- `CHATKIT_SELF_HOSTED_SERVER_URL=https://<chatkit-railway-domain>/chatkit`
 - `CHATKIT_SELF_HOSTED_INTERNAL_SECRET=<shared-secret>`
 - `NEXT_PUBLIC_CHATKIT_VISUALIZATIONS_URL=/api/chatkit/visualizations`
 - `NEXT_PUBLIC_CHATKIT_VISUALIZATIONS_DOMAIN_KEY=<domain-key-issued-for-your-visualization-chatkit-backend>`
-- `CHATKIT_VISUALIZATIONS_SERVER_URL=http://<your-private-chatkit-service>:<port>/visualizations/chatkit`
+- `CHATKIT_VISUALIZATIONS_SERVER_URL=https://<chatkit-railway-domain>/visualizations/chatkit`
 - `CHATKIT_VISUALIZATIONS_INTERNAL_SECRET=<shared-secret>`
 
-Plus your existing app variables such as Stripe, R2, Resend, and OpenAI.
+Set variables used by Convex functions in Convex itself. Stripe, R2, Resend, and OpenAI are primarily Convex runtime variables in this repo.
 
-## Railway service 2: ChatKit backend
+## Railway service: ChatKit backend
 
 Use `myvibe-chatkit` as the service root. This one service exposes two ChatKit endpoints:
 
@@ -70,7 +66,7 @@ The backend should trust only requests that include:
 
 Recommended backend environment:
 
-- `CHATKIT_INTERNAL_SECRET=<same value as CHATKIT_SELF_HOSTED_INTERNAL_SECRET in the app service>`
+- `CHATKIT_INTERNAL_SECRET=<same value as CHATKIT_SELF_HOSTED_INTERNAL_SECRET in the web app environment>`
 - `CONVEX_URL=<same-convex-url>`
 - `OPENAI_API_KEY=<server-side-openai-key>`
 - `OPENAI_MODEL=gpt-5.5`
@@ -113,7 +109,7 @@ Usage accounting is split intentionally:
 
 ## Railway networking
 
-Use Railway private networking so the Next.js app can reach the ChatKit backend over an internal hostname. Railway documents both public and private networking here:
+Use Railway networking for the ChatKit backend endpoint. If the web app is not on Railway, use an endpoint that the web app can reach and keep the internal shared secret enforced. Railway documents networking here:
 
 - [Networking](https://docs.railway.com/guides/networking)
 
@@ -125,4 +121,4 @@ The app now exposes:
 
 - `/api/healthz`
 
-Use that as the Railway healthcheck path for the Next.js service.
+Use that as the healthcheck path for the web app host if needed. The ChatKit service should expose and use its own healthcheck if the backend supports one.
