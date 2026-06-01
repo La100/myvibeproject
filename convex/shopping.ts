@@ -164,6 +164,13 @@ const ensureShoppingItemAccess = async (
   return item;
 };
 
+const compactDefinedFields = (
+  payload: Record<string, unknown>,
+): Record<string, unknown> =>
+  Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined),
+  );
+
 const ensureSectionBelongsToProject = async (
   ctx: any,
   sectionId: Id<"shoppingListSections"> | null | undefined,
@@ -1080,11 +1087,11 @@ export const updateShoppingListItem = mutation({
       totalPrice = unitPrice !== undefined ? quantity * unitPrice : undefined;
     }
 
-    const patch: Record<string, unknown> = {
+    const patch = compactDefinedFields({
       ...updates,
       totalPrice,
       updatedAt: Date.now(),
-    };
+    });
 
     await ctx.db.patch(itemId, patch);
 

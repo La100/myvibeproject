@@ -903,28 +903,34 @@ function normalizeClientToolCall(call: ToolCall): ToolCall | { error: string } {
         return { error: `Missing or invalid \`entity\` for ${call.name}.` };
       }
 
+      const bulkItems = extractBulkEntries(
+        params,
+        entity === "section"
+          ? ["sections"]
+          : entity === "set"
+            ? ["sets", "items"]
+            : ["items"],
+      );
+      const effectiveAction =
+        bulkItems.length > 0 &&
+        (action === "create" || action === "update" || action === "delete")
+          ? (`bulk_${action}` as CrudAction)
+          : action;
+
       if (
-        action === "bulk_create" ||
-        action === "bulk_update" ||
-        action === "bulk_delete"
+        effectiveAction === "bulk_create" ||
+        effectiveAction === "bulk_update" ||
+        effectiveAction === "bulk_delete"
       ) {
         const prefix = call.name === "manage_shopping" ? "shopping" : "labor";
-        const items = extractBulkEntries(
-          params,
-          entity === "section"
-            ? ["sections"]
-            : entity === "set"
-              ? ["sets", "items"]
-              : ["items"],
-        );
         return {
           name:
-            action === "bulk_create"
+            effectiveAction === "bulk_create"
               ? `bulk_create_${prefix}_${entity === "section" ? "sections" : entity === "set" ? "sets" : "items"}`
-              : action === "bulk_update"
+              : effectiveAction === "bulk_update"
                 ? `bulk_update_${prefix}_${entity === "section" ? "sections" : entity === "set" ? "sets" : "items"}`
                 : `bulk_delete_${prefix}_${entity === "section" ? "sections" : entity === "set" ? "sets" : "items"}`,
-          params: { items },
+          params: { items: bulkItems },
         };
       }
 
