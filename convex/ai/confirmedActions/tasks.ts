@@ -21,6 +21,14 @@ function hasDefinedUpdates(updates: Record<string, unknown>): boolean {
   return Object.values(updates).some((value) => value !== undefined);
 }
 
+function compactDefinedFields(
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined),
+  );
+}
+
 export const createConfirmedTask = action({
   args: {
     projectId: v.id("projects"),
@@ -139,7 +147,7 @@ export const editConfirmedTask = action({
         "task endDate",
       );
 
-      await ctx.runMutation(updateTaskInternalMutationRef, {
+      await ctx.runMutation(updateTaskInternalMutationRef, compactDefinedFields({
         actorClerkUserId: clerkUserId,
         taskId: args.taskId,
         title: args.updates.title,
@@ -151,7 +159,7 @@ export const editConfirmedTask = action({
         startDate: startDateNumber,
         endDate: endDateNumber,
         tags: args.updates.tags,
-      });
+      }));
 
       return {
         success: true,
@@ -206,7 +214,6 @@ export const deleteConfirmedTask = action({
     }
   },
 });
-
 
 
 

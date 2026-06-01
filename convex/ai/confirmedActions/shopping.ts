@@ -39,6 +39,14 @@ function hasDefinedUpdates(updates: Record<string, unknown>): boolean {
   return Object.values(updates).some((value) => value !== undefined);
 }
 
+function compactDefinedFields(
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined),
+  );
+}
+
 export const createConfirmedShoppingItem = action({
   args: {
     projectId: v.id("projects"),
@@ -363,7 +371,7 @@ export const editConfirmedShoppingSet = action({
 
       await ensureProjectAccess(ctx, set.projectId, true, args.userClerkId);
 
-      await ctx.runMutation(updateShoppingSetMutationRef, {
+      await ctx.runMutation(updateShoppingSetMutationRef, compactDefinedFields({
         setId: args.setId,
         title: args.updates.title ?? set.title,
         notes: args.updates.notes,
@@ -372,7 +380,7 @@ export const editConfirmedShoppingSet = action({
         selectionMode: args.updates.selectionMode,
         pricingMode: args.updates.pricingMode,
         status: args.updates.status,
-      });
+      }));
 
       return {
         success: true,

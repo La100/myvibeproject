@@ -436,7 +436,7 @@ export const generateMoodboardImageSchema = z.object({
     .describe("Maximum number of shopping reference images to attach"),
 });
 
-const managedCrudActionEnum = z.enum(["create", "update", "delete"]);
+const managedCrudActionEnum = z.enum(["create", "update", "delete", "bulk_create", "bulk_update", "bulk_delete"]);
 const managedEntityEnum = z.enum(["item", "section"]);
 const managedShoppingEntityEnum = z.enum(["item", "section", "set"]);
 
@@ -447,6 +447,7 @@ const manageTasksSchema = z
     itemId: z.string().optional(),
     id: z.string().optional(),
     data: taskFields.partial().passthrough().optional(),
+    items: z.array(taskFields.partial().passthrough()).optional(),
   })
   .passthrough();
 
@@ -457,6 +458,7 @@ const manageNotesSchema = z
     itemId: z.string().optional(),
     id: z.string().optional(),
     data: noteFields.partial().passthrough().optional(),
+    items: z.array(noteFields.partial().passthrough()).optional(),
   })
   .passthrough();
 
@@ -467,6 +469,7 @@ const manageContactsSchema = z
     itemId: z.string().optional(),
     id: z.string().optional(),
     data: contactFields.partial().passthrough().optional(),
+    items: z.array(contactFields.partial().passthrough()).optional(),
   })
   .passthrough();
 
@@ -478,6 +481,7 @@ const managePaymentsSchema = z
     itemId: z.string().optional(),
     id: z.string().optional(),
     data: paymentFields.partial().passthrough().optional(),
+    items: z.array(paymentFields.partial().passthrough()).optional(),
   })
   .passthrough();
 
@@ -488,6 +492,7 @@ const manageSurveysSchema = z
     itemId: z.string().optional(),
     id: z.string().optional(),
     data: updatableSurveyFields.partial().passthrough().optional(),
+    items: z.array(updatableSurveyFields.partial().passthrough()).optional(),
   })
   .passthrough();
 
@@ -500,6 +505,7 @@ const manageShoppingSchema = z
     setId: z.string().optional(),
     id: z.string().optional(),
     data: z.union([shoppingFields.partial().passthrough(), shoppingSetFields.partial().passthrough(), sectionFields.partial().passthrough()]).optional(),
+    items: z.array(z.union([shoppingFields.partial().passthrough(), shoppingSetFields.partial().passthrough(), sectionFields.partial().passthrough()])).optional(),
   })
   .passthrough();
 
@@ -511,6 +517,7 @@ const manageLaborSchema = z
     sectionId: z.string().optional(),
     id: z.string().optional(),
     data: z.union([laborFields.partial().passthrough(), sectionFields.partial().passthrough()]).optional(),
+    items: z.array(z.union([laborFields.partial().passthrough(), sectionFields.partial().passthrough()])).optional(),
   })
   .passthrough();
 
@@ -521,6 +528,7 @@ const manageMoodboardSchema = z
     itemId: z.string().optional(),
     id: z.string().optional(),
     data: sectionFields.partial().passthrough().optional(),
+    items: z.array(sectionFields.partial().passthrough()).optional(),
   })
   .passthrough();
 
@@ -881,6 +889,7 @@ const ACTIONABLE_OPERATIONS = new Set([
   "bulk_create",
   "edit",
   "bulk_edit",
+  "bulk_delete",
   "delete",
 ]);
 
@@ -944,6 +953,79 @@ const extractManagedToolData = (
 
   return flattened;
 };
+
+const isManagedBulkAction = (
+  action: string,
+): action is "bulk_create" | "bulk_update" | "bulk_delete" =>
+  action === "bulk_create" ||
+  action === "bulk_update" ||
+  action === "bulk_delete";
+
+async function prepareManagedBulkPayload(
+  args: { action: string; items?: unknown },
+  type: ItemType,
+  idKeys: string[],
+  reservedKeys: string[],
+  options?: PrepareToolOptions,
+): Promise<string> {
+  const items = toRecordArray(args.items);
+  if (items.length === 0) {
+    return JSON.stringify({
+      error: `No items were provided for ${args.action}`,
+      type,
+    });
+  }
+
+  if (args.action === "bulk_create") {
+    return await prepareBulkCreatePayload({
+      type,
+      items: items.map((item) => extractManagedToolData(item, reservedKeys)) as z.infer<
+        typeof createMultipleItemsSchema
+      >["items"],
+    });
+  }
+
+  const missingIdPositions: number[] = [];
+  const normalizedItems = items.map((item, index) => {
+    const itemId = pickFirstNonEmptyString(item, idKeys);
+    if (!itemId) {
+      missingIdPositions.push(index + 1);
+    }
+    return {
+      itemId: itemId ?? "",
+      data: extractManagedToolData(item, reservedKeys),
+      name: pickFirstNonEmptyString(item, ["name", "title", "sectionName", "invoiceNumber"]),
+      reason: pickFirstNonEmptyString(item, ["reason"]),
+    };
+  });
+
+  if (missingIdPositions.length > 0) {
+    return JSON.stringify({
+      error: `Missing item IDs for ${args.action}`,
+      type,
+      invalidItemPositions: missingIdPositions,
+    });
+  }
+
+  if (args.action === "bulk_update") {
+    return await prepareBulkUpdatePayload({
+      type,
+      updates: normalizedItems.map((item) => ({
+        itemId: item.itemId,
+        data: item.data,
+      })),
+    }, options);
+  }
+
+  return await prepareBulkDeletePayload({
+    type,
+    items: normalizedItems.map((item) => ({
+      itemId: item.itemId,
+      name: item.name,
+      reason: item.reason,
+    })),
+  }, options);
+}
 
 const parsePayloadObject = (
   payload: AssistantToolPayload,
@@ -1517,6 +1599,27 @@ async function executePreparedPayload(
       count += 1;
     }
     return { success: true, count, message: `Updated ${count} items.` };
+  }
+
+  if (operation === "bulk_delete") {
+    const items = toRecordArray(data.items);
+    if (items.length === 0) {
+      return { success: false, message: "No items were provided for bulk delete." };
+    }
+    let count = 0;
+    for (const item of items) {
+      const outcome = await executeSinglePayload(
+        {
+          type,
+          operation: "delete",
+          data: item,
+        },
+        options,
+      );
+      if (!outcome.success) return outcome;
+      count += 1;
+    }
+    return { success: true, count, message: `Deleted ${count} items.` };
   }
 
   return executeSinglePayload(payload, options);
@@ -2272,6 +2375,51 @@ export async function prepareDeletePayload(
   });
 }
 
+export async function prepareBulkDeletePayload(
+  args: {
+    type: ItemType;
+    items: Array<{ itemId: string; name?: string; reason?: string }>;
+  },
+  options?: PrepareToolOptions,
+): Promise<string> {
+  if (args.items.length === 0) {
+    return JSON.stringify({
+      error: "No items were provided for bulk delete",
+      type: args.type,
+    });
+  }
+
+  const preparedItems: Record<string, unknown>[] = [];
+  for (const item of args.items) {
+    const prepared = parsePayloadObject(
+      await prepareDeletePayload({
+        type: args.type,
+        itemId: item.itemId,
+        name: item.name,
+        reason: item.reason,
+      }, options),
+    );
+
+    if (!prepared || typeof prepared.error === "string") {
+      return JSON.stringify(
+        prepared ?? {
+          error: "Could not prepare bulk delete item",
+          type: args.type,
+          itemId: item.itemId,
+        },
+      );
+    }
+
+    preparedItems.push(toRecord(prepared.data));
+  }
+
+  return JSON.stringify({
+    type: getOperationType(args.type),
+    operation: "bulk_delete",
+    data: { items: preparedItems },
+  });
+}
+
 /**
  * Create tools in AI SDK format for use with streamText
  * Using inputSchema (AI SDK v5) instead of parameters
@@ -2791,6 +2939,16 @@ export function createStreamingTools(options?: StreamingToolOptions) {
         ]);
         const data = extractManagedToolData(args, ["action", "taskId", "itemId", "id"]);
 
+        if (isManagedBulkAction(args.action)) {
+          return await prepareManagedBulkPayload(
+            args,
+            "task",
+            ["taskId", "itemId", "id"],
+            ["action", "taskId", "itemId", "id"],
+            options,
+          );
+        }
+
         if (args.action === "create") {
           return await prepareCreatePayload({
             type: "task",
@@ -2833,6 +2991,16 @@ export function createStreamingTools(options?: StreamingToolOptions) {
         ]);
         const data = extractManagedToolData(args, ["action", "noteId", "itemId", "id"]);
 
+        if (isManagedBulkAction(args.action)) {
+          return await prepareManagedBulkPayload(
+            args,
+            "note",
+            ["noteId", "itemId", "id"],
+            ["action", "noteId", "itemId", "id"],
+            options,
+          );
+        }
+
         if (args.action === "create") {
           return await prepareCreatePayload({
             type: "note",
@@ -2874,6 +3042,16 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           "id",
         ]);
         const data = extractManagedToolData(args, ["action", "contactId", "itemId", "id"]);
+
+        if (isManagedBulkAction(args.action)) {
+          return await prepareManagedBulkPayload(
+            args,
+            "contact",
+            ["contactId", "itemId", "id"],
+            ["action", "contactId", "itemId", "id"],
+            options,
+          );
+        }
 
         if (args.action === "create") {
           return await prepareCreatePayload({
@@ -2924,6 +3102,16 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           "id",
         ]);
 
+        if (isManagedBulkAction(args.action)) {
+          return await prepareManagedBulkPayload(
+            args,
+            "payment",
+            ["paymentId", "invoiceId", "itemId", "id"],
+            ["action", "paymentId", "invoiceId", "itemId", "id"],
+            options,
+          );
+        }
+
         if (args.action === "create") {
           return await prepareCreatePayload({
             type: "payment",
@@ -2965,6 +3153,16 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           "id",
         ]);
         const data = extractManagedToolData(args, ["action", "surveyId", "itemId", "id"]);
+
+        if (isManagedBulkAction(args.action)) {
+          return await prepareManagedBulkPayload(
+            args,
+            "survey",
+            ["surveyId", "itemId", "id"],
+            ["action", "surveyId", "itemId", "id"],
+            options,
+          );
+        }
 
         if (args.action === "create") {
           return await prepareCreatePayload({
@@ -3027,6 +3225,16 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           "id",
         ]);
 
+        if (isManagedBulkAction(args.action)) {
+          return await prepareManagedBulkPayload(
+            args,
+            type,
+            ["itemId", "setId", "sectionId", "id"],
+            ["action", "entity", "itemId", "sectionId", "setId", "id"],
+            options,
+          );
+        }
+
         if (args.action === "create") {
           return await prepareCreatePayload({
             type,
@@ -3077,6 +3285,16 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           "id",
         ]);
 
+        if (isManagedBulkAction(args.action)) {
+          return await prepareManagedBulkPayload(
+            args,
+            type,
+            ["itemId", "sectionId", "id"],
+            ["action", "entity", "itemId", "sectionId", "id"],
+            options,
+          );
+        }
+
         if (args.action === "create") {
           return await prepareCreatePayload({
             type,
@@ -3123,6 +3341,16 @@ export function createStreamingTools(options?: StreamingToolOptions) {
           "itemId",
           "id",
         ]);
+
+        if (isManagedBulkAction(args.action)) {
+          return await prepareManagedBulkPayload(
+            args,
+            "moodboardSection",
+            ["sectionId", "itemId", "id"],
+            ["action", "sectionId", "itemId", "id"],
+            options,
+          );
+        }
 
         if (args.action === "create") {
           return await prepareCreatePayload({

@@ -40,6 +40,11 @@ const resolveActorClerkUserId = async (
   return identity?.subject ?? null;
 };
 
+const compactDefinedFields = <T extends Record<string, unknown>>(payload: T) =>
+  Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined),
+  ) as Partial<T>;
+
 // Utility function to check project read access
 const hasProjectAccess = async (
   ctx: any,
@@ -240,7 +245,7 @@ const updateTaskRecord = async (
     ? (updates.assignedTo ?? null)
     : (task.assignedTo ?? null);
 
-  const updatePayload = { ...updates, updatedAt: Date.now() };
+  const updatePayload = compactDefinedFields({ ...updates, updatedAt: Date.now() });
   await ctx.db.patch(taskId, updatePayload as Partial<Doc<"tasks">>);
 
   await ctx.runMutation(logActivityMutationRef, {
