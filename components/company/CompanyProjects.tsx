@@ -4,16 +4,19 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { formatDistanceToNow } from "date-fns";
 import { enUS, pl } from "date-fns/locale";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import { apiAny } from "@/lib/convexApiAny";
 import {
+  Archive,
   Plus,
   FolderOpen,
   ExternalLink,
   MoreHorizontal,
+  RotateCcw,
   Search,
   Settings2,
 } from "lucide-react";
@@ -40,11 +43,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useI18n, type Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
-type ProjectStatus = "active" | "planning" | "on_hold" | "completed" | "cancelled";
+type ProjectStatus =
+  | "active"
+  | "planning"
+  | "on_hold"
+  | "completed"
+  | "cancelled"
+  | "archived";
 type ProjectSort = "recent_activity" | "date_created";
+type ProjectView = "active" | "archived";
 
 
 export default function CompanyProjects() {
@@ -53,6 +65,8 @@ export default function CompanyProjects() {
   const { locale, t } = useI18n();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<ProjectSort>("recent_activity");
+  const [projectView, setProjectView] = useState<ProjectView>("active");
+  const updateProject = useMutation(apiAny.projects.updateProject);
 
   const projects = useQuery(
     apiAny.projects.listProjectsByClerkOrg,
@@ -65,6 +79,10 @@ export default function CompanyProjects() {
         projects
           ?.filter((project) => {
             const query = searchQuery.toLowerCase();
+            const isArchived = project.status === "archived";
+            if (projectView === "archived" ? !isArchived : isArchived) {
+              return false;
+            }
             return (
               project.name.toLowerCase().includes(query) ||
               project.description?.toLowerCase().includes(query) ||
@@ -86,11 +104,41 @@ export default function CompanyProjects() {
           }) || []
       );
     },
-    [projects, searchQuery, sortBy],
+    [projects, projectView, searchQuery, sortBy],
   );
 
   const projectGridClass = "grid grid-cols-1 gap-x-6 gap-y-8 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
   const hasProjects = filteredProjects.length > 0;
+  const activeProjectCount =
+    projects?.filter((project) => project.status !== "archived").length ?? 0;
+  const archivedProjectCount =
+    projects?.filter((project) => project.status === "archived").length ?? 0;
+
+  const handleArchiveToggle = async (project: {
+    _id: string;
+    status?: ProjectStatus;
+  }) => {
+    const nextStatus = project.status === "archived" ? "active" : "archived";
+
+    try {
+      await updateProject({
+        projectId: project._id,
+        status: nextStatus,
+      });
+      toast.success(
+        nextStatus === "archived"
+          ? t("companyProjects", "projectArchived")
+          : t("companyProjects", "projectRestored"),
+      );
+      if (nextStatus === "archived") {
+        setProjectView("archived");
+      }
+    } catch (error) {
+      toast.error(t("companyProjects", "projectArchiveFailed"), {
+        description: toUserFacingErrorMessage(error),
+      });
+    }
+  };
 
   return (
     <div className="flex min-h-[calc(100dvh-10rem)] flex-col gap-6">
@@ -141,6 +189,25 @@ export default function CompanyProjects() {
         </div>
       </div>
 
+      <Tabs
+        value={projectView}
+        onValueChange={(value) => setProjectView(value as ProjectView)}
+        className="gap-0"
+      >
+        <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-xl bg-secondary/55 p-1 sm:w-fit">
+          <TabsTrigger value="active" className="px-4">
+            {t("companyProjects", "activeProjectsTab", {
+              count: activeProjectCount,
+            })}
+          </TabsTrigger>
+          <TabsTrigger value="archived" className="px-4">
+            {t("companyProjects", "archivedProjectsTab", {
+              count: archivedProjectCount,
+            })}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {projects === undefined ? null : hasProjects ? (
         <div className={projectGridClass}>
           {filteredProjects.map((project, index) => (
@@ -174,6 +241,12 @@ export default function CompanyProjects() {
                 locale={locale}
                 onClick={() => router.push(`/organisation/projects/${project.slug}`)}
                 onHover={() => router.prefetch(`/organisation/projects/${project.slug}`)}
+                onArchiveToggle={() =>
+                  void handleArchiveToggle({
+                    _id: project._id,
+                    status: project.status as ProjectStatus,
+                  })
+                }
               />
             </motion.div>
           ))}
@@ -191,23 +264,29 @@ export default function CompanyProjects() {
               <EmptyTitle className="text-2xl font-semibold tracking-tight md:text-3xl">
                 {searchQuery
                   ? t("companyProjects", "noMatchingProjects")
-                  : t("companyProjects", "noProjectsYet")}
+                  : projectView === "archived"
+                    ? t("companyProjects", "noArchivedProjects")
+                    : t("companyProjects", "noProjectsYet")}
               </EmptyTitle>
               <EmptyDescription className="max-w-lg text-base/relaxed md:text-lg/relaxed">
                 {searchQuery
                   ? t("companyProjects", "noMatchingProjectsDescription")
-                  : t("companyProjects", "noProjectsYetDescription")}
+                  : projectView === "archived"
+                    ? t("companyProjects", "noArchivedProjectsDescription")
+                    : t("companyProjects", "noProjectsYetDescription")}
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent className="flex-row flex-wrap justify-center gap-3 text-base">
-              <Button
-                onClick={() => router.push("/organisation/projects/new")}
-                size="lg"
-                className="h-12 rounded-xl px-6 text-base"
-              >
-                <Plus className="h-5 w-5" />
-                {t("companyProjects", "createProject")}
-              </Button>
+              {projectView === "active" ? (
+                <Button
+                  onClick={() => router.push("/organisation/projects/new")}
+                  size="lg"
+                  className="h-12 rounded-xl px-6 text-base"
+                >
+                  <Plus className="h-5 w-5" />
+                  {t("companyProjects", "createProject")}
+                </Button>
+              ) : null}
               {searchQuery ? (
                 <Button
                   onClick={() => setSearchQuery("")}
@@ -231,6 +310,7 @@ function ProjectCard({
   project,
   onClick,
   onHover,
+  onArchiveToggle,
   locale,
 }: {
   project: {
@@ -251,6 +331,7 @@ function ProjectCard({
   };
   onClick: () => void;
   onHover: () => void;
+  onArchiveToggle: () => void;
   locale: Locale;
 }) {
   const router = useRouter();
@@ -280,6 +361,10 @@ function ProjectCard({
       dotClassName: "bg-primary",
       textClassName: "text-primary",
     },
+    archived: {
+      dotClassName: "bg-muted-foreground",
+      textClassName: "text-muted-foreground",
+    },
   };
 
   const getStatusLabel = (status: ProjectStatus) => {
@@ -294,6 +379,8 @@ function ProjectCard({
         return t("companyProjects", "statusCompleted");
       case "cancelled":
         return t("companyProjects", "statusCancelled");
+      case "archived":
+        return t("companyProjects", "statusArchived");
       default:
         return t("companyProjects", "statusUnknown");
     }
@@ -393,18 +480,45 @@ function ProjectCard({
               <DropdownMenuContent
                 align="end"
                 className="w-56 rounded-xl border-border/80 bg-popover"
+                onClick={(event) => event.stopPropagation()}
               >
-                <DropdownMenuItem onSelect={() => router.push(projectBasePath)}>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    router.push(projectBasePath);
+                  }}
+                >
                   <FolderOpen className="mr-2 h-4 w-4" />
                   {t("companyProjects", "openProject")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => router.push(`${projectBasePath}/settings`)}>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    router.push(`${projectBasePath}/settings`);
+                  }}
+                >
                   <Settings2 className="mr-2 h-4 w-4" />
                   {t("companyProjects", "projectSettings")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => router.push(`${projectBasePath}/customer-panel`)}>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    router.push(`${projectBasePath}/customer-panel`);
+                  }}
+                >
                   <ExternalLink className="mr-2 h-4 w-4" />
                   {t("companyProjects", "clientPanel")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    onArchiveToggle();
+                  }}
+                >
+                  {project.status === "archived" ? (
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                  ) : (
+                    <Archive className="mr-2 h-4 w-4" />
+                  )}
+                  {project.status === "archived"
+                    ? t("companyProjects", "restoreProject")
+                    : t("companyProjects", "archiveProject")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

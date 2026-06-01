@@ -629,14 +629,25 @@ const generateSlug = (name: string) => {
 const DEFAULT_WORKSPACE_CURRENCY = "PLN" as const;
 const DEFAULT_WORKSPACE_TIMEZONE = "Europe/Warsaw";
 
-const automaticWorkspaceDefaults = () => ({
-  currency: DEFAULT_WORKSPACE_CURRENCY,
-  timezone: DEFAULT_WORKSPACE_TIMEZONE,
-  onboardingCompletedAt: Date.now(),
-  subscriptionPlan: "free" as const,
-  subscriptionLimits: SUBSCRIPTION_PLANS.free,
-  aiTokens: SUBSCRIPTION_PLANS.free.aiMonthlyTokens,
-});
+const automaticWorkspaceDefaults = () => {
+  const now = Date.now();
+
+  return {
+    currency: DEFAULT_WORKSPACE_CURRENCY,
+    timezone: DEFAULT_WORKSPACE_TIMEZONE,
+    onboardingCompletedAt: now,
+    subscriptionPlan: "free" as const,
+    subscriptionLimits: SUBSCRIPTION_PLANS.free,
+    aiTokens: SUBSCRIPTION_PLANS.free.aiMonthlyTokens,
+    currentPeriodStart: now,
+    currentPeriodEnd: now + 30 * 24 * 60 * 60 * 1000,
+  };
+};
+
+const countsTowardActiveProjectLimit = (project: any) =>
+  project?.status !== "completed" &&
+  project?.status !== "cancelled" &&
+  project?.status !== "archived";
 
 export const syncTeamWithClerkOrg = mutation({
   args: {
@@ -1785,12 +1796,13 @@ export const getTeamResourceUsage = query({
       throw new Error("Not authorized to view this team");
     }
 
-    // Count projects
+    // Count active projects. Completed and cancelled projects stay in history
+    // without blocking new client work.
     const projects = await ctx.db
       .query("projects")
       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
       .collect();
-    const projectsUsed = projects.length;
+    const projectsUsed = projects.filter(countsTowardActiveProjectLimit).length;
 
     // Count active team members
     const members = await ctx.db

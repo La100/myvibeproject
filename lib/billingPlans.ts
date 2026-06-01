@@ -13,11 +13,11 @@ export const BILLING_PLANS = [
     },
     monthlyCreditsPerUser: AI_CORE_MONTHLY_TOKENS,
     description:
-      "Project workspace with a practical AI allowance for studios getting daily work under control.",
+      "Project operations for studios that need clients, budgets, documents, and delivery in one workspace.",
     limits: [
-      "Projects, clients, and decisions in one workspace",
-      "Light AI assistant allowance included",
-      "Reports, documents, and team organization",
+      "50 active projects with clients and decisions",
+      "Budgets, tasks, documents, exports, and team workflow",
+      "1.0M AI credits for light assistant and visualization work",
     ],
   },
   {
@@ -29,11 +29,11 @@ export const BILLING_PLANS = [
     },
     monthlyCreditsPerUser: AI_PRO_MONTHLY_TOKENS,
     description:
-      "For designers and project managers using AI in regular client and project work.",
+      "For studios using AI regularly for project context, visual exploration, and client variants.",
     limits: [
       "Everything in Core",
-      "AI assistant for project work",
-      "Visualizations and client-facing variants",
+      "3.0M AI credits for regular project-aware AI work",
+      "Visualizations, references, and client-facing variants",
     ],
   },
 ] as const;

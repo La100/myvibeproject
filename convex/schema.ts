@@ -418,6 +418,7 @@ export default defineSchema({
       v.literal("on_hold"),
       v.literal("completed"),
       v.literal("cancelled"),
+      v.literal("archived"),
     ),
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),

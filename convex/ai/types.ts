@@ -16,7 +16,13 @@ export interface ProjectSummary {
   name: string;
   description?: string;
   coverImageUrl?: string;
-  status: "planning" | "active" | "on_hold" | "completed" | "cancelled";
+  status:
+    | "planning"
+    | "active"
+    | "on_hold"
+    | "completed"
+    | "cancelled"
+    | "archived";
   startDate?: number;
   endDate?: number;
   budget?: number;

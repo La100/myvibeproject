@@ -2,6 +2,7 @@ import type { Team } from "../../types"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useI18n } from "../../lib/i18n"
+import { LanguageToggle } from "../ui/LanguageToggle"
 import { Building2, ChevronRight, LogOut, Users2 } from "lucide-react"
 
 interface TeamViewProps {
@@ -21,10 +22,13 @@ const TeamView = ({ teams, onTeamSelect, onLogout }: TeamViewProps) => {
           <h2 className="mt-1 text-xl font-semibold">{t("chooseTeam")}</h2>
         </div>
 
-        <Button variant="ghost" size="sm" onClick={onLogout} className="text-foreground/70">
-          <LogOut className="mr-1 h-4 w-4" />
-          {t("signOut")}
-        </Button>
+        <div className="flex items-center gap-2">
+          <LanguageToggle />
+          <Button variant="ghost" size="sm" onClick={onLogout} className="text-foreground/70">
+            <LogOut className="mr-1 h-4 w-4" />
+            {t("signOut")}
+          </Button>
+        </div>
       </div>
 
       <div className="clean-panel mb-3 flex items-center justify-between px-4 py-3">

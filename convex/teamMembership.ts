@@ -15,14 +15,20 @@ const generateSlug = (name: string) => {
 const DEFAULT_WORKSPACE_CURRENCY = "PLN" as const;
 const DEFAULT_WORKSPACE_TIMEZONE = "Europe/Warsaw";
 
-const automaticWorkspaceDefaults = () => ({
-  currency: DEFAULT_WORKSPACE_CURRENCY,
-  timezone: DEFAULT_WORKSPACE_TIMEZONE,
-  onboardingCompletedAt: Date.now(),
-  subscriptionPlan: "free" as const,
-  subscriptionLimits: SUBSCRIPTION_PLANS.free,
-  aiTokens: SUBSCRIPTION_PLANS.free.aiMonthlyTokens,
-});
+const automaticWorkspaceDefaults = () => {
+  const now = Date.now();
+
+  return {
+    currency: DEFAULT_WORKSPACE_CURRENCY,
+    timezone: DEFAULT_WORKSPACE_TIMEZONE,
+    onboardingCompletedAt: now,
+    subscriptionPlan: "free" as const,
+    subscriptionLimits: SUBSCRIPTION_PLANS.free,
+    aiTokens: SUBSCRIPTION_PLANS.free.aiMonthlyTokens,
+    currentPeriodStart: now,
+    currentPeriodEnd: now + 30 * 24 * 60 * 60 * 1000,
+  };
+};
 
 const syncPending = (reason: "missing_active_org" | "stale_active_org") => ({
   status: "sync_pending" as const,

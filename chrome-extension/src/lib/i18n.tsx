@@ -4,8 +4,10 @@ import {
   useEffect,
   useMemo,
   useState,
+  useCallback,
   type ReactNode,
 } from "react";
+import { STORAGE_KEYS } from "./storageKeys";
 
 const locales = ["en", "pl"] as const;
 type Locale = (typeof locales)[number];
@@ -82,6 +84,7 @@ const messages = {
     supplier: "Supplier",
     supplierName: "Supplier name",
     syncSession: "Sync session",
+    switchLanguage: "Switch language",
     teamProjects: "Team projects",
     teamsCount: "{count} teams",
     unknownError: "Unknown error",
@@ -161,6 +164,7 @@ const messages = {
     supplier: "Dostawca",
     supplierName: "Nazwa dostawcy",
     syncSession: "Synchronizuj sesję",
+    switchLanguage: "Zmień język",
     teamProjects: "Projekty zespołu",
     teamsCount: "{count} zespołów",
     unknownError: "Nieznany błąd",
@@ -173,6 +177,7 @@ type MessageKey = keyof (typeof messages)["en"];
 
 type I18nContextValue = {
   locale: Locale;
+  setLocale: (locale: Locale) => void;
   t: (key: MessageKey, values?: Record<string, string | number>) => string;
 };
 
@@ -193,7 +198,44 @@ function getInitialLocale(): Locale {
 }
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale] = useState<Locale>(getInitialLocale);
+  const [locale, setLocaleState] = useState<Locale>(getInitialLocale);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void chrome.storage.local.get(STORAGE_KEYS.LOCALE).then((stored) => {
+      const storedLocale = stored[STORAGE_KEYS.LOCALE];
+      if (isMounted && isLocale(storedLocale)) {
+        setLocaleState(storedLocale);
+      }
+    });
+
+    const storageListener = (
+      changes: Record<string, chrome.storage.StorageChange>,
+      areaName: string,
+    ) => {
+      if (areaName !== "local") {
+        return;
+      }
+
+      const localeChange = changes[STORAGE_KEYS.LOCALE];
+      if (isLocale(localeChange?.newValue)) {
+        setLocaleState(localeChange.newValue);
+      }
+    };
+
+    chrome.storage.onChanged.addListener(storageListener);
+
+    return () => {
+      isMounted = false;
+      chrome.storage.onChanged.removeListener(storageListener);
+    };
+  }, []);
+
+  const setLocale = useCallback((nextLocale: Locale) => {
+    setLocaleState(nextLocale);
+    void chrome.storage.local.set({ [STORAGE_KEYS.LOCALE]: nextLocale });
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -202,6 +244,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const value = useMemo<I18nContextValue>(
     () => ({
       locale,
+      setLocale,
       t: (key, values) => {
         const template = messages[locale][key] ?? messages.en[key] ?? key;
 
@@ -214,7 +257,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
         );
       },
     }),
-    [locale],
+    [locale, setLocale],
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

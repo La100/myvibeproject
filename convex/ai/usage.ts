@@ -490,11 +490,22 @@ export const getTeamUsageBreakdown = query({
         } as Record<string, number>,
       }
     );
+    const plan = (team.subscriptionPlan ||
+      "free") as keyof typeof SUBSCRIPTION_PLANS;
+    const planTokens = Math.max(
+      0,
+      getEffectiveLimits(team)?.aiMonthlyTokens ?? 0,
+    );
+    const balanceDerivedUsed =
+      plan === "free" && typeof team.aiTokens === "number"
+        ? Math.max(0, planTokens - Math.max(0, team.aiTokens))
+        : 0;
+    const totalTokens = Math.max(totals.totalTokens, balanceDerivedUsed);
 
     return {
       periodStart: start,
       periodEnd: end,
-      totalTokens: totals.totalTokens,
+      totalTokens,
       byFeature: totals.byFeature,
     };
   },

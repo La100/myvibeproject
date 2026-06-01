@@ -386,7 +386,8 @@ const enMessages = {
       faqPlanningAnswer: "Tasks, due dates, calendar views, project contacts, notes, and notifications are part of the same project record. The organization calendar rolls work up across projects, while each project keeps its own operational context.",
       faqPlanningCategory: "Planning",
       faqPlanningQuestion: "How are tasks, calendars, contacts, and notes connected?",
-      faqPlansAnswer: "Core covers project operations. Studio AI adds the assistant and visualizations. Studio AI Plus gives larger AI limits for busier teams.",
+      faqPlansAnswer:
+        "Core covers project operations for active client work. Studio AI adds a much larger AI pool for regular assistant work, visual exploration, and client-facing variants.",
       faqPlansCategory: "Plans",
       faqPlansQuestion: "What is included in the paid plans?",
       faqProductScopeAnswer: "Myvibe is a workspace for architecture and interior studios that want projects, products, files, clients, reports, and AI in one place.",
@@ -435,7 +436,8 @@ const enMessages = {
       openSubscription: "Open subscription",
       pickExisting: "Pick existing",
       price: "Price",
-      pricingBody: "Start with the workspace, then add AI volume, larger libraries, and more active projects when the studio needs it.",
+      pricingBody:
+        "Start with project operations, then add more AI capacity when visual exploration and assistant work become part of the studio's weekly workflow.",
       pricingEyebrow: "Pricing",
       pricingTitle: "Plans that scale with project load, files, and AI work.",
       productAlabasterPendant: "Alabaster pendant",
@@ -600,7 +602,7 @@ const enMessages = {
       cad: "Canadian Dollar (C$)",
       changeImage: "Change image",
       checkoutNotConfiguredDescription:
-        "Add the per-user Stripe price IDs for Core, Studio AI, and Studio AI Plus to enable subscription upgrades from this page.",
+        "Add the per-user Stripe price IDs for Core and Studio AI to enable subscription upgrades from this page.",
       checkoutNotConfiguredTitle: "Upgrade checkout is not configured",
       chooseImageFile: "Please choose an image file",
       choosePlan: "Choose the plan for your team",
@@ -930,10 +932,10 @@ const enMessages = {
     billingPlanCard: {
       aiCredits: "AI credits",
       aiDescription:
-        "For designers and project managers using AI in regular client and project work.",
-      aiLimitMembers: "AI assistant for project work",
+        "For studios using AI regularly for project context, visual exploration, and client variants.",
+      aiLimitMembers: "3.0M AI credits for regular project-aware AI work",
       aiLimitProjects: "Everything in Core",
-      aiLimitStorage: "Visualizations and client-facing variants",
+      aiLimitStorage: "Visualizations, references, and client-facing variants",
       aiName: "Studio AI",
       aiScaleDescription:
         "For people who use AI and visual exploration as a daily part of the studio process.",
@@ -942,18 +944,20 @@ const enMessages = {
       aiScaleLimitStorage: "Built for many parallel projects",
       aiScaleName: "Studio AI Plus",
       coreDescription:
-        "Project workspace with a practical AI allowance for studios getting daily work under control.",
-      coreLimitMembers: "Light AI assistant allowance included",
-      coreLimitProjects: "Projects, clients, and decisions in one workspace",
-      coreLimitStorage: "Reports, documents, and team organization",
+        "Project operations for studios that need clients, budgets, documents, and delivery in one workspace.",
+      coreLimitMembers: "Budgets, tasks, documents, exports, and team workflow",
+      coreLimitProjects: "50 active projects with clients and decisions",
+      coreLimitStorage: "1.0M AI credits for light assistant and visualization work",
       coreName: "Core",
       estimatedMonthlyTotal: "{amount} estimated monthly total",
+      includedAiCapacity: "Included AI capacity",
       monthlyAiCredits: "Monthly AI credits",
       monthlyAiCreditsPerUser: "Monthly AI credits per user",
       noAiCredits: "No AI credits",
       perMonth: "per month",
       perUserMonth: "per user / month",
       recommended: "Recommended",
+      typicalRuns: "About {count} typical AI runs",
     },
     billingActionError: {
       ok: "OK",
@@ -1548,6 +1552,7 @@ const enMessages = {
       budgetUsedSummary: "{amount} used{percent}",
       bookedCostNotYetRealized: "Booked cost not yet fully realized",
       cancelled: "Cancelled",
+      archived: "Archived",
       clientNotifications: "Client Notifications",
       clientNotificationsDescription:
         "Recent responses sent by your client from the client portal.",
@@ -1706,6 +1711,13 @@ const enMessages = {
     },
     projectSettings: {
       active: "Active",
+      archive: "Archive",
+      archived: "Archived",
+      archiveDescription:
+        "Move finished or paused work out of the active project list without deleting project history.",
+      archiveProject: "Archive project",
+      archiveProjectDescription:
+        "Archived projects stay available from the organization archive and do not count toward active project limits.",
       advancedDeleteDescription: "Permanent project deletion.",
       budget: "Budget",
       budgetMustBePositive: "Budget must be positive",
@@ -1769,6 +1781,7 @@ const enMessages = {
       projectCover: "Project cover",
       projectCoverPreview: "Project cover preview",
       projectDeletedSuccessfully: "Project deleted successfully",
+      projectArchivedSuccessfully: "Project archived successfully",
       projectName: "Project Name",
       projectNameCopied: "Project name copied",
       projectNameDoesntMatch:
@@ -1776,6 +1789,7 @@ const enMessages = {
       projectSettingsSaved: "Project settings saved.",
       projectSettingsSavedOnly:
         "Project settings are saved only when you click Save.",
+      projectRestoredSuccessfully: "Project restored successfully",
       projectStatus: "Project Status",
       readOnly: "Read Only",
       readOnlyDescription:
@@ -1786,6 +1800,9 @@ const enMessages = {
       responsiblePerson: "Responsible Person",
       responsiblePersonDescription:
         "This is the main internal owner for day-to-day work on the project.",
+      restoreProject: "Restore project",
+      restoreProjectDescription:
+        "Restore this project to active work so it appears with current projects again.",
       save: "Save",
       saveChanges: "Save changes",
       saved: "Saved",
@@ -2888,6 +2905,7 @@ const enMessages = {
       statusOnHold: "On Hold",
       statusCompleted: "Completed",
       statusCancelled: "Cancelled",
+      statusArchived: "Archived",
       statusUnknown: "Unknown",
       editedDistance: "Edited {distance}",
       coverImageAlt: "{name} cover image",
@@ -2895,6 +2913,16 @@ const enMessages = {
       openProject: "Open project",
       projectSettings: "Project settings",
       clientPanel: "Client panel",
+      activeProjectsTab: "Active ({count})",
+      archivedProjectsTab: "Archived ({count})",
+      archiveProject: "Archive project",
+      restoreProject: "Restore project",
+      projectArchived: "Project archived",
+      projectRestored: "Project restored",
+      projectArchiveFailed: "Could not update project archive status",
+      noArchivedProjects: "No archived projects",
+      noArchivedProjectsDescription:
+        "Archived projects will appear here and will not count against the active project limit.",
     },
     newProject: {
       detailsTitle: "Details",
@@ -3847,7 +3875,8 @@ const messages = {
       faqPlanningAnswer: "Zadania, terminy, widoki kalendarza, kontakty projektu, notatki i powiadomienia są częścią tego samego rekordu projektu. Kalendarz organizacji zbiera pracę z wielu projektów, a każdy projekt zachowuje własny kontekst operacyjny.",
       faqPlanningCategory: "Planowanie",
       faqPlanningQuestion: "Jak połączone są zadania, kalendarze, kontakty i notatki?",
-      faqPlansAnswer: "Core obejmuje operacyjne prowadzenie projektów. Studio AI dodaje asystenta i wizualizacje. Studio AI Plus daje większe limity AI dla intensywniejszej pracy.",
+      faqPlansAnswer:
+        "Core obejmuje operacyjne prowadzenie aktywnych projektów klienckich. Studio AI dodaje znacznie większą pulę AI do regularnej pracy asystenta, eksploracji wizualnej i wariantów dla klienta.",
       faqPlansCategory: "Plany",
       faqPlansQuestion: "Co obejmują płatne plany?",
       faqProductScopeAnswer: "Myvibe to workspace dla pracowni architektury i wnętrz: projekty, produkty, pliki, klienci, raporty i AI w jednym miejscu.",
@@ -3896,7 +3925,8 @@ const messages = {
       openSubscription: "Otwórz subskrypcję",
       pickExisting: "Wybierz istniejące",
       price: "Cena",
-      pricingBody: "Zacznij od workspace, a potem zwiększ wolumen AI, bibliotekę plików i liczbę aktywnych projektów, gdy pracownia tego potrzebuje.",
+      pricingBody:
+        "Zacznij od prowadzenia projektów, a potem zwiększ pulę AI, gdy eksploracja wizualna i praca z asystentem stają się częścią tygodniowego procesu pracowni.",
       pricingEyebrow: "Cennik",
       pricingTitle: "Plany pod projekty, pliki i pracę z AI.",
       productAlabasterPendant: "Lampa wisząca z alabastru",
@@ -4061,7 +4091,7 @@ const messages = {
       billingUnavailable: "Rozliczenia niedostępne",
       changeImage: "Zmień obraz",
       checkoutNotConfiguredDescription:
-        "Dodaj per-user Stripe Price IDs dla Core, Studio AI i Studio AI Plus, aby włączyć przejścia na wyższy plan z tej strony.",
+        "Dodaj Stripe Price IDs na użytkownika dla Core i Studio AI, aby włączyć przejścia na wyższy plan z tej strony.",
       checkoutNotConfiguredTitle: "Checkout dla ulepszeń nie jest skonfigurowany",
       chooseImageFile: "Wybierz plik obrazu",
       choosePlan: "Wybierz plan dla zespołu",
@@ -4396,28 +4426,30 @@ const messages = {
       ...enMessages.billingPlanCard,
       aiCredits: "Kredyty AI",
       aiDescription:
-        "Dla projektantów i PM-ów, którzy regularnie używają AI w pracy z klientem i projektem.",
-      aiLimitMembers: "Asystent AI do pracy projektowej",
+        "Dla pracowni, które regularnie używają AI do kontekstu projektu, eksploracji wizualnej i wariantów dla klienta.",
+      aiLimitMembers: "3.0M kredytów AI do regularnej pracy projektowej z AI",
       aiLimitProjects: "Wszystko z Core",
-      aiLimitStorage: "Wizualizacje i warianty dla klienta",
+      aiLimitStorage: "Wizualizacje, referencje i warianty dla klienta",
       aiScaleDescription:
         "Dla osób, które używają AI i eksploracji wizualnej jako codziennego elementu pracy.",
       aiScaleLimitMembers: "Większa pula AI na stanowisko",
       aiScaleLimitProjects: "Wszystko ze Studio AI",
       aiScaleLimitStorage: "Dla wielu równoległych projektów",
       coreDescription:
-        "Workspace projektowy z praktyczną pulą AI dla pracowni, które chcą uporządkować codzienną pracę.",
-      coreLimitMembers: "Lekka pula asystenta AI w cenie",
-      coreLimitProjects: "Projekty, klienci i decyzje w jednym workspace",
-      coreLimitStorage: "Raporty, dokumenty i organizacja zespołu",
+        "Prowadzenie projektów dla pracowni, które potrzebują klientów, budżetów, dokumentów i realizacji w jednym miejscu.",
+      coreLimitMembers: "Budżety, zadania, dokumenty, eksporty i praca zespołu",
+      coreLimitProjects: "50 aktywnych projektów z klientami i decyzjami",
+      coreLimitStorage: "1.0M kredytów AI do lekkiej pracy asystenta i wizualizacji",
       coreName: "Core",
       estimatedMonthlyTotal: "{amount} szacunkowo miesięcznie",
+      includedAiCapacity: "Pula AI w cenie",
       monthlyAiCredits: "Miesięczne kredyty AI",
       monthlyAiCreditsPerUser: "Miesięczne kredyty AI na użytkownika",
       noAiCredits: "Brak kredytów AI",
       perMonth: "miesięcznie",
       perUserMonth: "za użytkownika / miesiąc",
       recommended: "Rekomendowany",
+      typicalRuns: "Około {count} typowych uruchomień AI",
     },
     billingActionError: {
       ok: "OK",
@@ -5449,6 +5481,7 @@ const messages = {
       statusOnHold: "Wstrzymany",
       statusCompleted: "Zakończony",
       statusCancelled: "Anulowany",
+      statusArchived: "Zarchiwizowany",
       statusUnknown: "Nieznany",
       editedDistance: "Edytowano {distance}",
       coverImageAlt: "{name} zdjęcie okładki",
@@ -5456,6 +5489,16 @@ const messages = {
       openProject: "Otwórz projekt",
       projectSettings: "Ustawienia projektu",
       clientPanel: "Panel klienta",
+      activeProjectsTab: "Aktywne ({count})",
+      archivedProjectsTab: "Zarchiwizowane ({count})",
+      archiveProject: "Archiwizuj projekt",
+      restoreProject: "Przywróć projekt",
+      projectArchived: "Projekt zarchiwizowany",
+      projectRestored: "Projekt przywrócony",
+      projectArchiveFailed: "Nie udało się zmienić statusu archiwum projektu",
+      noArchivedProjects: "Brak zarchiwizowanych projektów",
+      noArchivedProjectsDescription:
+        "Zarchiwizowane projekty pojawią się tutaj i nie będą wliczane do limitu aktywnych projektów.",
     },
     newProject: {
       detailsTitle: "Szczegóły",
@@ -6091,6 +6134,13 @@ Object.assign((messages.pl as Record<string, unknown>), {
   projectSettings: {
     ...enMessages.projectSettings,
     active: "Aktywny",
+    archive: "Archiwum",
+    archived: "Zarchiwizowany",
+    archiveDescription:
+      "Przenieś zakończoną lub wstrzymaną pracę poza listę aktywnych projektów bez usuwania historii.",
+    archiveProject: "Archiwizuj projekt",
+    archiveProjectDescription:
+      "Zarchiwizowane projekty pozostają dostępne w archiwum organizacji i nie wliczają się do limitu aktywnych projektów.",
     advancedDeleteDescription: "Trwałe usunięcie projektu.",
     budget: "Budżet",
     budgetMustBePositive: "Budżet musi być większy od zera",
@@ -6152,6 +6202,7 @@ Object.assign((messages.pl as Record<string, unknown>), {
     projectCover: "Okładka projektu",
     projectCoverPreview: "Podgląd okładki projektu",
     projectDeletedSuccessfully: "Projekt usunięty",
+    projectArchivedSuccessfully: "Projekt zarchiwizowany",
     projectName: "Nazwa projektu",
     projectNameCopied: "Nazwa projektu skopiowana",
     projectNameDoesntMatch:
@@ -6159,6 +6210,7 @@ Object.assign((messages.pl as Record<string, unknown>), {
     projectSettingsSaved: "Ustawienia projektu zapisane.",
     projectSettingsSavedOnly:
       "Ustawienia projektu są zapisywane dopiero po kliknięciu Zapisz.",
+    projectRestoredSuccessfully: "Projekt przywrócony",
     projectStatus: "Status projektu",
     readOnly: "Tylko do odczytu",
     readOnlyDescription:
@@ -6169,6 +6221,9 @@ Object.assign((messages.pl as Record<string, unknown>), {
     responsiblePerson: "Osoba odpowiedzialna",
     responsiblePersonDescription:
       "To główna osoba wewnętrzna odpowiedzialna za codzienną pracę nad projektem.",
+    restoreProject: "Przywróć projekt",
+    restoreProjectDescription:
+      "Przywróć projekt do aktywnej pracy, aby znów pojawił się przy bieżących projektach.",
     save: "Zapisz",
     saveChanges: "Zapisz zmiany",
     saved: "Zapisano",
@@ -6221,6 +6276,7 @@ Object.assign((messages.pl as Record<string, unknown>), {
     budgetUse: "Wykorzystanie budżetu",
     budgetUsedSummary: "Wykorzystano {amount}{percent}",
     cancelled: "Anulowany",
+    archived: "Zarchiwizowany",
     clientNotifications: "Powiadomienia klienta",
     clientNotificationsDescription:
       "Ostatnie odpowiedzi wysłane przez klienta z portalu klienta.",

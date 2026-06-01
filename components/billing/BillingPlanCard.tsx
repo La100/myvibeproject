@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatTokens } from "@/lib/aiPricing";
+import { GPT_IMAGE_TYPICAL_CREDITS, formatTokens } from "@/lib/aiPricing";
 import type { BillingCurrency, BillingPlan } from "@/lib/billingPlans";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -110,6 +110,10 @@ export function BillingPlanCard({
   });
   const pricePerUser = plan.prices[currency];
   const monthlyTotal = pricePerUser * Math.max(1, seatCount);
+  const typicalRuns =
+    plan.monthlyCreditsPerUser > 0
+      ? Math.floor(plan.monthlyCreditsPerUser / GPT_IMAGE_TYPICAL_CREDITS)
+      : 0;
   const tone = planTones[plan.key];
   const toneStyle = {
     "--billing-plan-accent": tone.accent,
@@ -170,11 +174,20 @@ export function BillingPlanCard({
       </CardHeader>
       <CardContent className="flex h-full flex-col gap-3 px-5 py-4">
         <div className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-[color:var(--billing-plan-credit-border)] bg-[var(--billing-plan-credit-bg)] px-3 py-2.5">
-          <p className="min-w-0 break-words text-[10px] uppercase tracking-[0.16em] text-[color:var(--billing-plan-muted)]">
-            {plan.monthlyCreditsPerUser > 0
-              ? t("billingPlanCard", "monthlyAiCreditsPerUser")
-              : t("billingPlanCard", "aiCredits")}
-          </p>
+          <div className="min-w-0">
+            <p className="break-words text-[10px] uppercase tracking-[0.16em] text-[color:var(--billing-plan-muted)]">
+              {plan.monthlyCreditsPerUser > 0
+                ? t("billingPlanCard", "includedAiCapacity")
+                : t("billingPlanCard", "aiCredits")}
+            </p>
+            {typicalRuns > 0 ? (
+              <p className="mt-1 text-xs text-[color:var(--billing-plan-muted)]">
+                {t("billingPlanCard", "typicalRuns", {
+                  count: typicalRuns,
+                })}
+              </p>
+            ) : null}
+          </div>
           <p className="shrink-0 text-lg font-semibold tabular-nums text-foreground">
             {plan.monthlyCreditsPerUser > 0
               ? formatTokens(plan.monthlyCreditsPerUser)

@@ -142,6 +142,11 @@ const isBillableTeamMember = (member: any) =>
   member?.isActive === true &&
   (member.role === "admin" || member.role === "member");
 
+const countsTowardActiveProjectLimit = (project: any) =>
+  project?.status !== "completed" &&
+  project?.status !== "cancelled" &&
+  project?.status !== "archived";
+
 async function countBillableTeamMembers(ctx: any, teamId: Id<"teams">) {
   const members = await ctx.db
     .query("teamMembers")
@@ -216,12 +221,14 @@ export function getBillingWindow(team: any) {
   const start =
     typeof team?.currentPeriodStart === "number"
       ? team.currentPeriodStart
-      : now - DEFAULT_BILLING_WINDOW_MS;
+      : typeof team?._creationTime === "number"
+        ? team._creationTime
+        : now - DEFAULT_BILLING_WINDOW_MS;
 
   const end =
     typeof team?.currentPeriodEnd === "number"
       ? team.currentPeriodEnd
-      : now + DEFAULT_BILLING_WINDOW_MS;
+      : start + DEFAULT_BILLING_WINDOW_MS;
 
   return { start, end };
 }
@@ -258,10 +265,12 @@ export const ensureBillingWindow = mutation({
     const now = Date.now();
     const hasStart = typeof team.currentPeriodStart === "number";
     const hasEnd = typeof team.currentPeriodEnd === "number";
-    const start = hasStart ? team.currentPeriodStart! : now;
+    const createdAt =
+      typeof team._creationTime === "number" ? team._creationTime : now;
+    const start = hasStart ? team.currentPeriodStart! : createdAt;
     const end = hasEnd
       ? team.currentPeriodEnd!
-      : now + DEFAULT_BILLING_WINDOW_MS;
+      : start + DEFAULT_BILLING_WINDOW_MS;
 
     const canOverride =
       !team.stripeCustomerId ||
@@ -284,8 +293,8 @@ export const ensureBillingWindow = mutation({
       };
     }
 
-    const currentPeriodStart = now;
-    const currentPeriodEnd = now + DEFAULT_BILLING_WINDOW_MS;
+    const currentPeriodStart = createdAt;
+    const currentPeriodEnd = currentPeriodStart + DEFAULT_BILLING_WINDOW_MS;
 
     await ctx.db.patch(args.teamId, {
       currentPeriodStart,
@@ -1135,13 +1144,16 @@ export const checkTeamLimits = query({
           .query("projects")
           .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
           .collect()
-          .then((projects) => projects.length);
+          .then(
+            (projects) =>
+              projects.filter(countsTowardActiveProjectLimit).length,
+          );
 
         if (projectCount >= limits.maxProjects) {
           return {
             allowed: false as const,
             reason: "project_limit_reached",
-            message: `You've reached the maximum number of projects (${limits.maxProjects}) for your ${plan} plan.`,
+            message: `You've reached the maximum number of active projects (${limits.maxProjects}) for your ${plan} plan.`,
             current: projectCount,
             limit: limits.maxProjects,
           };

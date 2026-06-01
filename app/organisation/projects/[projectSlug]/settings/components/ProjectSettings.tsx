@@ -16,7 +16,17 @@ import { useOrganization } from "@clerk/nextjs";
 import { z } from "zod";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
-import { AlertCircle, Check, Copy, ImagePlus, Save, Settings, X } from "lucide-react";
+import {
+  AlertCircle,
+  Archive,
+  Check,
+  Copy,
+  ImagePlus,
+  RotateCcw,
+  Save,
+  Settings,
+  X,
+} from "lucide-react";
 
 import { apiAny } from "@/lib/convexApiAny";
 import { optimizeCoverImageForUpload } from "@/lib/coverImageUpload";
@@ -82,7 +92,14 @@ const settingsFormSchema = z
       .or(z.literal("")),
     location: z.string().optional(),
     status: z
-      .enum(["planning", "active", "on_hold", "completed", "cancelled"])
+      .enum([
+        "planning",
+        "active",
+        "on_hold",
+        "completed",
+        "cancelled",
+        "archived",
+      ])
       .optional(),
     measurements: z.enum(["metric", "imperial"]).optional(),
     currency: z
@@ -549,6 +566,33 @@ function ProjectSettingsContent() {
     }
   }
 
+  async function handleArchiveToggle() {
+    if (!project) {
+      return;
+    }
+
+    const nextStatus = project.status === "archived" ? "active" : "archived";
+
+    try {
+      await updateProject({
+        projectId: project._id,
+        status: nextStatus,
+      });
+      toast.success(
+        nextStatus === "archived"
+          ? t("projectSettings", "projectArchivedSuccessfully")
+          : t("projectSettings", "projectRestoredSuccessfully"),
+      );
+      if (nextStatus === "archived") {
+        router.push("/organisation");
+      }
+    } catch (error) {
+      toast.error(t("projectSettings", "errorUpdatingProjectSettings"), {
+        description: toUserFacingErrorMessage(error),
+      });
+    }
+  }
+
   return (
     <ProjectPageLayout>
       <div className="min-h-screen pb-20">
@@ -632,6 +676,7 @@ function ProjectSettingsContent() {
                     deleteDialogOpen={deleteDialogOpen}
                     setDeleteDialogOpen={setDeleteDialogOpen}
                     onDeleteSubmit={onDeleteSubmit}
+                    onArchiveToggle={handleArchiveToggle}
                   />
                 ) : null}
               </section>
@@ -1006,6 +1051,7 @@ function GeneralTab({
                         <SelectItem value="on_hold">{t("projectSettings", "onHold")}</SelectItem>
                         <SelectItem value="completed">{t("projectSettings", "completed")}</SelectItem>
                         <SelectItem value="cancelled">{t("projectWorkspace", "cancelled")}</SelectItem>
+                        <SelectItem value="archived">{t("projectSettings", "archived")}</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -1473,14 +1519,17 @@ function AdvancedTab({
   deleteDialogOpen,
   setDeleteDialogOpen,
   onDeleteSubmit,
+  onArchiveToggle,
 }: {
-  project: { name: string };
+  project: { name: string; status?: string };
   deleteForm: UseFormReturn<z.infer<typeof deleteFormSchema>>;
   deleteDialogOpen: boolean;
   setDeleteDialogOpen: (open: boolean) => void;
   onDeleteSubmit: (values: z.infer<typeof deleteFormSchema>) => void;
+  onArchiveToggle: () => void;
 }) {
   const { t } = useI18n();
+  const isArchived = project.status === "archived";
   const copyProjectName = async () => {
     try {
       await navigator.clipboard.writeText(project.name);
@@ -1492,6 +1541,43 @@ function AdvancedTab({
 
   return (
     <div className="flex flex-col gap-8">
+      <div>
+        <h3 className="text-lg font-semibold text-foreground">
+          {t("projectSettings", "archive")}
+        </h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t("projectSettings", "archiveDescription")}
+        </p>
+      </div>
+
+      <div className="rounded-2xl border border-border/70 bg-secondary/40 p-4">
+        <h4 className="mb-2 text-sm font-medium text-foreground">
+          {isArchived
+            ? t("projectSettings", "restoreProject")
+            : t("projectSettings", "archiveProject")}
+        </h4>
+        <p className="mb-4 text-sm text-muted-foreground">
+          {isArchived
+            ? t("projectSettings", "restoreProjectDescription")
+            : t("projectSettings", "archiveProjectDescription")}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full sm:w-auto"
+          onClick={onArchiveToggle}
+        >
+          {isArchived ? (
+            <RotateCcw className="mr-2 h-4 w-4" />
+          ) : (
+            <Archive className="mr-2 h-4 w-4" />
+          )}
+          {isArchived
+            ? t("projectSettings", "restoreProject")
+            : t("projectSettings", "archiveProject")}
+        </Button>
+      </div>
+
       <div>
         <h3 className="text-lg font-semibold text-destructive">{t("projectSettings", "delete")}</h3>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -1509,7 +1595,7 @@ function AdvancedTab({
         <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="destructive" className="w-full sm:w-auto">
-              Delete Project
+              {t("projectSettings", "deleteProject")}
             </Button>
           </DialogTrigger>
           <DialogContent className="mx-4 sm:max-w-[460px]">

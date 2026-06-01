@@ -92,6 +92,7 @@ const PROJECT_STATUS_LABEL_KEYS = {
   completed: "completed",
   done: "completed",
   cancelled: "cancelled",
+  archived: "archived",
 } as const;
 
 const getShoppingStatusLabel = (
@@ -827,6 +828,8 @@ function ProjectOverviewContent() {
       "border-destructive/80 bg-destructive/90 text-destructive",
     project.status === "completed" &&
       "border-primary/80 bg-primary/90 text-primary",
+    project.status === "archived" &&
+      "border-muted-foreground/40 bg-secondary text-muted-foreground",
   );
 
   return (
