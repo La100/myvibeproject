@@ -280,6 +280,7 @@ export default defineSchema({
     imageUrl: v.optional(v.string()), // Added imageUrl for the team logo
     customOrganizationImageSetAt: v.optional(v.number()),
     createdBy: v.optional(v.string()), // Clerk user ID - now optional
+    emailLocale: v.optional(v.union(v.literal("en"), v.literal("pl"))),
     currency: v.optional(
       v.union(
         v.literal("USD"), // US Dollar

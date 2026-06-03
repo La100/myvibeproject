@@ -264,6 +264,17 @@ export const getTeamMemberByClerkId = internalQuery({
   },
 });
 
+export const getTeamEmailLocale = internalQuery({
+  args: {
+    teamId: v.id("teams"),
+  },
+  returns: v.union(v.literal("en"), v.literal("pl")),
+  async handler(ctx, args) {
+    const team = await ctx.db.get(args.teamId);
+    return team?.emailLocale === "en" ? "en" : "pl";
+  },
+});
+
 export const getCurrentUserRoleInTeam = query({
   args: {
     teamSlug: v.string(),
@@ -425,6 +436,7 @@ export const getTeamSettingsByClerkOrg = query({
       demoProjectSeeded: Boolean(team.demoProjectSeededAt && team.demoProjectSeededAt > 0),
       currency: team.currency || "PLN",
       timezone: team.timezone,
+      emailLocale: team.emailLocale || "pl",
       billingProfile: resolveOrganizationBillingProfile(
         team.billingProfile,
         team,
@@ -1597,6 +1609,7 @@ export const updateTeamSettings = mutation({
       ),
     ),
     timezone: v.optional(v.string()),
+    emailLocale: v.optional(v.union(v.literal("en"), v.literal("pl"))),
     billingProfile: v.optional(v.union(billingProfileValidator, v.null())),
     invoiceFieldRequirements: v.optional(
       v.union(invoiceFieldRequirementsValidator, v.null()),
@@ -1641,6 +1654,7 @@ export const updateTeamSettings = mutation({
     const patch: {
       currency?: typeof args.currency;
       timezone?: string;
+      emailLocale?: "en" | "pl";
       imageUrl?: string | undefined;
       customOrganizationImageSetAt?: number;
       billingProfile?: ReturnType<typeof normalizeBillingProfile>;
@@ -1656,6 +1670,10 @@ export const updateTeamSettings = mutation({
 
     if (args.timezone !== undefined) {
       patch.timezone = args.timezone.trim();
+    }
+
+    if (args.emailLocale !== undefined) {
+      patch.emailLocale = args.emailLocale;
     }
 
     if (Object.prototype.hasOwnProperty.call(args, "imageUrl")) {

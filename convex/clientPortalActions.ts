@@ -24,6 +24,44 @@ const escapeHtml = (value: string) =>
 const getBaseUrl = (baseUrl?: string) =>
   trimTrailingSlash(baseUrl || process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001");
 
+type EmailLocale = "en" | "pl";
+
+const normalizeEmailLocale = (locale?: string | null): EmailLocale =>
+  locale === "en" ? "en" : "pl";
+
+const buildClientPortalLinkEmail = (args: {
+  locale: EmailLocale;
+  projectName: string;
+  portalUrl: string;
+  senderName: string;
+}) => {
+  if (args.locale === "en") {
+    return {
+      subject: `[${args.projectName}] Client portal link`,
+      text:
+        `${args.senderName} shared the client portal for project "${args.projectName}".\n\n` +
+        `Open portal: ${args.portalUrl}\n\n` +
+        `If the link stops working, ask the project team for a new one.`,
+      html:
+        `<p>${escapeHtml(args.senderName)} shared the client portal for project <strong>${escapeHtml(args.projectName)}</strong>.</p>` +
+        `<p><a href="${escapeHtml(args.portalUrl)}">Open client portal</a></p>` +
+        `<p>If the link stops working, ask the project team for a new one.</p>`,
+    };
+  }
+
+  return {
+    subject: `[${args.projectName}] Link do panelu klienta`,
+    text:
+      `${args.senderName} udostępnił(a) panel klienta dla projektu "${args.projectName}".\n\n` +
+      `Otwórz panel: ${args.portalUrl}\n\n` +
+      `Jeśli link przestanie działać, poproś zespół projektu o nowy.`,
+    html:
+      `<p>${escapeHtml(args.senderName)} udostępnił(a) panel klienta dla projektu <strong>${escapeHtml(args.projectName)}</strong>.</p>` +
+      `<p><a href="${escapeHtml(args.portalUrl)}">Otwórz panel klienta</a></p>` +
+      `<p>Jeśli link przestanie działać, poproś zespół projektu o nowy.</p>`,
+  };
+};
+
 export const sendClientPortalLinkEmail = action({
   args: {
     projectId: v.id("projects"),
@@ -76,11 +114,25 @@ export const sendClientPortalLinkEmail = action({
       project.clientPanelAccessToken ||
       (await ctx.runMutation(internalAny.clientPortalInternal.ensureClientPanelAccessTokenInternal, {
         projectId: args.projectId,
-      })).token;
+    })).token;
 
     const portalUrl = `${getBaseUrl(args.baseUrl)}/client-panel/${accessToken}`;
-    const projectName = project.name?.trim() || "Projekt";
-    const senderName = identity.name?.trim() || identity.email?.trim() || "Zespół projektu";
+    const locale = normalizeEmailLocale(
+      await ctx.runQuery(internalAny.teams.getTeamEmailLocale, {
+        teamId: project.teamId,
+      }),
+    );
+    const projectName = project.name?.trim() || (locale === "en" ? "Project" : "Projekt");
+    const senderName =
+      identity.name?.trim() ||
+      identity.email?.trim() ||
+      (locale === "en" ? "Project team" : "Zespół projektu");
+    const message = buildClientPortalLinkEmail({
+      locale,
+      projectName,
+      portalUrl,
+      senderName,
+    });
 
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -91,15 +143,9 @@ export const sendClientPortalLinkEmail = action({
       body: JSON.stringify({
         from: resendFromEmail,
         to: [recipientEmail],
-        subject: `[${projectName}] Link do panelu klienta`,
-        text:
-          `${senderName} udostępnił(a) panel klienta dla projektu "${projectName}".\n\n` +
-          `Otwórz panel: ${portalUrl}\n\n` +
-          `Jeśli link przestanie działać, poproś zespół projektu o nowy.`,
-        html:
-          `<p>${escapeHtml(senderName)} udostępnił(a) panel klienta dla projektu <strong>${escapeHtml(projectName)}</strong>.</p>` +
-          `<p><a href="${escapeHtml(portalUrl)}">Otwórz panel klienta</a></p>` +
-          `<p>Jeśli link przestanie działać, poproś zespół projektu o nowy.</p>`,
+        subject: message.subject,
+        text: message.text,
+        html: message.html,
       }),
     });
 

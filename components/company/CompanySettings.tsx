@@ -260,12 +260,14 @@ export default function CompanySettings({
       | "SGD"
       | "HKD";
     timezone: string;
+    emailLocale: "en" | "pl";
     taxEnabled: boolean;
     taxRate: string;
     taxLabel: string;
   }>({
     currency: "PLN",
     timezone: "UTC",
+    emailLocale: "pl",
     taxEnabled: DEFAULT_ORGANIZATION_TAX_SETTINGS.taxEnabled,
     taxRate: String(DEFAULT_ORGANIZATION_TAX_SETTINGS.taxRate),
     taxLabel: DEFAULT_ORGANIZATION_TAX_SETTINGS.taxLabel,
@@ -427,6 +429,7 @@ export default function CompanySettings({
           teamData.timezone ||
           Intl.DateTimeFormat().resolvedOptions().timeZone ||
           "UTC",
+        emailLocale: teamData.emailLocale === "en" ? "en" : "pl",
         taxEnabled:
           teamData.organizationTaxSettings?.taxEnabled ??
           DEFAULT_ORGANIZATION_TAX_SETTINGS.taxEnabled,
@@ -723,6 +726,7 @@ export default function CompanySettings({
         teamId: teamData.teamId,
         currency: teamSettings.currency,
         timezone: teamSettings.timezone,
+        emailLocale: teamSettings.emailLocale,
         organizationTaxSettings: {
           taxEnabled: teamSettings.taxEnabled,
           taxRate: normalizedTaxRate,
@@ -1418,7 +1422,7 @@ export default function CompanySettings({
                       </div>
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid gap-3 sm:grid-cols-2">
                       <div className="rounded-xl bg-secondary/70 p-4">
                         <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                           {t("companySettings", "usedThisPeriod")}
@@ -1433,14 +1437,6 @@ export default function CompanySettings({
                         </p>
                         <p className="mt-2 text-xl font-semibold tabular-nums">
                           {formatTokens(totalCredits)}
-                        </p>
-                      </div>
-                      <div className="rounded-xl bg-secondary/70 p-4">
-                        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                          {t("companySettings", "estimatedPerRun")}
-                        </p>
-                        <p className="mt-2 text-xl font-semibold tabular-nums">
-                          {formatTokens(GPT_IMAGE_TYPICAL_CREDITS)}
                         </p>
                       </div>
                     </div>
@@ -2256,6 +2252,46 @@ export default function CompanySettings({
                                 }
                                 className="w-full"
                               />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label htmlFor="email-locale">
+                                {t("companySettings", "emailLanguage")}
+                              </Label>
+                              <Select
+                                value={teamSettings.emailLocale}
+                                onValueChange={(value) =>
+                                  setTeamSettings({
+                                    ...teamSettings,
+                                    emailLocale: value === "en" ? "en" : "pl",
+                                  })
+                                }
+                              >
+                                <SelectTrigger
+                                  id="email-locale"
+                                  className="w-full bg-secondary/70"
+                                >
+                                  <SelectValue
+                                    placeholder={t(
+                                      "companySettings",
+                                      "selectEmailLanguage",
+                                    )}
+                                  />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="pl">
+                                    {t("language", "polish")}
+                                  </SelectItem>
+                                  <SelectItem value="en">
+                                    {t("language", "english")}
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <p className="text-xs text-muted-foreground">
+                                {t(
+                                  "companySettings",
+                                  "emailLanguageDescription",
+                                )}
+                              </p>
                             </div>
                           </div>
                         </div>

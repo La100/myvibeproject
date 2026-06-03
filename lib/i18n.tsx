@@ -630,6 +630,9 @@ const enMessages = {
       currencyTimezone: "Currency & timezone",
       currencyTimezoneDescription:
         "These defaults affect estimates, reports, and AI date handling across new work.",
+      emailLanguage: "Email language",
+      emailLanguageDescription:
+        "Client portal links, client portal digests, and task notification emails use this workspace language.",
       currentPeriod: "Current period",
       currentPlan: "Current plan",
       currentPlanActiveDescription:
@@ -639,7 +642,6 @@ const enMessages = {
       defaultDueDays: "Default due days",
       decreaseBillingSeats: "Decrease billed seats",
       ending: "Ending",
-      estimatedPerRun: "Estimated per run",
       eur: "Euro (€)",
       failedToOpenBillingPortal: "Failed to open billing portal",
       failedToOpenCheckout: "Failed to open checkout",
@@ -734,6 +736,7 @@ const enMessages = {
       save: "Save",
       saving: "Saving...",
       selectCurrency: "Select currency",
+      selectEmailLanguage: "Select email language",
       selectOrganization: "Select organization",
       selectWorkspace: "Select a workspace",
       sellerIdentity: "Seller identity",
@@ -957,7 +960,6 @@ const enMessages = {
       perMonth: "per month",
       perUserMonth: "per user / month",
       recommended: "Recommended",
-      typicalRuns: "About {count} typical AI runs",
     },
     billingActionError: {
       ok: "OK",
@@ -3683,7 +3685,7 @@ const messages = {
         "W sprawach prawnych, umownych lub dotyczących polityk związanych z Regulaminem skontaktuj się z nami pod adresem privacy@myvibeproject.com.",
     },
     language: {
-      english: "Angielski",
+      english: "English",
       polish: "Polski",
     },
     contactForm: {
@@ -4120,6 +4122,9 @@ const messages = {
       currencyTimezone: "Waluta i strefa czasowa",
       currencyTimezoneDescription:
         "Te ustawienia domyślne wpływają na kosztorysy, raporty i obsługę dat AI w nowej pracy.",
+      emailLanguage: "Język e-maili",
+      emailLanguageDescription:
+        "Linki do portalu klienta, podsumowania portalu klienta i powiadomienia o zadaniach używają tego języka workspace.",
       currentPeriod: "Bieżący okres",
       currentPlan: "Bieżący plan",
       currentPlanActiveDescription:
@@ -4130,7 +4135,6 @@ const messages = {
       decreaseBillingSeats: "Zmniejsz liczbę rozliczanych miejsc",
       ending: "Kończy się",
       eur: "Euro (€)",
-      estimatedPerRun: "Szacunkowo na uruchomienie",
       failedToOpenBillingPortal: "Nie udało się otworzyć portalu rozliczeń",
       failedToOpenCheckout: "Nie udało się otworzyć checkoutu",
       failedToUpdateBillingProfile: "Nie udało się zaktualizować profilu rozliczeniowego",
@@ -4223,6 +4227,7 @@ const messages = {
       save: "Zapisz",
       saving: "Zapisywanie...",
       selectCurrency: "Wybierz walutę",
+      selectEmailLanguage: "Wybierz język e-maili",
       selectOrganization: "Wybierz organizację",
       selectWorkspace: "Wybierz workspace",
       sellerIdentity: "Tożsamość sprzedawcy",
@@ -4449,7 +4454,6 @@ const messages = {
       perMonth: "miesięcznie",
       perUserMonth: "za użytkownika / miesiąc",
       recommended: "Rekomendowany",
-      typicalRuns: "Około {count} typowych uruchomień AI",
     },
     billingActionError: {
       ok: "OK",

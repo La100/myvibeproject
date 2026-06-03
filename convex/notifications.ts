@@ -64,15 +64,22 @@ const resolveClientPortalNotificationSettings = (
 const isValidEmail = (email: string) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
+type EmailLocale = "en" | "pl";
+
+const normalizeEmailLocale = (locale?: string | null): EmailLocale =>
+  locale === "en" ? "en" : "pl";
+
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
-const formatDateLabel = (timestamp?: number | null) =>
+const formatDateLabel = (timestamp: number | null | undefined, locale: EmailLocale) =>
   typeof timestamp === "number" && Number.isFinite(timestamp)
-    ? new Intl.DateTimeFormat("pl-PL", {
+    ? new Intl.DateTimeFormat(locale === "en" ? "en-US" : "pl-PL", {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
       }).format(new Date(timestamp))
-    : "Brak terminu";
+    : locale === "en"
+      ? "No due date"
+      : "Brak terminu";
 const TASK_NOTIFICATION_EVENT_TO_SETTING = {
   "task.assigned": "taskAssigned",
   "task.unassigned": "taskUnassigned",
@@ -89,36 +96,51 @@ const escapeHtml = (value: string) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-const formatDigestTime = (timestamp: number) =>
-  new Date(timestamp).toLocaleString("pl-PL", {
+const formatDigestTime = (timestamp: number, locale: EmailLocale) =>
+  new Date(timestamp).toLocaleString(locale === "en" ? "en-US" : "pl-PL", {
     dateStyle: "medium",
     timeStyle: "short",
   });
 
-const formatTaskStatusLabel = (status?: string) => {
+const formatTaskStatusLabel = (status: string | undefined, locale: EmailLocale) => {
   if (!status) {
-    return "nieznany";
+    return locale === "en" ? "unknown" : "nieznany";
   }
 
-  const labels: Record<string, string> = {
-    todo: "do zrobienia",
-    in_progress: "w toku",
-    review: "do sprawdzenia",
-    done: "gotowe",
+  const labels: Record<EmailLocale, Record<string, string>> = {
+    en: {
+      todo: "to do",
+      in_progress: "in progress",
+      review: "in review",
+      done: "done",
+    },
+    pl: {
+      todo: "do zrobienia",
+      in_progress: "w toku",
+      review: "do sprawdzenia",
+      done: "gotowe",
+    },
   };
-  return labels[status] || status;
+  return labels[locale][status] || status;
 };
 
-const renderDigestEventText = (event: ClientPortalDigestEvent) => {
-  const actorName = event.actorName?.trim() || "Klient";
-  const itemName = event.itemName?.trim() || "pozycję";
-  const surveyTitle = event.surveyTitle?.trim() || "ankietę";
+const renderDigestEventText = (event: ClientPortalDigestEvent, locale: EmailLocale) => {
+  const actorName = event.actorName?.trim() || (locale === "en" ? "Client" : "Klient");
+  const itemName = event.itemName?.trim() || (locale === "en" ? "item" : "pozycję");
+  const surveyTitle = event.surveyTitle?.trim() || (locale === "en" ? "survey" : "ankietę");
 
   if (
     event.actionType === "shopping.customer.decision" ||
     event.actionType === "labor.customer.decision"
   ) {
-    const decisionLabel = event.decision === "accepted" ? "zaakceptował(a)" : "odrzucił(a)";
+    const decisionLabel =
+      locale === "en"
+        ? event.decision === "accepted"
+          ? "accepted"
+          : "rejected"
+        : event.decision === "accepted"
+          ? "zaakceptował(a)"
+          : "odrzucił(a)";
     return `${actorName} ${decisionLabel} "${itemName}"`;
   }
 
@@ -126,22 +148,33 @@ const renderDigestEventText = (event: ClientPortalDigestEvent) => {
     event.actionType === "shopping.customer.feedback" ||
     event.actionType === "labor.customer.feedback"
   ) {
-    return `${actorName} dodał(a) komentarz do "${itemName}"`;
+    return locale === "en"
+      ? `${actorName} added a comment to "${itemName}"`
+      : `${actorName} dodał(a) komentarz do "${itemName}"`;
   }
 
-  return `${actorName} przesłał(a) ankietę "${surveyTitle}"`;
+  return locale === "en"
+    ? `${actorName} submitted the survey "${surveyTitle}"`
+    : `${actorName} przesłał(a) ankietę "${surveyTitle}"`;
 };
 
-const renderDigestEventHtml = (event: ClientPortalDigestEvent) => {
-  const actorName = escapeHtml(event.actorName?.trim() || "Klient");
-  const itemName = escapeHtml(event.itemName?.trim() || "pozycję");
-  const surveyTitle = escapeHtml(event.surveyTitle?.trim() || "ankietę");
+const renderDigestEventHtml = (event: ClientPortalDigestEvent, locale: EmailLocale) => {
+  const actorName = escapeHtml(event.actorName?.trim() || (locale === "en" ? "Client" : "Klient"));
+  const itemName = escapeHtml(event.itemName?.trim() || (locale === "en" ? "item" : "pozycję"));
+  const surveyTitle = escapeHtml(event.surveyTitle?.trim() || (locale === "en" ? "survey" : "ankietę"));
 
   if (
     event.actionType === "shopping.customer.decision" ||
     event.actionType === "labor.customer.decision"
   ) {
-    const decisionLabel = event.decision === "accepted" ? "zaakceptował(a)" : "odrzucił(a)";
+    const decisionLabel =
+      locale === "en"
+        ? event.decision === "accepted"
+          ? "accepted"
+          : "rejected"
+        : event.decision === "accepted"
+          ? "zaakceptował(a)"
+          : "odrzucił(a)";
     return `<strong>${actorName}</strong> ${decisionLabel} <strong>"${itemName}"</strong>`;
   }
 
@@ -149,44 +182,76 @@ const renderDigestEventHtml = (event: ClientPortalDigestEvent) => {
     event.actionType === "shopping.customer.feedback" ||
     event.actionType === "labor.customer.feedback"
   ) {
-    return `<strong>${actorName}</strong> dodał(a) komentarz do <strong>"${itemName}"</strong>`;
+    return locale === "en"
+      ? `<strong>${actorName}</strong> added a comment to <strong>"${itemName}"</strong>`
+      : `<strong>${actorName}</strong> dodał(a) komentarz do <strong>"${itemName}"</strong>`;
   }
 
-  return `<strong>${actorName}</strong> przesłał(a) ankietę <strong>"${surveyTitle}"</strong>`;
+  return locale === "en"
+    ? `<strong>${actorName}</strong> submitted the survey <strong>"${surveyTitle}"</strong>`
+    : `<strong>${actorName}</strong> przesłał(a) ankietę <strong>"${surveyTitle}"</strong>`;
 };
 
 const buildClientPortalDigestEmail = (args: {
   projectName: string;
   projectUrl: string;
   events: ClientPortalDigestEvent[];
+  locale: EmailLocale;
 }) => {
   const subjectCount = args.events.length;
-  const textLines = [
-    `Aktualizacje w panelu klienta dla projektu "${args.projectName}" (${subjectCount})`,
-    "",
-    ...args.events.flatMap((event) => {
-      const lines = [
-        `- ${formatDigestTime(event.createdAt)}: ${renderDigestEventText(event)}`,
-      ];
-      if (event.comment?.trim()) {
-        lines.push(`  Komentarz: ${event.comment.trim()}`);
-      }
-      return lines;
-    }),
-    "",
-    `Otwórz powiadomienia: ${args.projectUrl}`,
-  ];
+  const locale = args.locale;
+  const textLines =
+    locale === "en"
+      ? [
+          `Client portal updates for project "${args.projectName}" (${subjectCount})`,
+          "",
+          ...args.events.flatMap((event) => {
+            const lines = [
+              `- ${formatDigestTime(event.createdAt, locale)}: ${renderDigestEventText(event, locale)}`,
+            ];
+            if (event.comment?.trim()) {
+              lines.push(`  Comment: ${event.comment.trim()}`);
+            }
+            return lines;
+          }),
+          "",
+          `Open notifications: ${args.projectUrl}`,
+        ]
+      : [
+          `Aktualizacje w panelu klienta dla projektu "${args.projectName}" (${subjectCount})`,
+          "",
+          ...args.events.flatMap((event) => {
+            const lines = [
+              `- ${formatDigestTime(event.createdAt, locale)}: ${renderDigestEventText(event, locale)}`,
+            ];
+            if (event.comment?.trim()) {
+              lines.push(`  Komentarz: ${event.comment.trim()}`);
+            }
+            return lines;
+          }),
+          "",
+          `Otwórz powiadomienia: ${args.projectUrl}`,
+        ];
 
   const htmlItems = args.events
     .map((event) => {
       const commentHtml = event.comment?.trim()
-        ? `<div><strong>Komentarz:</strong> ${escapeHtml(event.comment.trim())}</div>`
+        ? `<div><strong>${locale === "en" ? "Comment" : "Komentarz"}:</strong> ${escapeHtml(event.comment.trim())}</div>`
         : "";
-      return `<li><div>${escapeHtml(formatDigestTime(event.createdAt))}: ${renderDigestEventHtml(
+      return `<li><div>${escapeHtml(formatDigestTime(event.createdAt, locale))}: ${renderDigestEventHtml(
         event,
+        locale,
       )}</div>${commentHtml}</li>`;
     })
     .join("");
+
+  if (locale === "en") {
+    return {
+      subject: `[${args.projectName}] Client portal updates (${subjectCount})`,
+      text: textLines.join("\n"),
+      html: `<p>Client portal updates for project <strong>${escapeHtml(args.projectName)}</strong>.</p><ul>${htmlItems}</ul><p><a href="${escapeHtml(args.projectUrl)}">Open notifications</a></p>`,
+    };
+  }
 
   return {
     subject: `[${args.projectName}] Aktualizacje w panelu klienta (${subjectCount})`,
@@ -211,9 +276,55 @@ const buildTaskEmailMessage = (args: {
   previousDueDate?: number | null;
   currentDueDate?: number | null;
   commentPreview?: string;
+  locale: EmailLocale;
 }) => {
-  const actorName = args.actorName?.trim() || "Ktoś";
-  const taskTitle = args.taskTitle.trim() || "Zadanie bez tytułu";
+  const locale = args.locale;
+  const actorName = args.actorName?.trim() || (locale === "en" ? "Someone" : "Ktoś");
+  const taskTitle = args.taskTitle.trim() || (locale === "en" ? "Untitled task" : "Zadanie bez tytułu");
+
+  if (locale === "en") {
+    if (args.eventType === "task.assigned") {
+      return {
+        subject: `[${args.projectName}] Task assigned: "${taskTitle}"`,
+        text: `${actorName} assigned you to the task "${taskTitle}" in project "${args.projectName}".\n\nOpen task: ${args.taskUrl}`,
+        html: `<p><strong>${escapeHtml(actorName)}</strong> assigned you to the task <strong>"${escapeHtml(taskTitle)}"</strong> in project <strong>${escapeHtml(args.projectName)}</strong>.</p><p><a href="${escapeHtml(args.taskUrl)}">Open task</a></p>`,
+      };
+    }
+
+    if (args.eventType === "task.unassigned") {
+      return {
+        subject: `[${args.projectName}] Assignment removed: "${taskTitle}"`,
+        text: `${actorName} removed you from the task "${taskTitle}" in project "${args.projectName}".\n\nOpen task: ${args.taskUrl}`,
+        html: `<p><strong>${escapeHtml(actorName)}</strong> removed you from the task <strong>"${escapeHtml(taskTitle)}"</strong> in project <strong>${escapeHtml(args.projectName)}</strong>.</p><p><a href="${escapeHtml(args.taskUrl)}">Open task</a></p>`,
+      };
+    }
+
+    if (args.eventType === "task.status_updated") {
+      const fromStatus = formatTaskStatusLabel(args.fromStatus, locale);
+      const toStatus = formatTaskStatusLabel(args.toStatus, locale);
+
+      return {
+        subject: `[${args.projectName}] Task status changed: "${taskTitle}"`,
+        text: `${actorName} changed the status of "${taskTitle}" from ${fromStatus} to ${toStatus}.\n\nOpen task: ${args.taskUrl}`,
+        html: `<p><strong>${escapeHtml(actorName)}</strong> changed the status of <strong>"${escapeHtml(taskTitle)}"</strong> from <strong>${escapeHtml(fromStatus)}</strong> to <strong>${escapeHtml(toStatus)}</strong>.</p><p><a href="${escapeHtml(args.taskUrl)}">Open task</a></p>`,
+      };
+    }
+
+    if (args.eventType === "task.due_date_changed") {
+      return {
+        subject: `[${args.projectName}] Task due date changed: "${taskTitle}"`,
+        text: `${actorName} updated the due date for "${taskTitle}".\nPrevious due date: ${formatDateLabel(args.previousDueDate, locale)}\nNew due date: ${formatDateLabel(args.currentDueDate, locale)}\n\nOpen task: ${args.taskUrl}`,
+        html: `<p><strong>${escapeHtml(actorName)}</strong> updated the due date for <strong>"${escapeHtml(taskTitle)}"</strong>.</p><p><strong>Previous due date:</strong> ${escapeHtml(formatDateLabel(args.previousDueDate, locale))}<br/><strong>New due date:</strong> ${escapeHtml(formatDateLabel(args.currentDueDate, locale))}</p><p><a href="${escapeHtml(args.taskUrl)}">Open task</a></p>`,
+      };
+    }
+
+    const commentPreview = args.commentPreview?.trim() || "No comment preview.";
+    return {
+      subject: `[${args.projectName}] New task comment: "${taskTitle}"`,
+      text: `${actorName} added a comment to "${taskTitle}" in project "${args.projectName}".\n\nComment: ${commentPreview}\n\nOpen task: ${args.taskUrl}`,
+      html: `<p><strong>${escapeHtml(actorName)}</strong> added a comment to <strong>"${escapeHtml(taskTitle)}"</strong> in project <strong>${escapeHtml(args.projectName)}</strong>.</p><p><strong>Comment:</strong> ${escapeHtml(commentPreview)}</p><p><a href="${escapeHtml(args.taskUrl)}">Open task</a></p>`,
+    };
+  }
 
   if (args.eventType === "task.assigned") {
     return {
@@ -232,8 +343,8 @@ const buildTaskEmailMessage = (args: {
   }
 
   if (args.eventType === "task.status_updated") {
-    const fromStatus = formatTaskStatusLabel(args.fromStatus);
-    const toStatus = formatTaskStatusLabel(args.toStatus);
+    const fromStatus = formatTaskStatusLabel(args.fromStatus, locale);
+    const toStatus = formatTaskStatusLabel(args.toStatus, locale);
 
     return {
       subject: `[${args.projectName}] Zmieniono status zadania: "${taskTitle}"`,
@@ -245,8 +356,8 @@ const buildTaskEmailMessage = (args: {
   if (args.eventType === "task.due_date_changed") {
     return {
       subject: `[${args.projectName}] Zmieniono termin zadania: "${taskTitle}"`,
-      text: `${actorName} zaktualizował(a) termin zadania "${taskTitle}".\nPoprzedni termin: ${formatDateLabel(args.previousDueDate)}\nNowy termin: ${formatDateLabel(args.currentDueDate)}\n\nOtwórz zadanie: ${args.taskUrl}`,
-      html: `<p><strong>${escapeHtml(actorName)}</strong> zaktualizował(a) termin zadania <strong>"${escapeHtml(taskTitle)}"</strong>.</p><p><strong>Poprzedni termin:</strong> ${escapeHtml(formatDateLabel(args.previousDueDate))}<br/><strong>Nowy termin:</strong> ${escapeHtml(formatDateLabel(args.currentDueDate))}</p><p><a href="${escapeHtml(args.taskUrl)}">Otwórz zadanie</a></p>`,
+      text: `${actorName} zaktualizował(a) termin zadania "${taskTitle}".\nPoprzedni termin: ${formatDateLabel(args.previousDueDate, locale)}\nNowy termin: ${formatDateLabel(args.currentDueDate, locale)}\n\nOtwórz zadanie: ${args.taskUrl}`,
+      html: `<p><strong>${escapeHtml(actorName)}</strong> zaktualizował(a) termin zadania <strong>"${escapeHtml(taskTitle)}"</strong>.</p><p><strong>Poprzedni termin:</strong> ${escapeHtml(formatDateLabel(args.previousDueDate, locale))}<br/><strong>Nowy termin:</strong> ${escapeHtml(formatDateLabel(args.currentDueDate, locale))}</p><p><a href="${escapeHtml(args.taskUrl)}">Otwórz zadanie</a></p>`,
     };
   }
 
@@ -268,6 +379,7 @@ export const getEmailNotificationContext = internalQuery({
     if (!project) {
       return null;
     }
+    const team = await ctx.db.get(project.teamId);
 
     const teamMembers = await ctx.db
       .query("teamMembers")
@@ -397,6 +509,7 @@ export const getEmailNotificationContext = internalQuery({
     return {
       projectName: project.name,
       projectSlug: project.slug,
+      emailLocale: normalizeEmailLocale(team?.emailLocale),
       recipients,
     };
   },
@@ -425,6 +538,7 @@ export const getTaskEventEmailContext = internalQuery({
     if (!project) {
       return null;
     }
+    const team = await ctx.db.get(task.teamId);
 
     const teamMembers = await ctx.db
       .query("teamMembers")
@@ -502,6 +616,7 @@ export const getTaskEventEmailContext = internalQuery({
       taskTitle: task.title,
       projectName: project.name,
       projectSlug: project.slug,
+      emailLocale: normalizeEmailLocale(team?.emailLocale),
       recipients,
       actorName: actor?.name || actor?.email || null,
     };
@@ -582,6 +697,7 @@ export const getClientPortalDigestContext = internalQuery({
       digest,
       projectName: notificationContext.projectName,
       projectSlug: notificationContext.projectSlug,
+      emailLocale: notificationContext.emailLocale,
       recipients: notificationContext.recipients,
     };
   },
@@ -638,7 +754,7 @@ export const processClientPortalDigest = internalAction({
       return { sent: 0, skipped: true };
     }
 
-    const { digest, projectName, projectSlug, recipients } = digestContext;
+    const { digest, projectName, projectSlug, emailLocale, recipients } = digestContext;
     if (digest.status !== "pending") {
       return { sent: 0, skipped: true };
     }
@@ -686,6 +802,7 @@ export const processClientPortalDigest = internalAction({
       projectName,
       projectUrl,
       events: orderedEvents,
+      locale: normalizeEmailLocale(emailLocale),
     });
 
     let sent = 0;
@@ -791,6 +908,7 @@ export const sendTaskEventEmail = internalAction({
       previousDueDate: args.previousDueDate ?? undefined,
       currentDueDate: args.currentDueDate ?? undefined,
       commentPreview: args.commentPreview,
+      locale: normalizeEmailLocale(notificationContext.emailLocale),
     });
 
     let sent = 0;

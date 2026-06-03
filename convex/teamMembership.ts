@@ -15,12 +15,13 @@ const generateSlug = (name: string) => {
 const DEFAULT_WORKSPACE_CURRENCY = "PLN" as const;
 const DEFAULT_WORKSPACE_TIMEZONE = "Europe/Warsaw";
 
-const automaticWorkspaceDefaults = () => {
+const automaticWorkspaceDefaults = (locale?: "en" | "pl") => {
   const now = Date.now();
 
   return {
     currency: DEFAULT_WORKSPACE_CURRENCY,
     timezone: DEFAULT_WORKSPACE_TIMEZONE,
+    emailLocale: locale ?? "pl",
     onboardingCompletedAt: now,
     subscriptionPlan: "free" as const,
     subscriptionLimits: SUBSCRIPTION_PLANS.free,
@@ -110,7 +111,7 @@ export const ensureCurrentUserTeamMembership = mutation({
         clerkOrgId: args.clerkOrgId,
         name: fallbackName,
         slug: generateSlug(fallbackName || args.clerkOrgId),
-        ...automaticWorkspaceDefaults(),
+        ...automaticWorkspaceDefaults(args.locale),
       });
       team = await ctx.db.get(teamId);
       if (!team) {
