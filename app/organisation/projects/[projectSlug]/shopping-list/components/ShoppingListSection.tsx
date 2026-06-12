@@ -1370,7 +1370,7 @@ export function ShoppingListSection({
       item.dimensions ? { label: t("shoppingList", "dimensions"), value: item.dimensions, field: "dimensions" as const } : null,
       item.catalogNumber ? { label: t("shoppingList", "catalogShort"), value: item.catalogNumber, field: "catalogNumber" as const } : null,
     ].filter(Boolean) as Array<{ label: string; value: string; field: InlineEditField }>;
-    const hasHeaderDetails = headerDetails.length > 0 || Boolean(item.productLink);
+    const hasHeaderDetails = headerDetails.length > 0;
     const hasExpandedDetails = Boolean(item.notes || item.customerDecisionComment);
 
     const handleInlineStatusChange = async (value: string) => {
@@ -1515,6 +1515,25 @@ export function ShoppingListSection({
                         )}
                       </span>
                     ) : null}
+                    {item.productLink ? (
+                      <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-secondary/35 px-2.5 py-1">
+                        <span className="shrink-0 text-xs font-medium uppercase text-muted-foreground">
+                          {t("shoppingList", "link")}
+                        </span>
+                        {renderEditableValue(
+                          item,
+                          "productLink",
+                          <span className="block max-w-full truncate text-primary">
+                            {getProductLinkLabel(item.productLink)}
+                          </span>,
+                          {
+                            className: "min-w-0 max-w-[16rem]",
+                            inputClassName: "w-52",
+                            placeholder: "https://...",
+                          },
+                        )}
+                      </span>
+                    ) : null}
                   </div>
                   {item.priority || item.buyBefore || assignedName ? (
                     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-foreground">
@@ -1630,23 +1649,6 @@ export function ShoppingListSection({
                       )}
                     </div>
                   ))}
-                  {item.productLink ? (
-                    <div className="flex min-w-0 items-center gap-2 rounded-xl bg-secondary/35 px-3 py-2">
-                      <span className="shrink-0 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">{t("shoppingList", "link")}</span>
-                      {renderEditableValue(
-                        item,
-                        "productLink",
-                        <span className="block max-w-full truncate text-primary">
-                          {getProductLinkLabel(item.productLink)}
-                        </span>,
-                        {
-                          className: "min-w-0 max-w-full",
-                          inputClassName: "w-52",
-                          placeholder: "https://...",
-                        },
-                      )}
-                    </div>
-                  ) : null}
                 </div>
               ) : null}
             </div>

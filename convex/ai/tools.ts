@@ -1061,7 +1061,10 @@ async function executeSinglePayload(
   const updates = toRecord(payload.updates);
 
   if (!type || !operation || !ACTIONABLE_OPERATIONS.has(operation)) {
-    return { success: true };
+    return {
+      success: false,
+      message: `Invalid tool payload: missing or unsupported type/operation (${type ?? "missing"}:${operation ?? "missing"}).`,
+    };
   }
   if (!options?.runAction && !options?.runMutation) {
     return { success: false, message: "Tool execution is unavailable in this runtime." };
@@ -1556,7 +1559,10 @@ async function executePreparedPayload(
   const data = toRecord(payload.data);
 
   if (!operation || !type || !ACTIONABLE_OPERATIONS.has(operation)) {
-    return { success: true };
+    return {
+      success: false,
+      message: `Invalid tool payload: missing or unsupported type/operation (${type ?? "missing"}:${operation ?? "missing"}).`,
+    };
   }
 
   if (operation === "bulk_create") {

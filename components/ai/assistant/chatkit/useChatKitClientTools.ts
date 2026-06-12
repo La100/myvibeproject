@@ -2395,7 +2395,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
                 const sectionId = await resolveSectionId("shopping", item);
                 const imageUrl =
                   asNonEmptyString(item.imageUrl) ??
+                  asNonEmptyString(item.productImageUrl) ??
                   asNonEmptyString(item.moodboardImageUrl) ??
+                  asNonEmptyString(item.thumbnailUrl) ??
+                  asNonEmptyString(item.image) ??
                   (asNonEmptyString(item.sourceType) === "moodboard"
                     ? asNonEmptyString(item.url)
                     : undefined);
@@ -2489,7 +2492,12 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               if (buyBefore !== undefined) updates.buyBefore = buyBefore;
               const priority = asTaskPriority(item.priority);
               if (priority !== undefined) updates.priority = priority;
-              const imageUrl = asNonEmptyString(item.imageUrl);
+              const imageUrl =
+                asNonEmptyString(item.imageUrl) ??
+                asNonEmptyString(item.productImageUrl) ??
+                asNonEmptyString(item.moodboardImageUrl) ??
+                asNonEmptyString(item.thumbnailUrl) ??
+                asNonEmptyString(item.image);
               if (imageUrl !== undefined) updates.imageUrl = imageUrl;
 
               const productLink =
@@ -3562,7 +3570,10 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
               asNonEmptyString(params.vendor);
             const imageUrl =
               asNonEmptyString(params.imageUrl) ??
+              asNonEmptyString(params.productImageUrl) ??
               asNonEmptyString(params.moodboardImageUrl) ??
+              asNonEmptyString(params.thumbnailUrl) ??
+              asNonEmptyString(params.image) ??
               (asNonEmptyString(params.sourceType) === "moodboard"
                 ? asNonEmptyString(params.url)
                 : undefined);
@@ -3660,7 +3671,12 @@ export function useChatKitClientTools(args: UseChatKitClientToolsArgs | null) {
             const priority = asTaskPriority(params.priority);
             if (priority !== undefined) updates.priority = priority;
 
-            const imageUrl = asNonEmptyString(params.imageUrl);
+            const imageUrl =
+              asNonEmptyString(params.imageUrl) ??
+              asNonEmptyString(params.productImageUrl) ??
+              asNonEmptyString(params.moodboardImageUrl) ??
+              asNonEmptyString(params.thumbnailUrl) ??
+              asNonEmptyString(params.image);
             if (imageUrl !== undefined) updates.imageUrl = imageUrl;
 
             const productLink =
