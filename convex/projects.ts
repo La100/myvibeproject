@@ -904,18 +904,6 @@ export const createProjectInOrg = mutation({
       throw new Error("Project team does not belong to this organization");
     }
 
-    const creatorMembership = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", team._id).eq("clerkUserId", identity.subject),
-      )
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .unique();
-
-    if (!creatorMembership || creatorMembership.role !== "admin") {
-      throw new Error("Only active team admins can create projects");
-    }
-
     const normalizedCoverImageUrl = args.coverImageUrl?.trim();
     const normalizedCustomerEmail = normalizeOptionalEmail(args.customerEmail);
     const projectId = await ctx.db.insert("projects", {
