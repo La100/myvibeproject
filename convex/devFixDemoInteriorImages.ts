@@ -1,4 +1,4 @@
-import { mutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 
 const DEMO_PROJECT_SLUG = "demo-project";
 const DEMO_COVER_IMAGE = "/landing/generated/editorial-studio-hero-web.png";
@@ -12,7 +12,7 @@ const moodboardImages = [
   ["Leather stone and walnut palette", "furniture-lighting", "/landing/generated/barcelona-chair-materials.png"],
 ] as const;
 
-export const fixDemoInteriorImages = mutation({
+export const fixDemoInteriorImages = internalMutation({
   args: {},
   handler: async (ctx) => {
     const projects = await ctx.db

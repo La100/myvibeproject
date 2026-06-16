@@ -1379,6 +1379,16 @@ export const getTeamSubscriptionsFromStripe = query({
     const team = await ctx.db.get(args.teamId);
     if (!team || !team.stripeCustomerId) return [];
 
+    const membership = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject),
+      )
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+
+    if (!membership) return [];
+
     return await ctx.runQuery(components.stripe.public.listSubscriptions, {
       stripeCustomerId: team.stripeCustomerId,
     });

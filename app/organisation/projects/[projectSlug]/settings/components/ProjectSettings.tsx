@@ -12,7 +12,6 @@ import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useOrganization } from "@clerk/nextjs";
 import { z } from "zod";
 import { toast } from "sonner";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
@@ -31,6 +30,7 @@ import {
 import { apiAny } from "@/lib/convexApiAny";
 import { optimizeCoverImageForUpload } from "@/lib/coverImageUpload";
 import { Id } from "@/convex/_generated/dataModel";
+import { useProject } from "@/components/providers/ProjectProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -324,17 +324,10 @@ function SettingsTabLoading() {
 function ProjectSettingsContent() {
   const params = useParams<{ projectSlug: string }>();
   const router = useRouter();
-  const { organization } = useOrganization();
+  const { project } = useProject();
   const { t } = useI18n();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<SettingsTabValue>("general");
-
-  const project = useQuery(
-    apiAny.projects.getProjectBySlugInClerkOrg,
-    organization?.id
-      ? { clerkOrgId: organization.id, projectSlug: params.projectSlug }
-      : "skip",
-  );
 
   const teamMember = useQuery(
     apiAny.teams.getCurrentUserTeamMember,

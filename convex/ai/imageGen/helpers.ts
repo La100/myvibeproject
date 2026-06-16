@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../../_generated/server";
 import type { Id } from "../../_generated/dataModel";
 import { r2 } from "../../files";
+import { ensureProjectAccess, ensureTeamAccess } from "../../authz";
 
 /**
  * Internal helper functions for image generation
@@ -50,6 +51,57 @@ const fallbackMoodboardSection = (section?: string) => {
     label: formatMoodboardSectionLabel(normalized),
   };
 };
+
+const resolveAuthorizedGenerationContext = async (
+  ctx: any,
+  args: {
+    projectId?: Id<"projects">;
+    teamId?: Id<"teams">;
+  },
+) => {
+  if (args.projectId) {
+    const { project } = await ensureProjectAccess(ctx, args.projectId);
+    const team = await ctx.db.get(project.teamId);
+    if (!team) {
+      throw new Error("Team not found");
+    }
+
+    return {
+      teamId: project.teamId,
+      teamSlug: team.slug,
+      projectSlug: project.slug,
+      projectId: project._id,
+    };
+  }
+
+  if (args.teamId) {
+    const { team } = await ensureTeamAccess(ctx, args.teamId);
+    return {
+      teamId: team._id,
+      teamSlug: team.slug,
+      projectSlug: undefined,
+      projectId: undefined,
+    };
+  }
+
+  throw new Error("Either projectId or teamId must be provided.");
+};
+
+export const getAuthorizedContextInfo = internalQuery({
+  args: {
+    projectId: v.optional(v.id("projects")),
+    teamId: v.optional(v.id("teams")),
+  },
+  returns: v.object({
+    teamId: v.id("teams"),
+    teamSlug: v.string(),
+    projectSlug: v.optional(v.string()),
+    projectId: v.optional(v.id("projects")),
+  }),
+  handler: async (ctx, args) => {
+    return await resolveAuthorizedGenerationContext(ctx, args);
+  },
+});
 
 /**
  * Resolve assistant-provided moodboard section text to an existing section id.
@@ -435,6 +487,12 @@ export const deleteGeneratedImage = internalMutation({
   handler: async (ctx, args) => {
     const image = await ctx.db.get(args.generationId);
     if (!image) return null;
+
+    if (image.projectId) {
+      await ensureProjectAccess(ctx, image.projectId);
+    } else {
+      await ensureTeamAccess(ctx, image.teamId);
+    }
 
     // Delete from R2 if we have a storage key
     if (image.storageKey) {

@@ -220,7 +220,8 @@ export const getCurrentUserTeamMember = query({
       .withIndex("by_team_and_user", (q) =>
         q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject),
       )
-      .unique();
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
   },
 });
 

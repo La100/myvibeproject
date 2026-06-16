@@ -1,14 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { createContext, useCallback, useContext, ReactNode, useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { Doc } from "@/convex/_generated/dataModel";
 import { AppLoadingState } from "@/components/ui/loading-state";
+import { Button } from "@/components/ui/button";
 import { useParams, useRouter } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
 import { postAuthResolverUrl } from "@/lib/authRedirects";
 import { useI18n } from "@/lib/i18n";
+import { safeLocalStorageGet, safeLocalStorageSet } from "@/lib/safeLocalStorage";
 
 interface ProjectContextType {
   project: Doc<"projects">;
@@ -67,7 +70,7 @@ export function ProjectProvider({ children }: {
     }
 
     const storageKey = getClientNotificationsStorageKey(projectId);
-    const storedValue = window.localStorage.getItem(storageKey);
+    const storedValue = safeLocalStorageGet(storageKey);
     const parsedValue = storedValue ? Number(storedValue) : 0;
     const normalizedStoredValue = Number.isFinite(parsedValue) ? Math.max(0, parsedValue) : 0;
 
@@ -87,14 +90,14 @@ export function ProjectProvider({ children }: {
       localClientNotificationsLastReadAt,
     );
 
-    window.localStorage.setItem(storageKey, String(effectiveLastReadAt));
+    safeLocalStorageSet(storageKey, String(effectiveLastReadAt));
 
     if (effectiveLastReadAt !== localClientNotificationsLastReadAt) {
       setLocalClientNotificationsLastReadAt(effectiveLastReadAt);
     }
   }, [projectId, serverClientNotificationsLastReadAt, localClientNotificationsLastReadAt]);
   
-  const isLoading = !project || !team || teamMember === undefined;
+  const isLoading = project === undefined || !team || teamMember === undefined;
   const effectiveProject = project
     ? {
         ...project,
@@ -114,23 +117,14 @@ export function ProjectProvider({ children }: {
 
       if (projectId) {
         const storageKey = getClientNotificationsStorageKey(projectId);
-        window.localStorage.setItem(storageKey, String(nextValue));
+        safeLocalStorageSet(storageKey, String(nextValue));
       }
 
       return nextValue;
     });
   }, [projectId]);
 
-  const value: ProjectContextType = {
-    project: effectiveProject!,
-    team: team || null,
-    teamMember: teamMember || null,
-    isLoading,
-    markClientNotificationsReadLocally,
-  };
-
-  // Don't render children until we have the basic project data
-  if (!project) {
+  if (project === undefined) {
     if (isLoaded && !organization?.id) {
       return (
         <AppLoadingState
@@ -150,6 +144,34 @@ export function ProjectProvider({ children }: {
       />
     );
   }
+
+  if (project === null) {
+    return (
+      <div className="flex min-h-svh items-center justify-center bg-background px-5">
+        <div className="flex w-full max-w-md flex-col items-center gap-4 text-center">
+          <div className="flex flex-col gap-2">
+            <h1 className="text-xl font-semibold text-foreground">
+              Nie znaleziono projektu
+            </h1>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Projekt nie istnieje albo nie masz do niego dostępu w aktywnej organizacji.
+            </p>
+          </div>
+          <Button asChild>
+            <Link href="/organisation">Wróć do projektów</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const value: ProjectContextType = {
+    project: effectiveProject,
+    team: team || null,
+    teamMember: teamMember || null,
+    isLoading,
+    markClientNotificationsReadLocally,
+  };
 
   return (
     <ProjectContext.Provider value={value}>

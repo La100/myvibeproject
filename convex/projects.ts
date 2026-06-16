@@ -7,7 +7,11 @@ import {
 } from "./_generated/server";
 import { Id, Doc } from "./_generated/dataModel";
 import { r2 } from "./files";
-import { canAccessProjectWithMembership, ensureProjectAccess } from "./authz";
+import {
+  canAccessProjectWithMembership,
+  ensureProjectAccess,
+  ensureTeamAccess,
+} from "./authz";
 import { summarizeProjectBudget } from "../lib/projectBudgetSummary";
 const internalAny = require("./_generated/api").internal as any;
 
@@ -604,7 +608,8 @@ const getProjectManagerMembership = async (
     .withIndex("by_team_and_user", (q: any) =>
       q.eq("teamId", project.teamId).eq("clerkUserId", clerkUserId),
     )
-    .unique();
+    .filter((q: any) => q.eq(q.field("isActive"), true))
+    .first();
 
   if (!teamMember) {
     throw new Error("User is not a team member");
@@ -873,6 +878,8 @@ export const createProjectInOrg = mutation({
     if (!team) {
       throw new Error("Team not found for this organization");
     }
+
+    await ensureTeamAccess(ctx, team._id, identity.subject);
 
     const baseSlug = generateSlug(args.name);
     let slug = baseSlug;

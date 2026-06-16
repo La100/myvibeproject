@@ -19,6 +19,7 @@ import { downloadCsvFile } from '@/lib/csvExport';
 import { exportSectionedTablePdf } from '@/lib/sectionedTablePdfExport';
 import { calculateShoppingTotal, buildShoppingSetContext, isItemCountedInShoppingTotal } from '@/lib/shoppingSets';
 import { formatShoppingQuantity, resolveShoppingMeasurementSystem } from '@/lib/shoppingUnits';
+import { safeLocalStorageGet } from '@/lib/safeLocalStorage';
 import {
   type ShoppingExportColumnOptions,
   formatShoppingExportProductLabel,
@@ -122,7 +123,7 @@ export default function ShoppingListView() {
   const onboardingDismissedStorageKey = `myvibe:shopping-list-onboarding-dismissed:${project._id}`;
 
   useEffect(() => {
-    setIsOnboardingDismissed(window.localStorage.getItem(onboardingDismissedStorageKey) === 'true');
+    setIsOnboardingDismissed(safeLocalStorageGet(onboardingDismissedStorageKey) === 'true');
   }, [onboardingDismissedStorageKey]);
 
   const createItem = useMutation(apiAny.shopping.createShoppingListItem);
@@ -136,7 +137,7 @@ export default function ShoppingListView() {
   const deleteSet = useMutation(apiAny.shopping.deleteShoppingSet);
 
   if (items === undefined || sections === undefined || sets === undefined || team === undefined || extensionStatus === undefined) {
-    return null;
+    return <ShoppingListViewLoading />;
   }
 
   const currencySymbol = getCurrencySymbol(project.currency);

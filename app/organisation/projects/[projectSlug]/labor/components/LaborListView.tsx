@@ -85,7 +85,7 @@ export default function LaborListView() {
   const deleteSection = useMutation(apiAny.labor.deleteLaborSection);
 
   if (items === undefined || sections === undefined || team === undefined) {
-    return null;
+    return <LaborListViewLoading />;
   }
 
   if (project === null) {

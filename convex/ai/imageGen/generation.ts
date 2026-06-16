@@ -48,6 +48,13 @@ const MAX_REFERENCE_REDIRECTS = 3;
 const DEFAULT_TEXT_ONLY_FAILURE =
   "No image was generated. The model may have returned only text.";
 
+type AuthorizedGenerationContext = {
+  teamId: Id<"teams">;
+  teamSlug: string;
+  projectSlug?: string;
+  projectId?: Id<"projects">;
+};
+
 const getOpenAIClient = () => {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
@@ -117,23 +124,42 @@ export const generateVisualization = action({
       };
     }
 
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return {
+        success: false,
+        error: "Not authenticated.",
+      };
+    }
+
+    let contextInfo: AuthorizedGenerationContext;
+    try {
+      contextInfo = await ctx.runQuery(
+        internalAny.ai.imageGen.helpers.getAuthorizedContextInfo,
+        {
+          projectId: args.projectId,
+          teamId: args.teamId,
+        },
+      );
+    } catch {
+      return {
+        success: false,
+        error: "You do not have access to this project or team.",
+      };
+    }
+
     // Determine access scope and ID
     let aiAccess;
 
-    if (args.projectId) {
+    if (contextInfo.projectId) {
       aiAccess = await ctx.runQuery(internalAny.stripe.checkAIFeatureAccessByProject, {
-        projectId: args.projectId,
+        projectId: contextInfo.projectId,
       });
       // We still need teamId for later if not returned by checkAIFeatureAccessByProject (it isn't directly, but accessible via getContextInfo)
-    } else if (args.teamId) {
-      aiAccess = await ctx.runQuery(internalAny.stripe.checkAIFeatureAccess, {
-        teamId: args.teamId,
-      });
     } else {
-      return {
-        success: false,
-        error: "Either projectId or teamId must be provided.",
-      };
+      aiAccess = await ctx.runQuery(internalAny.stripe.checkAIFeatureAccess, {
+        teamId: contextInfo.teamId,
+      });
     }
 
     if (!aiAccess.allowed) {
@@ -315,7 +341,6 @@ export const generateVisualization = action({
           };
         }
       }
-      const identity = await ctx.auth.getUserIdentity();
       const imageRequestBase = {
         model: IMAGE_GENERATION_CONFIG.MODEL_ID,
         prompt: enhancedPrompt,
@@ -377,22 +402,6 @@ export const generateVisualization = action({
       const billableTokens = usdToCredits(estimatedCostUsd);
       let usageRecordId: Id<"aiTokenUsage"> | undefined;
 
-      let contextInfo: {
-        teamId: Id<"teams">;
-        teamSlug: string;
-        projectSlug?: string;
-        projectId?: Id<"projects">;
-      } | null = null;
-
-      try {
-        contextInfo = await ctx.runQuery(internalAny.ai.imageGen.helpers.getContextInfo, {
-          projectId: args.projectId,
-          teamId: args.teamId,
-        });
-      } catch (error) {
-        console.error("Failed to resolve visualization storage context:", error);
-      }
-
       const imageBase64 = response.data[0]?.b64_json;
       const mimeType = IMAGE_GENERATION_CONFIG.OUTPUT_MIME_TYPE;
       const cleanedTextResponse = undefined;
@@ -412,15 +421,7 @@ export const generateVisualization = action({
         };
       }
 
-      if (!contextInfo) {
-        return {
-          success: false,
-          error: "Generated image could not be stored because the team or project context was not found.",
-          textResponse: cleanedTextResponse,
-        };
-      }
-
-      const userClerkId = identity?.subject || "anonymous";
+      const userClerkId = identity.subject;
 
       try {
         usageRecordId = await ctx.runMutation(internalAny.ai.usage.saveTokenUsage, {
@@ -574,18 +575,11 @@ export const generateVisualization = action({
       
       // Log failed generation
       try {
-        const contextInfo = await ctx.runQuery(internalAny.ai.imageGen.helpers.getContextInfo, {
-          projectId: args.projectId,
-          teamId: args.teamId,
-        });
         if (contextInfo) {
-          const identity = await ctx.auth.getUserIdentity();
-          const userClerkId = identity?.subject || "anonymous";
-          
           await ctx.runMutation(internalAny.ai.imageGen.helpers.logImageGeneration, {
             projectId: contextInfo.projectId,
             teamId: contextInfo.teamId,
-            userClerkId,
+            userClerkId: identity.subject,
             prompt: args.prompt,
             model: IMAGE_GENERATION_CONFIG.MODEL_ID,
             mimeType: "unknown",
@@ -734,17 +728,13 @@ export const getUploadUrl = action({
     key: v.string(),
   }),
   handler: async (ctx, args): Promise<{ url: string; key: string }> => {
-    // Get context info to construct key
-    const context: {
-      teamId: Id<"teams">;
-      teamSlug: string;
-      projectSlug?: string;
-    } | null = await ctx.runQuery(internalAny.ai.imageGen.helpers.getContextInfo, {
-      projectId: args.projectId,
-      teamId: args.teamId,
-    });
-
-    if (!context) throw new Error("Context (project or team) not found");
+    const context: AuthorizedGenerationContext = await ctx.runQuery(
+      internalAny.ai.imageGen.helpers.getAuthorizedContextInfo,
+      {
+        projectId: args.projectId,
+        teamId: args.teamId,
+      },
+    );
 
     const extension = args.fileName.includes('.')
       ? args.fileName.split('.').pop()
@@ -792,6 +782,14 @@ export const getGallery = action({
     storageKey?: string;
     mimeType?: string;
   }>> => {
+    await ctx.runQuery(
+      internalAny.ai.imageGen.helpers.getAuthorizedContextInfo,
+      {
+        projectId: args.projectId,
+        teamId: args.teamId,
+      },
+    );
+
     const images = await ctx.runQuery(internalAny.ai.imageGen.helpers.getGeneratedImagesGallery, {
       projectId: args.projectId,
       teamId: args.teamId,

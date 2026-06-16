@@ -1,13 +1,17 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { MessageSquareText, X } from "lucide-react";
 
-import HostedChatKit from "@/components/ai/chatkit/HostedChatKit";
 import { useProject } from "@/components/providers/ProjectProvider";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
+
+const HostedChatKit = dynamic(() => import("@/components/ai/chatkit/HostedChatKit"), {
+  ssr: false,
+});
 
 export function FloatingChatKitLauncher() {
   const { t } = useI18n();

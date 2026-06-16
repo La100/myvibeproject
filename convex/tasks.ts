@@ -682,13 +682,29 @@ export const listTeamTasks = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
+    const membership = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team_and_user", (q) =>
+        q.eq("teamId", args.teamId).eq("clerkUserId", identity.subject),
+      )
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+
+    if (!membership) {
+      return [];
+    }
+
     const tasks = await ctx.db
       .query("tasks")
       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
       .collect();
 
+    const accessibleTasks = tasks.filter((task) =>
+      canAccessProjectWithMembership(membership, task.projectId),
+    );
+
     const tasksWithProjects = await Promise.all(
-      tasks.map(async (task) => {
+      accessibleTasks.map(async (task) => {
         const project = await ctx.db.get(task.projectId);
         return {
           ...task,

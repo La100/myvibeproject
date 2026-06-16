@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { apiAny } from "@/lib/convexApiAny";
 import { Id } from "@/convex/_generated/dataModel";
-import { useOrganization, useUser } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,7 @@ import { Spinner } from "@/components/ui/spinner";
 import ActivityLog from "@/components/dashboard/ActivityLog";
 import { ProjectPageLayout } from "@/components/project/ProjectPageLayout";
 import { ProjectPageHeader } from "@/components/project/ProjectPageHeader";
+import { useProject } from "@/components/providers/ProjectProvider";
 import { toUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { useI18n } from "@/lib/i18n";
 
@@ -50,7 +51,7 @@ export default function TaskDetail() {
   const params = useParams<{ projectSlug: string; taskId: string }>();
   const router = useRouter();
   const { user, isLoaded: isUserLoaded } = useUser();
-  const { organization, isLoaded: isOrganizationLoaded } = useOrganization();
+  const { project } = useProject();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState("");
   const [newComment, setNewComment] = useState("");
@@ -70,13 +71,6 @@ export default function TaskDetail() {
     task ? { taskId: task._id } : "skip",
   );
 
-  const project = useQuery(
-    apiAny.projects.getProjectBySlugInClerkOrg,
-    organization?.id
-      ? { clerkOrgId: organization.id, projectSlug: params.projectSlug }
-      : "skip",
-  );
-
   const generateUploadUrl = useMutation(
     apiAny.files.generateUploadUrlWithCustomKey,
   );
@@ -86,9 +80,7 @@ export default function TaskDetail() {
 
   if (
     !isUserLoaded ||
-    !isOrganizationLoaded ||
-    task === undefined ||
-    project === undefined
+    task === undefined
   ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">

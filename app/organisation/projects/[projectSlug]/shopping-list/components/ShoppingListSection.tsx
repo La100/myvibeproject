@@ -1367,7 +1367,6 @@ export function ShoppingListSection({
     const customerDecisionTone = getCustomerDecisionTone(item.customerDecision);
     const customerDecisionLabel = getCustomerDecisionLabel(item.customerDecision);
     const headerDetails = [
-      item.dimensions ? { label: t("shoppingList", "dimensions"), value: item.dimensions, field: "dimensions" as const } : null,
       item.catalogNumber ? { label: t("shoppingList", "catalogShort"), value: item.catalogNumber, field: "catalogNumber" as const } : null,
     ].filter(Boolean) as Array<{ label: string; value: string; field: InlineEditField }>;
     const hasHeaderDetails = headerDetails.length > 0;
@@ -1633,8 +1632,29 @@ export function ShoppingListSection({
                 </div>
               </div>
 
+              {item.dimensions ? (
+                <div className="mt-1 flex min-w-0 flex-col gap-1.5 border-t border-border/60 pt-3 text-sm text-muted-foreground lg:col-span-2">
+                  <span className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">{t("shoppingList", "dimensions")}</span>
+                  {renderEditableValue(
+                    item,
+                    "dimensions",
+                    <span className="block whitespace-normal break-words leading-relaxed text-foreground/70">
+                      {item.dimensions}
+                    </span>,
+                    {
+                      className: "w-full min-w-0 rounded-xl bg-secondary/35 px-3 py-2 text-muted-foreground",
+                      inputClassName: "h-10 w-full",
+                      placeholder: t("shoppingList", "dimensionsPlaceholder"),
+                    },
+                  )}
+                </div>
+              ) : null}
+
               {hasHeaderDetails ? (
-                <div className="mt-1 grid min-w-0 grid-cols-1 gap-x-4 gap-y-2 border-t border-border/60 pt-3 text-sm text-muted-foreground sm:grid-cols-2 lg:col-span-2 xl:grid-cols-4">
+                <div className={cn(
+                  "grid min-w-0 grid-cols-1 gap-x-4 gap-y-2 text-sm text-muted-foreground sm:grid-cols-2 lg:col-span-2 xl:grid-cols-4",
+                  item.dimensions ? "mt-2" : "mt-1 border-t border-border/60 pt-3",
+                )}>
                   {headerDetails.map((detail) => (
                     <div key={detail.label} className="flex min-w-0 items-center gap-2 rounded-xl bg-secondary/35 px-3 py-2">
                       <span className="shrink-0 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">{detail.label}</span>

@@ -2111,6 +2111,16 @@ export const getFileUrlByStorageId = query({
       return null;
     }
 
+    const file = await ctx.db
+      .query("files")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .filter((q) => q.eq(q.field("storageId"), args.storageId))
+      .unique();
+
+    if (!file) {
+      return null;
+    }
+
     try {
       return await resolveStoredFileUrl(args.storageId, {
         expiresIn: 60 * 60 * 2,
