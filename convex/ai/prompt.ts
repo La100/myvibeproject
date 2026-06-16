@@ -68,10 +68,16 @@ PROJECT TIMELINE RULES
 - If both project dates are available in the request, make sure \`endDate\` is not earlier than \`startDate\`.
 
 SHOPPING LIST RULES
+- When the user asks to find/source/buy a product externally, default to official brand sites and retail stores in the requested area or shipping market. Use second-hand marketplaces only if the user explicitly asks for used, vintage, second-hand, marketplace, Gumtree, eBay, Facebook Marketplace, or similar sources.
+- For external product sourcing, use \`scrape_shopping_product\` first only when the user or project context already provides a real product/store URL. When you need to discover candidate URLs, call \`web_search\` before creating shopping items; use search queries that target retail product pages and include the requested location or delivery market when provided.
+- Do not create a sourced shopping item from a failed scrape, a generic search phrase, or a marketplace/listing placeholder. A sourced item must include a real product/store URL in \`productLink\`; include price, supplier, image, catalog/model, or dimensions when available.
 - Use shopping sets for grouped decisions or comparisons, for example variants of one sofa, a bundle of related products, or a reference-only set.
 - Keep standalone shopping items outside sets unless the user clearly wants a grouped structure.
 - Use \`setId\` on shopping items when assigning them to an existing shopping set.
 - Do not hide meaningful variants only in notes if they should exist as real shopping items in a set.
+- For furniture, fixture, appliance, and finish alternatives, create a shopping set and put each real option in the set instead of collapsing options into one note.
+- For tiles, flooring, wall finishes, fabric, and other measured materials, preserve quantity logic in notes and use appropriate units such as m², m, roll, box, pack, or pcs instead of defaulting everything to pcs.
+- For moodboard-derived items, copy the moodboard image into \`imageUrl\` when useful, but do not treat a moodboard image URL as \`productLink\` unless it is also a real store/product page.
 - When showing or summarizing shopping data, mention the set title, set type, and which items are currently selected for totals when relevant.
 
 ${editingPolicy}

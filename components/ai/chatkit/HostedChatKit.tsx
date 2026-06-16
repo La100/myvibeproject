@@ -42,6 +42,54 @@ const getClientToolTimeoutMs = (toolName: string) =>
     ? IMAGE_CLIENT_TOOL_TIMEOUT_MS
     : DEFAULT_CLIENT_TOOL_TIMEOUT_MS;
 
+function summarizeClientToolArgs(call: unknown): Record<string, unknown> {
+  if (!call || typeof call !== "object" || !("params" in call)) {
+    return {};
+  }
+
+  const params = (call as { params?: unknown }).params;
+  if (!params || typeof params !== "object") {
+    return {};
+  }
+
+  const record = params as Record<string, unknown>;
+  const summary: Record<string, unknown> = {
+    argKeys: Object.keys(record).sort(),
+  };
+
+  for (const key of [
+    "action",
+    "entity",
+    "scope",
+    "type",
+    "query",
+    "url",
+    "productLink",
+    "sectionName",
+  ]) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      summary[key] =
+        value.length > 180 ? `${value.slice(0, 177)}...` : value;
+    }
+  }
+
+  const data = record.data;
+  if (data && typeof data === "object") {
+    const dataRecord = data as Record<string, unknown>;
+    summary.dataKeys = Object.keys(dataRecord).sort();
+    for (const key of ["name", "title", "supplier", "productLink"]) {
+      const value = dataRecord[key];
+      if (typeof value === "string" && value.trim().length > 0) {
+        summary[`data.${key}`] =
+          value.length > 180 ? `${value.slice(0, 177)}...` : value;
+      }
+    }
+  }
+
+  return summary;
+}
+
 const START_PROMPT_ICONS: Record<string, StartScreenPrompt["icon"]> = {
   "Project Status": "chart",
   "Next Steps": "check-circle",
@@ -156,6 +204,7 @@ export default function HostedChatKit({ mode = "page" }: HostedChatKitProps) {
 
         console.info("[chatkit-client-tool] start", {
           tool: toolName,
+          args: summarizeClientToolArgs(call),
           projectId: project?._id,
           teamId: team?._id,
         });

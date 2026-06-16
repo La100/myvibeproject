@@ -389,6 +389,10 @@ function buildRuntimeSessionContext(args: {
       relativeDateRule:
         "Resolve today, tomorrow, dzisiaj, jutro, pojutrze, next Monday, o 13, na 13:30, and at 4pm from this current time and pass concrete ISO strings to tools.",
     },
+    toolPolicy: {
+      productSourcing:
+        "For external product sourcing, scrape first only when the user or project context already provides a real product/store URL. When discovering candidate URLs, search retail stores and official brand sites first. Use second-hand marketplaces only when the user explicitly asks for used, vintage, marketplace, Gumtree, eBay, Facebook Marketplace, or similar sources. Do not create a shopping item from a failed scrape or generic search phrase; include a real store/product URL as productLink before calling manage_shopping.",
+    },
   };
 }
 
@@ -1591,7 +1595,82 @@ function validateShoppingItemToolFields(
   ) {
     return `Invalid realizationStatus/status for ${action}.`;
   }
+  if (isCreateShoppingAction(action) && isFailedSourcingPlaceholder(params)) {
+    return `Refusing to create a sourced shopping item for ${action} because product research did not return a real store/product URL. Search retail stores first and include productLink before creating the item.`;
+  }
   return null;
+}
+
+function isCreateShoppingAction(action: string): boolean {
+  return (
+    action === "create_shopping_item" ||
+    action === "bulk_create_shopping_items"
+  );
+}
+
+function isFailedSourcingPlaceholder(params: Record<string, unknown>): boolean {
+  const researchText = [
+    asNonEmptyString(params.notes),
+    asNonEmptyString(params.sourceSummary),
+    asNonEmptyString(params.selectionReason),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (
+    !/(could not|couldn't|failed|unable|not able|unavailable|missing|no verified|no real|not found|no product page|no store page|no source).{0,100}(scrape|detect|extract|find|source|verify|product|store|url|link)|product page details could not/i.test(
+      researchText,
+    )
+  ) {
+    return false;
+  }
+
+  const productSourceUrl =
+    asNonEmptyString(params.productLink) ??
+      asNonEmptyString(params.link) ??
+      asNonEmptyString(params.sourceUrl) ??
+      asNonEmptyString(params.url);
+
+  return !productSourceUrl || isGenericProductSourceUrl(productSourceUrl);
+}
+
+function isGenericProductSourceUrl(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return true;
+  }
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return true;
+  }
+
+  const hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+  const pathname = url.pathname.toLowerCase();
+  const search = url.search.toLowerCase();
+
+  if (
+    hostname === "google.com" ||
+    hostname.endsWith(".google.com") ||
+    hostname === "bing.com" ||
+    hostname.endsWith(".bing.com") ||
+    hostname === "duckduckgo.com" ||
+    hostname === "search.brave.com"
+  ) {
+    return true;
+  }
+
+  if (/\.(jpg|jpeg|png|webp|gif|avif|svg)$/i.test(pathname)) {
+    return true;
+  }
+
+  return (
+    /\/(search|s|catalogsearch|collections?|categories?|category|shop|products?)\/?$/i.test(
+      pathname,
+    ) || Boolean(search.match(/[?&](q|query|search|keyword|keywords)=/))
+  );
 }
 
 function validateLaborItemToolFields(

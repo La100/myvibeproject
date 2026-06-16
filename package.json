@@ -15,6 +15,7 @@
     "lint:extension": "pnpm --dir chrome-extension lint",
     "typecheck": "pnpm exec tsc --noEmit",
     "typecheck:extension": "pnpm --dir chrome-extension type-check",
+    "eval:assistant": "node evals/assistant/run-assistant-evals.mjs",
     "elo": "bash ./elo",
     "elo:prod": "bash ./elo-prod"
   },

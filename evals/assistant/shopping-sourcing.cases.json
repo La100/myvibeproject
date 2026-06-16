@@ -1,0 +1,116 @@
+[
+  {
+    "id": "retail-first-orange-smeg-london",
+    "prompt": "Find an orange Smeg fridge available from stores in London and add it to the Kitchen shopping section.",
+    "mustContainPolicy": [
+      "source_retail_products",
+      "retail stores",
+      "official brand sites",
+      "real product/store URL",
+      "productLink"
+    ],
+    "mustNotDefaultTo": ["Gumtree", "eBay", "Facebook Marketplace"]
+  },
+  {
+    "id": "user-provided-url-scrape-first",
+    "prompt": "Add this product URL to the kitchen shopping list.",
+    "mustContainPolicy": [
+      "scrape_shopping_product",
+      "user or project context already provides a real product/store URL"
+    ]
+  },
+  {
+    "id": "failed-scrape-placeholder-refusal",
+    "prompt": "Create a shopping item with notes: Product page details could not be scraped.",
+    "mustContainPolicy": [
+      "Do not create a sourced shopping item from a failed scrape",
+      "productLink"
+    ]
+  },
+  {
+    "id": "sofa-alternatives-as-set",
+    "prompt": "Find three retail sofa alternatives for the living room and add them as options.",
+    "mustContainPolicy": [
+      "create a shopping set",
+      "each real option in the set",
+      "Do not hide meaningful variants only in notes"
+    ]
+  },
+  {
+    "id": "tile-quantity-units",
+    "prompt": "Add bathroom floor tiles for 18 square meters, including waste allowance and boxes.",
+    "mustContainPolicy": [
+      "preserve quantity logic",
+      "m²",
+      "box"
+    ]
+  },
+  {
+    "id": "lighting-fixtures-real-items",
+    "prompt": "Source brass wall lights for a hallway and add the selected retail product.",
+    "mustContainPolicy": [
+      "fixture",
+      "real store/product URL",
+      "supplier"
+    ]
+  },
+  {
+    "id": "moodboard-image-not-product-link",
+    "prompt": "Turn the moodboard lounge chair image into a shopping reference item.",
+    "mustContainPolicy": [
+      "copy the moodboard image into `imageUrl`",
+      "do not treat a moodboard image URL as `productLink`"
+    ]
+  },
+  {
+    "id": "generic-search-url-rejected",
+    "prompt": "Create sourced item from a Google search URL.",
+    "mustContainPolicy": [
+      "isGenericProductSourceUrl",
+      "generic search phrase"
+    ]
+  },
+  {
+    "id": "official-store-before-marketplace",
+    "prompt": "Find a new appliance from a store, not second-hand.",
+    "mustContainPolicy": [
+      "official brand sites and retail stores",
+      "Use second-hand marketplaces only if the user explicitly asks"
+    ],
+    "mustNotDefaultTo": ["Gumtree", "Facebook Marketplace"]
+  },
+  {
+    "id": "verified-product-fields",
+    "prompt": "Save a sourced pendant light with price, supplier, image, model and dimensions.",
+    "mustContainPolicy": [
+      "include price, supplier, image, catalog/model, or dimensions when available",
+      "productLink"
+    ]
+  },
+  {
+    "id": "server-side-retail-source-tool",
+    "prompt": "Find retail product pages for a new range cooker in Manchester.",
+    "mustContainPolicy": [
+      "source_retail_products",
+      "Store-first product sourcing for architects",
+      "Choose the best real store/product URL from sources and call scrape_shopping_product before saving"
+    ]
+  },
+  {
+    "id": "manual-estimate-allowed-but-not-sourced",
+    "prompt": "Add a manual estimate for custom millwork without a product URL.",
+    "mustContainPolicy": [
+      "Keep standalone shopping items outside sets unless the user clearly wants a grouped structure",
+      "Do not create a sourced shopping item from a failed scrape"
+    ]
+  },
+  {
+    "id": "client-tool-observability",
+    "prompt": "Debug why product sourcing created the wrong shopping item.",
+    "mustContainPolicy": [
+      "summarizeClientToolArgs",
+      "summarize_tool_payload",
+      "arg_summary"
+    ]
+  }
+]

@@ -142,7 +142,7 @@ const shoppingFields = z.object({
   name: z.string().describe("Item name"),
   notes: z.string().optional().describe("Additional notes or description"),
   quantity: z.number().optional().describe("Quantity needed"),
-  unit: z.string().optional().describe("Unit of measurement (pcs, m², m/linear meter, m³, kg, l, set, box, pack, roll)"),
+  unit: z.string().optional().describe("Unit of measurement. Use domain-appropriate units such as pcs for fixtures/appliances, m² for tiles/flooring/wall finishes, m for linear materials, and box/pack/roll when product packaging matters."),
   priority: z.enum(["low", "medium", "high", "urgent"]).optional().describe("Item priority"),
   buyBefore: z.string().optional().describe("Buy before date in ISO format (YYYY-MM-DD)"),
   supplier: z.string().optional().describe("Supplier or store name"),
@@ -152,7 +152,7 @@ const shoppingFields = z.object({
   unitPrice: z.union([z.number(), z.string()]).optional().describe("Price per unit in project currency"),
   totalPrice: z.union([z.number(), z.string()]).optional().describe("Total price in project currency"),
   imageUrl: z.string().optional().describe("Image URL for the item; when creating from a moodboard image, copy that moodboard imageUrl here"),
-  productLink: z.string().optional().describe("Link to product page"),
+  productLink: z.string().optional().describe("Real store or product page URL. Required when creating an item found through external product sourcing."),
   catalogNumber: z.string().optional().describe("Product catalog/model number"),
   sectionId: z.string().optional().describe("Shopping list section ID"),
   sectionName: z.string().optional().describe("Shopping list section name"),
@@ -2434,7 +2434,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
   const baseTools = {
     web_search: createAssistantTool({
       description:
-        "Search the public web for current external information and return a cited summary. Use this for news, products, brands, regulations, market data, and any fact outside the current project.",
+        "Search the public web for current external information and return a cited summary. Use this for news, products, brands, regulations, market data, and any fact outside the current project. For product sourcing, search official brand sites and retail stores first; use marketplaces only when the user explicitly asks for used, vintage, second-hand, marketplace, Gumtree, eBay, Facebook Marketplace, or similar sources.",
       inputSchema: webSearchSchema,
       inputExamples: [
         { query: "latest interior design trends for boutique hotels", searchContextSize: "medium" },
@@ -3201,7 +3201,7 @@ export function createStreamingTools(options?: StreamingToolOptions) {
     }, options),
 
     manage_shopping: createAssistantTool({
-      description: "Manage shopping items, shopping sections, or shopping sets with one tool. Use action=create|update|delete and entity=item|section|set.",
+      description: "Manage shopping items, shopping sections, or shopping sets with one tool. Use action=create|update|delete and entity=item|section|set. When creating externally sourced products, only create real shopping items from a verified store/product URL in productLink; do not create placeholders from failed scrapes or generic search phrases. For furniture, fixture, appliance, and finish alternatives, create a shopping set and put each real option in the set. For measured materials, preserve quantity logic and use appropriate units such as m², m, box, pack, roll, or pcs.",
       inputSchema: manageShoppingSchema,
       requiresConfirmation: true,
       execute: async (args: z.infer<typeof manageShoppingSchema>) => {
